@@ -1,0 +1,110 @@
+[
+  {
+    "paper_id": "2512.24102v1",
+    "citation_key": "ruffenach2025",
+    "title": "Autoregressivity in the Latent Space of a GP-VAE Language Model: An Empirical Ablation Study",
+    "authors": "Yves Ruffenach",
+    "year": "2025",
+    "url": "http://arxiv.org/abs/2512.24102v1",
+    "doi": "",
+    "source_quality": 0.72,
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "paper_id": "1606.08488v1",
+    "citation_key": "thakur2016",
+    "title": "Curating Transient Population in Urban Dynamics System",
+    "authors": "Gautam S. Thakur, Kevin A. Sparks, Robert N. Stewart, Marie L. Urban, Budhendra L. Bhaduri",
+    "year": "2016",
+    "url": "http://arxiv.org/abs/1606.08488v1",
+    "doi": "",
+    "source_quality": 0.72,
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "paper_id": "2503.14195v1",
+    "citation_key": "cao2025",
+    "title": "Mapping Urban Villages in China: Progress and Challenges",
+    "authors": "Rui Cao, Wei Tu, Dongsheng Chen, Wenyu Zhang",
+    "year": "2025",
+    "url": "http://arxiv.org/abs/2503.14195v1",
+    "doi": "",
+    "source_quality": 0.72,
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "paper_id": "2304.12840v2",
+    "citation_key": "collins2023",
+    "title": "Spatiotemporal gender differences in urban vibrancy",
+    "authors": "Thomas Collins, Riccardo Di Clemente, Mario Gutiérrez-Roig, Federico Botta",
+    "year": "2023",
+    "url": "http://arxiv.org/abs/2304.12840v2",
+    "doi": "",
+    "source_quality": 0.72,
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "paper_id": "2211.00355v1",
+    "citation_key": "alessandretti2022",
+    "title": "Urban Mobility",
+    "authors": "Laura Alessandretti, Michael Szell",
+    "year": "2022",
+    "url": "http://arxiv.org/abs/2211.00355v1",
+    "doi": "",
+    "source_quality": 0.72,
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "paper_id": "exploring_the_impact_of_urban_heat_islands_on_modern_cities_",
+    "citation_key": "source2026",
+    "title": "Exploring the Impact of Urban Heat Islands on Modern Cities - Geographic Book",
+    "authors": "Web Source",
+    "year": "2026",
+    "url": "https://geographicbook.com/exploring-the-impact-of-urban-heat-islands-on-modern-cities/",
+    "doi": "",
+    "source_quality": 0.45,
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "paper_id": "review_articles_urban_heat_island_mitigation_strategies",
+    "citation_key": "source2026",
+    "title": "Review Articles Urban Heat Island mitigation strategies",
+    "authors": "Web Source",
+    "year": "2026",
+    "url": "https://www.sciencedirect.com/science/article/pii/S2590252026000589",
+    "doi": "",
+    "source_quality": 0.45,
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "paper_id": "urban_data_analytics_for_urban_heat_island_mitigation:_a_cas",
+    "citation_key": "source2026",
+    "title": "Urban Data Analytics for Urban Heat Island Mitigation: A Case Study of Urban Design Exploration for Singapore’s Tropical Climate | Case Studies in the Environment | University of California Press",
+    "authors": "Web Source",
+    "year": "2026",
+    "url": "https://online.ucpress.edu/cse/article/9/1/2484299/211454/Urban-Data-Analytics-for-Urban-Heat-Island",
+    "doi": "",
+    "source_quality": 0.45,
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "paper_id": "urban_heat_islands:_causes,_impacts,_and_mitigation_strategi",
+    "citation_key": "source2026",
+    "title": "Urban Heat Islands: Causes, Impacts, and Mitigation Strategies – HomeSight.org",
+    "authors": "Web Source",
+    "year": "2026",
+    "url": "https://homesight.org/urban-heat-islands-causes-impacts-and-mitigation-strategies",
+    "doi": "",
+    "source_quality": 0.45,
+    "confidence": 0.4,
+    "verified": false
+  }
+]

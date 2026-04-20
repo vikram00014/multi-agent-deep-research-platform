@@ -1,0 +1,92 @@
+{
+  "2410.17391v1": {
+    "title": "Marine Microplastics and Infant Health",
+    "authors": "Xinming Du, Shan Zhang, Eric Zou",
+    "year": "2024",
+    "summary": "A century of plastic usage has led to an accumulation of plastic waste in waterways and oceans. Over time, these wastes break down into particles smaller than 5 microns -- or ''microplastics'' -- which can infiltrate human biological systems. Despite decades of research into this emerging source of ",
+    "limitation": "Not available",
+    "url": "http://arxiv.org/abs/2410.17391v1",
+    "doi": "",
+    "citation_count": 0
+  },
+  "2108.04141v1": {
+    "title": "A coupled model for the linked dynamics of marine pollution by microplastics and plastic-related organic pollutants",
+    "authors": "Federica Guerrini, Lorenzo Mari, Renato Casagrandi",
+    "year": "2021",
+    "summary": "The pervasiveness of microplastics in global oceans is raising concern about its impacts on organisms. While quantifying its toxicity is still an open issue, sampling evidence has shown that rarely is marine microplastics found clean; rather, it is often contaminated by other types of chemical pollu",
+    "limitation": "Not available",
+    "url": "http://arxiv.org/abs/2108.04141v1",
+    "doi": "",
+    "citation_count": 0
+  },
+  "2512.24102v1": {
+    "title": "Autoregressivity in the Latent Space of a GP-VAE Language Model: An Empirical Ablation Study",
+    "authors": "Yves Ruffenach",
+    "year": "2025",
+    "summary": "This paper provides an ablation-based analysis of latent autoregression in GP-VAE models, building upon our previous work introducing the architecture. Language models typically rely on an autoregressive factorization over tokens. In contrast, our prior work proposed shifting sequential structure to",
+    "limitation": "Not available",
+    "url": "http://arxiv.org/abs/2512.24102v1",
+    "doi": "",
+    "citation_count": 0
+  },
+  "1006.3863v2": {
+    "title": "Normalization of peer-evaluation measures of group research quality across academic disciplines",
+    "authors": "Ralph Kenna, Bertrand Berche",
+    "year": "2010",
+    "summary": "Peer-evaluation based measures of group research quality such as the UK's Research Assessment Exercise (RAE), which do not employ bibliometric analyses, cannot directly avail of such methods to normalize research impact across disciplines. This is seen as a conspicuous flaw of such exercises and cal",
+    "limitation": "Not available",
+    "url": "http://arxiv.org/abs/1006.3863v2",
+    "doi": "",
+    "citation_count": 0
+  },
+  "2508.02952v1": {
+    "title": "A novel autonomous microplastics surveying robot for beach environments",
+    "authors": "Hassan Iqbal, Kobiny Rex, Joseph Shirley, Carlos Baiz, Christian Claudel",
+    "year": "2025",
+    "summary": "Microplastics, defined as plastic particles smaller than 5 millimeters, have become a pervasive environmental contaminant that accumulates on beaches due to wind patterns and tidal forcing. Detecting microplastics and mapping their concentration in the wild remains one of the primary challenges in a",
+    "limitation": "Not available",
+    "url": "http://arxiv.org/abs/2508.02952v1",
+    "doi": "",
+    "citation_count": 0
+  },
+  "microplastics_in_our_waters:_insights_from_a_configurative_s": {
+    "title": "Microplastics in Our Waters: Insights from a Configurative Systematic Review of Water Bodies and Drinking Water Sources",
+    "authors": "Web Source",
+    "year": "2026",
+    "summary": "Mitigation technologies also demand further exploration, particularly in the context of water treatment and filtration systems. Developing advanced and cost-effective methods to remove MPs from drinking water and wastewater will be crucial for reducing human exposure and environmental contamination.",
+    "limitation": "Not available",
+    "url": "https://www.mdpi.com/2673-8929/4/2/24",
+    "doi": "",
+    "citation_count": 0
+  },
+  "who_calls_for_more_research_on_microplastics_in_drinking_wat": {
+    "title": "WHO calls for more research on microplastics in drinking water | UN-Water",
+    "authors": "Web Source",
+    "year": "2026",
+    "summary": "Further research is needed to obtain a more accurate assessment of exposure to microplastics and their potential impacts on human health. These include developing standard methods for measuring microplastic particles in water; more studies on the sources and occurrence of microplastics in fresh wate",
+    "limitation": "Not available",
+    "url": "https://www.unwater.org/news/who-calls-more-research-microplastics-drinking-water",
+    "doi": "",
+    "citation_count": 0
+  },
+  "microplastics_in_city_water:_are_you_drinking_plastic?": {
+    "title": "Microplastics in City Water: Are You Drinking Plastic?",
+    "authors": "Web Source",
+    "year": "2026",
+    "summary": "## Future Research: Where Science is Headed\n\nThe future of microplastics research is focused on closing the knowledge gaps and developing better solutions to protect drinking water and human health. Scientists are working to improve detection methods for microplastics, using advanced technologies li",
+    "limitation": "Not available",
+    "url": "https://www.cleanwaterstore.com/blog/microplastics-in-city-water-filtering-guide",
+    "doi": "",
+    "citation_count": 0
+  },
+  "microplastics_–_microplastics": {
+    "title": "Microplastics – Microplastics",
+    "authors": "Web Source",
+    "year": "2026",
+    "summary": "The presence of MP in freshwater bodies is largely affected by anthropogenic activity, with greater abundance of MP noted close to urban areas, wastewater treatment plants, or other sources. For example, a study performed by Estahbanati and Fahrenfeld (2016) documented significantly increased concen",
+    "limitation": "Not available",
+    "url": "https://mp-1.itrcweb.org/microplastics/",
+    "doi": "",
+    "citation_count": 0
+  }
+}

@@ -1,0 +1,12 @@
+[
+  {
+    "role": "user",
+    "content": "hii",
+    "timestamp": "2026-04-16T06:44:03.630235+00:00"
+  },
+  {
+    "role": "assistant",
+    "content": "Hello. This research session on microplastics in drinking water is currently running.\n\nI am ready to discuss health risks, exposure modeling, or the effectiveness of filtration technologies. How can I assist you?",
+    "timestamp": "2026-04-16T06:44:24.874054+00:00"
+  }
+]

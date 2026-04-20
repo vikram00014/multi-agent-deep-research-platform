@@ -1,0 +1,92 @@
+{
+  "2410.02152v1": {
+    "title": "An Evaluation of Large Pre-Trained Models for Gesture Recognition using Synthetic Videos",
+    "authors": "Arun Reddy, Ketul Shah, Corban Rivera, William Paul, Celso M. De Melo et al.",
+    "year": "2024",
+    "summary": "In this work, we explore the possibility of using synthetically generated data for video-based gesture recognition with large pre-trained models. We consider whether these models have sufficiently robust and expressive representation spaces to enable \"training-free\" classification. Specifically, we ",
+    "limitation": "Not available",
+    "url": "http://arxiv.org/abs/2410.02152v1",
+    "doi": "",
+    "citation_count": 0
+  },
+  "2406.15126v1": {
+    "title": "On LLMs-Driven Synthetic Data Generation, Curation, and Evaluation: A Survey",
+    "authors": "Lin Long, Rui Wang, Ruixuan Xiao, Junbo Zhao, Xiao Ding et al.",
+    "year": "2024",
+    "summary": "Within the evolving landscape of deep learning, the dilemma of data quantity and quality has been a long-standing problem. The recent advent of Large Language Models (LLMs) offers a data-centric solution to alleviate the limitations of real-world data with synthetic data generation. However, current",
+    "limitation": "Not available",
+    "url": "http://arxiv.org/abs/2406.15126v1",
+    "doi": "",
+    "citation_count": 0
+  },
+  "2602.23463v2": {
+    "title": "Synthetic Data in MR Spectroscopy: Current Practices, Applications, and Considerations",
+    "authors": "John T. LaMaster, Aaron T. Gudmundson, Alireza Abaei, Seyma Alcicek, Arturo Alvarado et al.",
+    "year": "2026",
+    "summary": "The use of synthetic data has emerged as an essential tool in Magnetic Resonance Spectroscopy (MRS) research and applications, providing advantages for optimization of acquisition, software validation, deep learning applications, and enhanced reproducibility. Importantly, synthetic data addresses ch",
+    "limitation": "Not available",
+    "url": "http://arxiv.org/abs/2602.23463v2",
+    "doi": "",
+    "citation_count": 0
+  },
+  "2311.17453v1": {
+    "title": "Privacy Measurement in Tabular Synthetic Data: State of the Art and Future Research Directions",
+    "authors": "Alexander Boudewijn, Andrea Filippo Ferraris, Daniele Panfilo, Vanessa Cocca, Sabrina Zinutti et al.",
+    "year": "2023",
+    "summary": "Synthetic data (SD) have garnered attention as a privacy enhancing technology. Unfortunately, there is no standard for quantifying their degree of privacy protection. In this paper, we discuss proposed quantification approaches. This contributes to the development of SD privacy standards; stimulates",
+    "limitation": "Not available",
+    "url": "http://arxiv.org/abs/2311.17453v1",
+    "doi": "",
+    "citation_count": 0
+  },
+  "2512.24102v1": {
+    "title": "Autoregressivity in the Latent Space of a GP-VAE Language Model: An Empirical Ablation Study",
+    "authors": "Yves Ruffenach",
+    "year": "2025",
+    "summary": "This paper provides an ablation-based analysis of latent autoregression in GP-VAE models, building upon our previous work introducing the architecture. Language models typically rely on an autoregressive factorization over tokens. In contrast, our prior work proposed shifting sequential structure to",
+    "limitation": "Not available",
+    "url": "http://arxiv.org/abs/2512.24102v1",
+    "doi": "",
+    "citation_count": 0
+  },
+  "risk-aware_diffusion_model_for_generating_extreme_weather_sc": {
+    "title": "Risk-aware diffusion model for generating extreme weather scenarios and safety evaluation in autonomous driving [PeerJ]",
+    "authors": "Web Source",
+    "year": "2026",
+    "summary": "2Vocational & Technical Teacher Education School, Shanghai Polytechnic University, Shanghai, China\n\n3School of Electrical Engineering & Telecommunications, UNSW Sydney, Sydney, Australia\n\n4College of Automotive Engineering, Jilin University, Jilin, China\n\nDOI\n:   10.7717/peerj-cs.3573\n\nPublished\n\nAc",
+    "limitation": "Not available",
+    "url": "https://peerj.com/articles/cs-3573/",
+    "doi": "",
+    "citation_count": 0
+  },
+  "[pdf]_synthetic_data_generation_for_scarce_road_scene_detect": {
+    "title": "[PDF] Synthetic Data Generation for Scarce Road Scene Detection ...",
+    "authors": "Web Source",
+    "year": "2026",
+    "summary": "Location: Represents the location of the target object in the image and it can be either extracted from meta data (approach 1) or randomly sampled from possible options (approach 2).\nCondition: This field describes a global condition for the image. For example for a road scene dataset this field can",
+    "limitation": "Not available",
+    "url": "https://assets.amazon.science/ba/53/46bc89ab41a7af029b7a49ee99ea/synthetic-data-generation-for-scarce-road-scene-detection-scenarios.pdf",
+    "doi": "",
+    "citation_count": 0
+  },
+  "[pdf]_synthetic_data_for_perception_in_autonomous_driving._-": {
+    "title": "[PDF] Synthetic Data for Perception in Autonomous Driving. - mediaTUM",
+    "authors": "Web Source",
+    "year": "2026",
+    "summary": "of each pixel is determined by conditional probabilities of previous pixels [78, 79]. [...] 6 1.4 Objectives . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .\n8 1.5 Contribution . . . . . . . . . . . . . . . . . . . . . . . . . . . . .\n9 2 Fundamentals 13 2.1 The Rendering Equation . . .",
+    "limitation": "Not available",
+    "url": "https://mediatum.ub.tum.de/doc/1695355/3ltw4tcyj18c96wvgm6d17aw6.dissertation.pdf",
+    "doi": "",
+    "citation_count": 0
+  },
+  "simgen:_simulator-conditioned_driving_scene_generation_-_arx": {
+    "title": "SimGen: Simulator-conditioned Driving Scene Generation - arXiv",
+    "authors": "Web Source",
+    "year": "2026",
+    "summary": "Table 5:  Comparison involving data augmentation using synthetic data. The Baseline is a single-frame version of BEVFusion  trained on nuScenes train set. [...] Datasets. DIVA collects massive data from YouTube and simulators, significantly enhancing the appearance and layout diversity of driving vi",
+    "limitation": "Not available",
+    "url": "https://arxiv.org/html/2406.09386v3",
+    "doi": "",
+    "citation_count": 0
+  }
+}

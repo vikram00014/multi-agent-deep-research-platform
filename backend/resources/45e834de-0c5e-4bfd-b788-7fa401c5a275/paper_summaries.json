@@ -1,0 +1,132 @@
+{
+  "10.48550/arXiv.2412.04703": {
+    "title": "Transformers Struggle to Learn to Search",
+    "authors": "Abulhair Saparov, S. Pawar, Shreyas Pimpalgaonkar, Nitish Joshi, Richard Yuanzhe Pang",
+    "year": "2024",
+    "summary": "Search is an ability foundational in many important tasks, and recent studies have shown that large language models (LLMs) struggle to perform search robustly. It is unknown whether this inability is due to a lack of data, insufficient model parameters, or fundamental limitations of the transformer ",
+    "limitation": "Not available",
+    "url": "https://www.semanticscholar.org/paper/94653965122bebb5e5219834632eaecc2e1743ea",
+    "doi": "10.48550/arXiv.2412.04703",
+    "citation_count": 17
+  },
+  "10.1103/5l5m-4nk5": {
+    "title": "Spin glass model of in-context learning",
+    "authors": "Yuhao Li, Ruoran Bai, Haiping Huang",
+    "year": "2024",
+    "summary": "Large language models show a surprising in-context learning ability-being able to use a prompt to form a prediction for a query, yet without additional training, in stark contrast to old-fashioned supervised learning. Providing a mechanistic interpretation and linking the empirical phenomenon to phy",
+    "limitation": "Not available",
+    "url": "https://www.semanticscholar.org/paper/fb97a6177ffe937d635c3c045a8f6fc7f8b3e543",
+    "doi": "10.1103/5l5m-4nk5",
+    "citation_count": 2
+  },
+  "mechanistic_interpretability_of_in-context_learning_generali": {
+    "title": "Mechanistic Interpretability of In-Context Learning Generalization through Structured Task Curriculum | OpenReview",
+    "authors": "Web Source",
+    "year": "2026",
+    "summary": "Abstract: We study the generalization mechanisms of In-Context Learning (ICL) in Transformer-based language models from the perspective of mechanistic interpretability. While prior works have explored ICL either through single-task mechanistic analysis or multi-task empirical evaluation, a unified m",
+    "limitation": "Not available",
+    "url": "https://openreview.net/forum?id=2Fv4GxUElU",
+    "doi": "",
+    "citation_count": 0
+  },
+  "10.48550/arXiv.2509.24164": {
+    "title": "Localizing Task Recognition and Task Learning in In-Context Learning via Attention Head Analysis",
+    "authors": "Haolin Yang, Hakaze Cho, Naoya Inoue",
+    "year": "2025",
+    "summary": "We investigate the mechanistic underpinnings of in-context learning (ICL) in large language models by reconciling two dominant perspectives: the component-level analysis of attention heads and the holistic decomposition of ICL into Task Recognition (TR) and Task Learning (TL). We propose a novel fra",
+    "limitation": "Not available",
+    "url": "https://www.semanticscholar.org/paper/4b8e31f58c6416ec0006b715080a86d77161a2ce",
+    "doi": "10.48550/arXiv.2509.24164",
+    "citation_count": 0
+  },
+  "[pdf]_exploring_look-ahead_planning_mechanistic_interpretabi": {
+    "title": "[PDF] Exploring Look-Ahead Planning Mechanistic Interpretability in Large ...",
+    "authors": "Web Source",
+    "year": "2026",
+    "summary": "for as-sessment. However, since our primary focus is on open-source models, we have reduced the difficulty by using a fill-in-the-blank format for evaluating the models. An example is shown in Figure 2. [...] Model We evaluate two large language models: Llama-2-7b-chat (Touvron et al., 2023) and Vic",
+    "limitation": "Not available",
+    "url": "https://aclanthology.org/2024.emnlp-main.440.pdf",
+    "doi": "",
+    "citation_count": 0
+  },
+  "\"mechanistic_interpretability\"_for_llms,_explained": {
+    "title": "\"Mechanistic interpretability\" for LLMs, explained",
+    "authors": "Web Source",
+    "year": "2026",
+    "summary": "For example: which parts of a transformer language model are most useful for categorizing a word’s part-of-speech? To answer this, we could consider two different sentences, each containing the word water:\n\n> He filled the pool with water (noun).\n>\n> Don’t forget to water (verb) the plants.\n\n“Water”",
+    "limitation": "Not available",
+    "url": "https://seantrott.substack.com/p/mechanistic-interpretability-for",
+    "doi": "",
+    "citation_count": 0
+  },
+  "2511.09432v1": {
+    "title": "Group Equivariance Meets Mechanistic Interpretability: Equivariant Sparse Autoencoders",
+    "authors": "Ege Erdogan, Ana Lucic",
+    "year": "2025",
+    "summary": "Sparse autoencoders (SAEs) have proven useful in disentangling the opaque activations of neural networks, primarily large language models, into sets of interpretable features. However, adapting them to domains beyond language, such as scientific data with group symmetries, introduces challenges that",
+    "limitation": "Not available",
+    "url": "http://arxiv.org/abs/2511.09432v1",
+    "doi": "",
+    "citation_count": 0
+  },
+  "2504.19475v3": {
+    "title": "Prisma: An Open Source Toolkit for Mechanistic Interpretability in Vision and Video",
+    "authors": "Sonia Joseph, Praneet Suresh, Lorenz Hufe, Edward Stevinson, Robert Graham et al.",
+    "year": "2025",
+    "summary": "Robust tooling and publicly available pre-trained models have helped drive recent advances in mechanistic interpretability for language models. However, similar progress in vision mechanistic interpretability has been hindered by the lack of accessible frameworks and pre-trained weights. We present ",
+    "limitation": "Not available",
+    "url": "http://arxiv.org/abs/2504.19475v3",
+    "doi": "",
+    "citation_count": 0
+  },
+  "mechanistic_interpretability:_peeking_inside_an_llm": {
+    "title": "Mechanistic Interpretability: Peeking Inside an LLM",
+    "authors": "Web Source",
+    "year": "2026",
+    "summary": "this matrix, which moves through layers as the residual stream (also referred to as the hidden state or representation space), it works in latent space. [...] ## Conclusion\n\nInterpretability is an exciting research area that provides surprising insights into an LLM’s behavior and capabilities. It ca",
+    "limitation": "Not available",
+    "url": "https://towardsdatascience.com/mechanistic-interpretability-peeking-inside-an-llm/",
+    "doi": "",
+    "citation_count": 0
+  },
+  "2511.14465v2": {
+    "title": "nnterp: A Standardized Interface for Mechanistic Interpretability of Transformers",
+    "authors": "Clément Dumas",
+    "year": "2025",
+    "summary": "Mechanistic interpretability research requires reliable tools for analyzing transformer internals across diverse architectures. Current approaches face a fundamental tradeoff: custom implementations like TransformerLens ensure consistent interfaces but require coding a manual adaptation for each arc",
+    "limitation": "Not available",
+    "url": "http://arxiv.org/abs/2511.14465v2",
+    "doi": "",
+    "citation_count": 0
+  },
+  "2512.24102v1": {
+    "title": "Autoregressivity in the Latent Space of a GP-VAE Language Model: An Empirical Ablation Study",
+    "authors": "Yves Ruffenach",
+    "year": "2025",
+    "summary": "This paper provides an ablation-based analysis of latent autoregression in GP-VAE models, building upon our previous work introducing the architecture. Language models typically rely on an autoregressive factorization over tokens. In contrast, our prior work proposed shifting sequential structure to",
+    "limitation": "Not available",
+    "url": "http://arxiv.org/abs/2512.24102v1",
+    "doi": "",
+    "citation_count": 0
+  },
+  "2402.03855v2": {
+    "title": "Challenges in Mechanistically Interpreting Model Representations",
+    "authors": "Satvik Golechha, James Dao",
+    "year": "2024",
+    "summary": "Mechanistic interpretability (MI) aims to understand AI models by reverse-engineering the exact algorithms neural networks learn. Most works in MI so far have studied behaviors and capabilities that are trivial and token-aligned. However, most capabilities important for safety and trust are not that",
+    "limitation": "Not available",
+    "url": "http://arxiv.org/abs/2402.03855v2",
+    "doi": "",
+    "citation_count": 0
+  },
+  "2507.08038v2": {
+    "title": "AblationBench: Evaluating Automated Planning of Ablations in Empirical AI Research",
+    "authors": "Talor Abramovich, Gal Chechik",
+    "year": "2025",
+    "summary": "Language model agents are increasingly used to automate scientific research, yet evaluating their scientific contributions remains a challenge. A key mechanism to obtain such insights is through ablation experiments. To this end, we introduce AblationBench, a benchmark suite for evaluating agents on",
+    "limitation": "Not available",
+    "url": "http://arxiv.org/abs/2507.08038v2",
+    "doi": "",
+    "citation_count": 0
+  }
+}

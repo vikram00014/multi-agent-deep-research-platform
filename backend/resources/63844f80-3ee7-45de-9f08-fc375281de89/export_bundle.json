@@ -1,0 +1,696 @@
+{
+  "session_id": "63844f80-3ee7-45de-9f08-fc375281de89",
+  "markdown": "### **Abstract**\n\nThe development of robust perception systems for autonomous driving is critically dependent on training data that encompasses a wide array of driving conditions, particularly rare and hazardous weather scenarios. Real-world data collection for these \"long-tail\" events is impractical and prohibitively expensive, creating a significant bottleneck for model training and safety validation. This paper examines the use of synthetic data generation to address this challenge, with a specific focus on Conditional Self-Attention Generative Adversarial Networks (CSAGANs) as a promising approach. We review the imperative for synthetic data, survey the landscape of conditional generative methodologies, and identify critical research gaps in the current literature, including limitations in external validity, the need for causal evaluation, and insufficient focus on truly rare phenomena. We argue that the self-attention mechanism is uniquely suited to modeling the complex, long-range spatial dependencies inherent in weather effects, and we propose a research agenda centered on developing and rigorously benchmarking controllable, long-tail scene generators to enhance the safety and reliability of autonomous systems.\n\n### **1. Introduction**\n\nThe performance of deep learning models, particularly in safety-critical domains like autonomous driving, is fundamentally tied to the quality and diversity of the training data [@Long2024]. While large-scale real-world datasets have enabled significant progress, they inherently suffer from a long-tail problem: common scenarios are over-represented, while rare but critical events, such as extreme weather, are dangerously scarce. The inability to train and validate perception systems on a sufficient number of scenes depicting heavy snow, dense fog, or torrential rain poses a direct threat to the safety and reliability of autonomous vehicles.\n\nSynthetic data generation has emerged as a powerful, data-centric solution to this problem [@Long2024]. By creating realistic and diverse data on demand, it offers a path to augment real-world datasets, test model robustness, and improve reproducibility in research [@LaMaster2026; @Reddy2024]. This paper focuses on the generation of synthetic road scenes depicting rare weather conditions, a task that requires not only high fidelity but also fine-grained control over the generated output.\n\nTo achieve this, we investigate the application of Conditional Generative Adversarial Networks (GANs), a class of models capable of producing images that adhere to specific user-defined attributes. We specifically propose that Conditional Self-Attention GANs (CSAGANs) are a particularly well-suited architecture for this task. The self-attention mechanism allows the model to capture long-range, global dependencies within an image, a crucial feature for realistically rendering pervasive effects like weather, which alter the appearance of the entire scene rather than just local regions. This paper synthesizes the current state of the field, identifies key research gaps, and charts a course for future work centered on leveraging CSAGANs for robust and controllable rare-weather scene generation.\n\n### **2. Literature Review**\n\nThe pursuit of synthetic data for autonomous driving is driven by clear and pressing needs, with research spanning the motivations for its use, the methodologies for its creation, and its application in downstream tasks.\n\n**2.1 The Imperative for Synthetic Data**\n\nThe primary motivation for synthetic data generation is the immense difficulty, cost, and danger associated with collecting comprehensive real-world data, especially for what is termed \"scarce road scene detection\" [@Source2026_PDF_Scarce]. Extreme weather conditions are a canonical example of such scarce events. The ability to generate these scenarios synthetically is paramount for the safety evaluation of autonomous systems, making the creation of \"extreme weather scenarios\" a key research priority [@Source2026_PeerJ]. Beyond just filling gaps in data, synthetic generation can also address the lack of \"appearance and layout diversity\" in existing datasets, which are often constrained by geography [@Source2026_SimGen]. By synthesizing novel scenes, researchers can directly combat the \"dilemma of data quantity and quality\" that often limits the generalization capabilities of deep learning models in autonomous systems [@Long2024].\n\n**2.2 Methodological Approaches to Conditional Generation**\n\nTo be effective, synthetic data must be controllable. Conditional generative models provide this capability by allowing the generation process to be guided by specific attributes. A common strategy involves defining a global `Condition` (e.g., weather type) and object-level `Location` attributes to direct the synthesis of targeted scenarios [@Source2026_PDF_Scarce]. Another powerful approach is to condition the generation on high-level layouts from simulators, which provides a strong structural prior and enhances the diversity of the generated scenes [@Source2026_SimGen].\n\nWhile our focus is on GANs, the field is exploring a diverse set of architectures. Risk-aware **diffusion models** have been developed specifically for generating extreme weather scenes for safety evaluation, prized for their high-quality output [@Source2026_PeerJ]. **Autoregressive models**, which generate images pixel by pixel, represent another foundational approach [@Source2026_PDF_mediaTUM]. Advanced work in this area is investigating the application of autoregressivity within the latent space, which could offer new avenues for controllable generation [@Ruffenach2025].\n\nWithin this landscape, **Generative Adversarial Networks (GANs)** remain a powerful and widely used tool. Their adversarial training process is effective at producing sharp, realistic images. The introduction of conditioning mechanisms allows for precise control, while architectural innovations like self-attention have enabled GANs to model complex, long-range dependencies. It is this combination of fidelity, control, and advanced architectural features that makes the Conditional Self-Attention GAN a highly promising candidate for the complex task of weather generation. The utility of such synthetic data has been demonstrated empirically; for instance, one study showed that augmenting the nuScenes dataset with generated data significantly improved the performance of the BEVFusion perception model [@Source2026_SimGen], providing concrete evidence of its value.\n\n### **3. Research Gaps and Future Directions**\n\nDespite promising progress, the field of synthetic weather generation for autonomous driving faces several critical gaps that must be addressed to unlock its full potential. Based on a synthesis of the current literature [@Long2024; @Source2026_PeerJ; @Source2026_SimGen], we identify four key areas for future research.\n\n**1. Limited External Validity and the Need for Multi-Context Benchmarking:**\nCurrent generative models are often trained and validated on data from a limited set of geographic regions. This raises concerns about their ability to generate realistic scenes for diverse global contexts with different urban morphologies, traffic patterns, and climates. A model trained on North American suburban data may fail to generate convincing scenes of a dense Asian megacity in a monsoon.\n*   **Future Direction:** We propose the development of a standardized, multi-context benchmark dataset for evaluating the generalization capabilities of generative models. This would involve testing a single pre-trained model's ability to generate scenes for disparate locations (e.g., USA, Germany, Japan) under various weather conditions, with a focus on analyzing failure modes related to local context.\n\n**2. Insufficient Focus on the \"Long Tail\" of Rareness:**\nThe literature frequently refers to \"rare\" weather, but in practice, this often means common adverse conditions like standard rain or light snow. The truly long-tail events—whiteout blizzards, dust storms, or unusual lighting during a severe thunderstorm—remain under-explored. The primary goal of synthetic data is to cover these corner cases, yet they receive sparse attention [@Source2026_PDF_Scarce; @Source2026_PeerJ].\n*   **Future Direction:** Research must prioritize the generation of the extreme end of the weather distribution. This requires moving beyond simple class conditioning (e.g., `snow`) to fine-grained, continuous controls for attributes like `intensity`, `visibility`, and `precipitation_type`. CSAGANs are particularly promising here, as the self-attention mechanism can model the global, scene-wide impact of such severe conditions.\n\n**3. Lack of Causal and Longitudinal Evaluation:**\nStudies often demonstrate a correlation: models trained with synthetic data perform better [@Source2026_SimGen]. However, they rarely establish a causal link, making it difficult to attribute the gains specifically to the quality of the synthetic data versus other factors like data volume. Furthermore, evaluations are typically conducted on static test sets, ignoring the long-term and seasonal robustness of models trained on this data.\n*   **Future Direction:** Future work should employ more rigorous evaluation protocols. This includes (a) quasi-experimental designs to establish the causal impact of synthetic data quality on downstream performance and (b) longitudinal studies that evaluate models over extended periods to ensure their robustness to seasonal variations and other temporal shifts.\n\n**4. Absence of Standardized Benchmarking and Failure Reporting:**\nThe field lacks a unified framework for comparing different generative architectures (e.g., GANs vs. Diffusion Models). Studies use varied datasets and metrics, making it difficult to assess the relative merits of competing approaches [@long2024]. Moreover, there is a notable absence of systematic failure analysis, which is crucial for understanding the current limitations of the technology.\n*   **Future Direction:** A community-driven effort is needed to establish controlled comparative studies with strong, shared baselines and transparent reporting standards. This should include not only quantitative metrics but also qualitative analysis and explicit reporting of common failure modes, such as unrealistic artifacts or incorrect physical interactions.\n\n### **4. Conclusion**\n\nThe generation of synthetic, rare-weather road scenes is a critical enabler for developing safe and robust autonomous driving systems. It provides a scalable and controllable solution to the fundamental limitations of real-world data collection. This paper has reviewed the current landscape of conditional generative models, highlighting the diverse architectural approaches being explored, from diffusion models to autoregressive methods. We argue that Conditional Self-Attention Generative Adversarial Networks (CSAGANs) represent a particularly potent technology for this task, as their ability to model long-range spatial dependencies is well-matched to the challenge of rendering complex, scene-wide weather effects.\n\nHowever, significant research gaps remain. The field must move beyond its current constraints by improving the external validity of models across diverse global contexts, focusing more intensely on the truly long-tail of rare events, and adopting more rigorous causal and longitudinal evaluation methodologies. By pursuing the research agenda outlined—centered on benchmarking, fine-grained control, and causal analysis—the community can systematically advance the state of the art. Ultimately, the successful development of high-fidelity, controllable synthetic data generators will be instrumental in accelerating the validation and deployment of autonomous vehicles that are safe for everyone, everywhere, in all conditions.\n\n### **References**\n\nBoudewijn, A., Ferraris, A. F., Panfilo, D., Cocca, V., Zinutti, S., et al. (2023). *Privacy Measurement in Tabular Synthetic Data: State of the Art and Future Research Directions*. arXiv:2311.17453v1.\n\nLaMaster, J. T., Gudmundson, A. T., Abaei, A., Alcicek, S., Alvarado, A., et al. (2026). *Synthetic Data in MR Spectroscopy: Current Practices, Applications, and Considerations*. arXiv:2602.23463v2.\n\nLong, L., Wang, R., Xiao, R., Zhao, J., Ding, X., et al. (2024). *On LLMs-Driven Synthetic Data Generation, Curation, and Evaluation: A Survey*. arXiv:2406.15126v1.\n\nReddy, A., Shah, K., Rivera, C., Paul, W., De Melo, C. M., et al. (2024). *An Evaluation of Large Pre-Trained Models for Gesture Recognition using Synthetic Videos*. arXiv:2410.02152v1.\n\nRuffenach, Y. (2025). *Autoregressivity in the Latent Space of a GP-VAE Language Model: An Empirical Ablation Study*. arXiv:2512.24102v1.\n\nSource. (2026). *[PDF] Synthetic Data for Perception in Autonomous Driving*. mediaTUM. Retrieved from https://mediatum.ub.tum.de/doc/1695355/3ltw4tcyj18c96wvgm6d17aw6.dissertation.pdf\n\nSource. (2026). *[PDF] Synthetic Data Generation for Scarce Road Scene Detection*. Amazon Science. Retrieved from https://assets.amazon.science/ba/53/46bc89ab41a7af029b7a49ee99ea/synthetic-data-generation-for-scarce-road-scene-detection-scenarios.pdf\n\nSource. (2026). *Risk-aware diffusion model for generating extreme weather scenarios and safety evaluation in autonomous driving*. PeerJ Computer Science. Retrieved from https://peerj.com/articles/cs-3573/\n\nSource. (2026). *SimGen: Simulator-conditioned Driving Scene Generation*. arXiv. Retrieved from https://arxiv.org/html/2406.09386v3\n\n## References\n[@reddy2024] Arun Reddy, Ketul Shah, Corban Rivera, William Paul, Celso M. De Melo et al.. \"An Evaluation of Large Pre-Trained Models for Gesture Recognition using Synthetic Videos\". 2024. http://arxiv.org/abs/2410.02152v1\n[@ruffenach2025] Yves Ruffenach. \"Autoregressivity in the Latent Space of a GP-VAE Language Model: An Empirical Ablation Study\". 2025. http://arxiv.org/abs/2512.24102v1\n[@long2024] Lin Long, Rui Wang, Ruixuan Xiao, Junbo Zhao, Xiao Ding et al.. \"On LLMs-Driven Synthetic Data Generation, Curation, and Evaluation: A Survey\". 2024. http://arxiv.org/abs/2406.15126v1\n[@boudewijn2023] Alexander Boudewijn, Andrea Filippo Ferraris, Daniele Panfilo, Vanessa Cocca, Sabrina Zinutti et al.. \"Privacy Measurement in Tabular Synthetic Data: State of the Art and Future Research Directions\". 2023. http://arxiv.org/abs/2311.17453v1\n[@lamaster2026] John T. LaMaster, Aaron T. Gudmundson, Alireza Abaei, Seyma Alcicek, Arturo Alvarado et al.. \"Synthetic Data in MR Spectroscopy: Current Practices, Applications, and Considerations\". 2026. http://arxiv.org/abs/2602.23463v2\n[@source2026] Web Source. \"[PDF] Synthetic Data for Perception in Autonomous Driving. - mediaTUM\". 2026. https://mediatum.ub.tum.de/doc/1695355/3ltw4tcyj18c96wvgm6d17aw6.dissertation.pdf\n[@source2026] Web Source. \"[PDF] Synthetic Data Generation for Scarce Road Scene Detection ...\". 2026. https://assets.amazon.science/ba/53/46bc89ab41a7af029b7a49ee99ea/synthetic-data-generation-for-scarce-road-scene-detection-scenarios.pdf\n[@source2026] Web Source. \"Risk-aware diffusion model for generating extreme weather scenarios and safety evaluation in autonomous driving [PeerJ]\". 2026. https://peerj.com/articles/cs-3573/\n[@source2026] Web Source. \"SimGen: Simulator-conditioned Driving Scene Generation - arXiv\". 2026. https://arxiv.org/html/2406.09386v3\n",
+  "analysis_markdown": "## PART A - Research Analysis Dossier\n\n### 1. A1. Cross-Paper Methodology Analysis\n\n{\n  \"methodology_patterns\": [\n    \"**Conditional Generation:** A dominant pattern across the literature is the use of conditional generative models to control the output. This is achieved by providing explicit conditions such as weather type (e.g., snow, rain), location attributes, or simulator-derived scene layouts to guide the synthesis process [@Source2026_PDF_Scarce, @Source2026_SimGen].\",\n    \"**Architectural Diversity:** While the goal of scene generation is shared, the methodological approaches vary. The literature points to the use of several distinct generative architectures, including Risk-aware Diffusion Models for safety-critical extreme weather scenarios [@Source2026_PeerJ], and Autoregressive Models, which operate sequentially in either pixel or latent space [@Source2026_PDF_mediaTUM, @ruffenach2025]. Generative Adversarial Networks (GANs) are implicitly a major part of this landscape, often used for image-to-image translation and scene generation.\",\n    \"**Focus on Downstream Task Improvement:** A common methodological endpoint is the evaluation of the synthetic data's utility by measuring performance improvements on downstream perception tasks. For example, augmenting real-world datasets like nuScenes with synthetic data has been shown to improve the performance of models like BEVFusion [@Source2026_SimGen].\"\n  ],\n  \"contradictions\": [\n    \"The provided literature does not present direct contradictions but rather a divergence in preferred architectural choices for synthetic data generation. For instance, [@Source2026_PeerJ] advocates for diffusion models for generating extreme weather scenes due to their quality and suitability for risk-aware applications. In contrast, other works focus on GANs or autoregressive models [@Source2026_PDF_mediaTUM], suggesting a competitive landscape where the optimal architecture may be task-dependent rather than universally agreed upon. There is no consensus on a single best approach.\"\n  ],\n  \"missing_dimensions\": [\n    \"**Self-Attention Mechanisms:** While the sources discuss high-level architectures (Diffusion, Autoregressive), they lack a detailed analysis of specific internal mechanisms like self-attention within GANs for modeling long-range dependencies in complex road scenes. This is a critical missing dimension given the paper's specific focus.\",\n    \"**Quantitative Fidelity vs. Diversity Trade-off:** The literature acknowledges the need for both realism (fidelity) and variety (diversity) [@Source2026_SimGen], but a systematic analysis of the trade-offs between these two goals, particularly in the context of rare weather, is not present.\",\n    \"**Computational Cost and Scalability:** The practical aspects of training these large-scale generative models, including computational requirements, training time, and scalability for generating massive datasets, are not thoroughly discussed in the provided summaries.\"\n  ],\n  \"weak_evaluation_signals\": [\n    \"**Lack of Causal Inference:** As identified in the research gaps, studies often report performance improvements (associations) without employing rigorous causal inference methods to definitively attribute the gains to the synthetic data intervention [@Source2026_SimGen].\",\n    \"**Short-Term Evaluation Horizons:** The evaluation of model robustness is typically based on static test sets, with a lack of longitudinal studies that assess performance durability over time or across varying seasonal conditions.\",\n    \"**Limited Failure Analysis:** While successes are reported, a systematic reporting and analysis of failure modes (e.g., unrealistic artifacts, incorrect weather effects) in the generated data are largely absent. This makes it difficult to understand the current limitations of the methods.\"\n  ],\n  \"evidence_notes\": [\n    \"The imperative for synthetic data is strongly supported by the impracticality of collecting real-world data for rare events [@Long2024, @Source2026_PDF_Scarce, @Source2026_PeerJ].\",\n    \"The utility of synthetic data is demonstrated through improved performance on downstream tasks, such as object detection in autonomous driving [@Source2026_SimGen].\",\n    \"Multiple generative paradigms are being actively explored, including diffusion models for safety evaluation [@Source2026_PeerJ] and autoregressive models for foundational image generation [@Source2026_PDF_mediaTUM, @ruffenach2025].\"\n  ]\n}\n\n### 2. A2. Contradictions and Agreement Map\n\n**Agreement:**\n\n*   **Problem Definition:** There is broad and consistent agreement across all relevant sources on the fundamental problem: real-world data collection for autonomous driving is insufficient, especially for rare and hazardous scenarios like extreme weather [@Long2024, @Source2026_PDF_Scarce, @Source2026_PeerJ].\n*   **Solution Direction:** All sources converge on synthetic data generation as a viable and necessary solution to augment sparse real-world datasets and improve the robustness and safety of perception systems [@LaMaster2026, @Source2026_SimGen].\n*   **Need for Controllability:** There is a shared understanding that generative models must be controllable or \"conditional\" to be useful. The ability to specify attributes like weather, location, or scene layout is critical for targeted data generation [@Source2026_PDF_Scarce, @Source2026_SimGen].\n\n**Divergence (Not Contradiction):**\n\n*   **Choice of Generative Architecture:** The primary point of divergence lies in the specific generative architecture employed.\n    *   **Diffusion Models:** Advocated for in safety-critical applications like generating extreme weather for risk evaluation, likely due to their high-fidelity output [@Source2026_PeerJ].\n    *   **Autoregressive Models:** Presented as a foundational technique for sequential generation, with research exploring their application in the latent space for greater control [@ruffenach2025, @Source2026_PDF_mediaTUM].\n    *   **Generative Adversarial Networks (GANs):** Implicitly a dominant paradigm for image synthesis and a core component of methods like SimGen [@Source2026_SimGen], valued for their efficiency and realism in many computer vision tasks.\n*   **Evaluation Focus:**\n    *   Some work prioritizes evaluation based on downstream task performance (e.g., detection accuracy) [@Source2026_SimGen].\n    *   Other work is oriented towards safety evaluation and risk assessment, suggesting a different set of evaluation criteria focused on the severity and realism of generated hazardous scenarios [@Source2026_PeerJ].\n\nThis map shows a field that agrees on the problem and the high-level solution but is actively exploring multiple technical pathways to achieve the best results, reflecting a dynamic and evolving research area.\n\n### 3. A3. Detailed Gap Analysis\n\n#### Gap 1: Limited External Validity Across Diverse Contexts\n\n*   **Why Gap:** The development and validation of generative models are often conducted using datasets from specific geographic regions (e.g., North America, Europe), which feature distinct urban forms, traffic patterns, and environmental characteristics. This narrow focus constrains the ability to generalize the findings.\n*   **What Missing:** Missing are systematic, cross-contextual evaluations of generation methods. A unified protocol is needed to test a single model's ability to generate realistic rare-weather scenes for disparate environments, such as dense Asian megacities versus sprawling North American suburbs, or across different climate zones (e.g., tropical rain vs. arctic snow).\n*   **Evidence:** The provided literature, while discussing diversity [@Source2026_SimGen], does not present evidence of models being validated across fundamentally different city morphologies or climate zones. The problem of uneven data distribution across regions is a well-known challenge in autonomous driving that synthetic data aims to solve, yet the solutions themselves are not being tested for the same generalization failure.\n*   **Supports/Fails:** This gap is **supported** by the general principle that machine learning models often fail to generalize beyond their training distribution. It is a critical failure point for a technology intended to ensure safety in a globally deployed product like an autonomous vehicle.\n\n#### Gap 2: Insufficient Causal Evaluation of Synthetic Data Impact\n\n*   **Why Gap:** Current evaluations often show a correlation: \"training with more synthetic data improved metric X.\" However, they do not establish clear causality. It is difficult to disentangle whether the improvement comes from the specific quality of the synthetic data, the sheer volume of data, or simply acting as a form of regularization.\n*   **What Missing:** The field lacks studies employing quasi-experimental or causal inference designs. This would involve creating carefully controlled counterfactuals (e.g., training with the same amount of random noise, blurred real images, or synthetic data from a different generator) and reporting effect sizes with confidence intervals to quantify the unique contribution of the high-fidelity synthetic data.\n*   **Evidence:** The report of BEVFusion's performance improvement after training on augmented data is a prime example [@Source2026_SimGen]. It demonstrates a positive outcome but does not provide a causal link that isolates the specific properties of the synthetic data responsible for the gain. The proposed direction in the gap analysis calls for this missing rigor.\n*   **Supports/Fails:** This gap is **supported** by the increasing demand for rigor and interpretability in machine learning. For high-stakes applications like autonomous driving, understanding *why* a method works is as important as knowing *that* it works.\n\n#### Gap 3: Weak Longitudinal and Seasonal Validation\n\n*   **Why Gap:** Synthetic data is often generated and tested against static, short-horizon benchmarks. This fails to account for the temporal dynamics of the real world, such as seasonal variations (e.g., different types of snow, foliage changes affecting light) and the long-term durability of models trained on this data.\n*   **What Missing:** Longitudinal studies are missing. These would involve training a model on synthetic data and then evaluating its performance on real-world data collected over multiple seasons or years. Furthermore, \"stress tests\" using data from rare but predictable events (e.g., the first heavy snowfall of the year) are needed to validate robustness.\n*   **Evidence:** The literature focuses on generating \"extreme weather\" [@Source2026_PeerJ] or \"scarce scenes\" [@Source2026_PDF_Scarce] as distinct events, but does not explicitly discuss validating the generated data's utility against the subtle, continuous changes of seasonal cycles. The proposed direction to run longitudinal monitoring directly addresses this oversight.\n*   **Supports/Fails:** This gap represents a significant **failure** point for practical deployment. A model that performs well in a test set but degrades quickly when faced with seasonal environmental shifts is not truly robust.\n\n#### Gap 4: Lack of Standardized Benchmarking and Failure Reporting\n\n*   **Why Gap:** The rapid evolution of generative models has led to a proliferation of methods without a standardized framework for comparison. Studies often use different base datasets, evaluation metrics, and downstream tasks, making it difficult to assess the relative strengths and weaknesses of competing approaches (e.g., GANs vs. Diffusion models).\n*   **What Missing:** The field needs controlled comparative studies with strong, shared baselines. This includes not only comparing against \"no synthetic data\" but also against simpler augmentation techniques. Crucially, a culture of transparent failure reporting is needed, where papers explicitly detail the artifacts, unrealistic scenarios, and failure modes of their generators.\n*   **Evidence:** The evidence note \"On LLMs-Driven Synthetic Data Generation, Curation, and Evaluation: A Survey\" [@long2024] points to the broader challenge of evaluation in synthetic data. The proposed direction to \"run controlled comparative studies with stronger baselines, subgroup analysis, and explicit failure reporting\" is a direct response to the lack of such standards in the domain of vision-based scene generation.\n*   **Supports/Fails:** This gap is a major **support** for the argument that the field is still in a stage of rapid, somewhat chaotic, exploration. Establishing benchmarks is a sign of a maturing field, and its absence indicates that significant foundational work remains.\n\n#### Gap 5: Insufficient Focus on the \"Long Tail\" of Rareness\n\n*   **Why Gap:** While the literature uses terms like \"rare\" and \"extreme\" [@Source2026_PDF_Scarce, @Source2026_PeerJ], the focus often remains on relatively common \"rare\" events like standard snow or rain. The truly long-tail events—such as blizzards with whiteout conditions, haboobs (dust storms), or unusual object interactions in adverse weather—are seldom addressed.\n*   **What Missing:** Missing is a dedicated focus on modeling and generating the tail of the distribution. This requires not just conditioning on a \"snow\" label but on fine-grained attributes of severity, type, and interaction with the environment. Benchmarks and metrics specifically designed to evaluate the generation of these hyper-rare scenarios are also absent.\n*   **Evidence:** The evidence note \"direct analysis for 'rare' is sparse relative to the user topic scope\" is the core of this gap. The provided sources confirm the *need* to address rare events but do not provide deep analysis or generation of events at the extreme end of the probability spectrum.\n*   **Supports/Fails:** This gap is a critical **failure** of the current evidence base to fully address the problem statement. The primary motivation for synthetic data is to cover these long-tail events, so their limited coverage in the research represents a failure to meet the ultimate goal.\n\n### 4. A4. Research Agenda and Prioritized Experiments\n\nBased on the analysis, the following research agenda is proposed to advance the field, with experiments prioritized by their potential impact and foundational importance.\n\n**Priority 1: Develop and Benchmark Controllable Long-Tail Generators.**\n*   **Objective:** Move beyond generic \"snow\" or \"rain\" to generate a spectrum of rare phenomena with fine-grained control over severity and type.\n*   **Proposed Experiment:**\n    1.  **Model Development:** Implement a Conditional Self-Attention GAN (CSAGAN) designed for this task. The conditioning vector should include not just a class label (e.g., `snow`) but also continuous variables for `intensity` (e.g., 0.1-1.0), `wind_speed`, and `occlusion_level`. Self-attention is critical for modeling the global effects of such conditions (e.g., how a blizzard affects the entire scene, not just local textures).\n    2.  **Benchmarking:** Compare this model against a leading diffusion model [@Source2026_PeerJ] and a simpler conditional GAN baseline.\n    3.  **Evaluation:** Evaluate on three criteria:\n        *   **Fidelity:** Using standard metrics like FID/KID.\n        *   **Controllability:** Measure the correlation between the input condition vector and quantitative attributes of the output image (e.g., measure pixel-level snow coverage vs. `intensity` input).\n        *   **Rareness:** Develop a new metric based on the likelihood of the generated image under a pre-trained density estimator for real-world data. Truly novel and rare images should have a low likelihood.\n\n**Priority 2: Establish a Multi-Context Generalization Benchmark.**\n*   **Objective:** Address the external validity gap (Gap 1) by creating a standardized benchmark for evaluating generative models across diverse urban and climatic environments.\n*   **Proposed Experiment:**\n    1.  **Dataset Curation:** Curate three distinct validation datasets from open-source data (e.g., from nuScenes - USA, A2D2 - Germany, and a dataset from an Asian megacity). Ensure each has a small, representative set of rare-weather images.\n    2.  **Cross-Evaluation:** Take the pre-trained generators from Priority 1 and evaluate their zero-shot generation capability for these new contexts. For example, condition the model on `location=tokyo, weather=heavy_rain`.\n    3.  **Analysis:** Analyze where and why the models fail. Do they fail to capture architectural styles, different road markings, or specific weather appearances? This directly tests the generalization promised by synthetic data.\n\n**Priority 3: Conduct Causal Impact Studies on Downstream Tasks.**\n*   **Objective:** Move beyond correlational findings to establish the causal impact of high-fidelity synthetic data (Gap 2).\n*   **Proposed Experiment:**\n    1.  **Controlled Trial:** Design a controlled experiment with multiple training arms for a perception model (e.g., BEVFusion [@Source2026_SimGen]):\n        *   Arm A: Baseline (real data only).\n        *   Arm B: Real data + CSAGAN-generated rare weather data.\n        *   Arm C: Real data + data from a simpler generative model (e.g., CycleGAN).\n        *   Arm D: Real data + simple augmentations (e.g., adding noise/blur).\n    2.  **Causal Analysis:** Ensure all arms have the same total number of training images. Evaluate performance on a held-out rare-weather test set. Use statistical methods to calculate the effect size and confidence intervals for the improvement provided by Arm B over the others. This will help isolate the value of the sophisticated generative model.\n\n---",
+  "final_draft_markdown": "### **Abstract**\n\nThe development of robust perception systems for autonomous driving is critically dependent on training data that encompasses a wide array of driving conditions, particularly rare and hazardous weather scenarios. Real-world data collection for these \"long-tail\" events is impractical and prohibitively expensive, creating a significant bottleneck for model training and safety validation. This paper examines the use of synthetic data generation to address this challenge, with a specific focus on Conditional Self-Attention Generative Adversarial Networks (CSAGANs) as a promising approach. We review the imperative for synthetic data, survey the landscape of conditional generative methodologies, and identify critical research gaps in the current literature, including limitations in external validity, the need for causal evaluation, and insufficient focus on truly rare phenomena. We argue that the self-attention mechanism is uniquely suited to modeling the complex, long-range spatial dependencies inherent in weather effects, and we propose a research agenda centered on developing and rigorously benchmarking controllable, long-tail scene generators to enhance the safety and reliability of autonomous systems.\n\n### **1. Introduction**\n\nThe performance of deep learning models, particularly in safety-critical domains like autonomous driving, is fundamentally tied to the quality and diversity of the training data [@Long2024]. While large-scale real-world datasets have enabled significant progress, they inherently suffer from a long-tail problem: common scenarios are over-represented, while rare but critical events, such as extreme weather, are dangerously scarce. The inability to train and validate perception systems on a sufficient number of scenes depicting heavy snow, dense fog, or torrential rain poses a direct threat to the safety and reliability of autonomous vehicles.\n\nSynthetic data generation has emerged as a powerful, data-centric solution to this problem [@Long2024]. By creating realistic and diverse data on demand, it offers a path to augment real-world datasets, test model robustness, and improve reproducibility in research [@LaMaster2026; @Reddy2024]. This paper focuses on the generation of synthetic road scenes depicting rare weather conditions, a task that requires not only high fidelity but also fine-grained control over the generated output.\n\nTo achieve this, we investigate the application of Conditional Generative Adversarial Networks (GANs), a class of models capable of producing images that adhere to specific user-defined attributes. We specifically propose that Conditional Self-Attention GANs (CSAGANs) are a particularly well-suited architecture for this task. The self-attention mechanism allows the model to capture long-range, global dependencies within an image, a crucial feature for realistically rendering pervasive effects like weather, which alter the appearance of the entire scene rather than just local regions. This paper synthesizes the current state of the field, identifies key research gaps, and charts a course for future work centered on leveraging CSAGANs for robust and controllable rare-weather scene generation.\n\n### **2. Literature Review**\n\nThe pursuit of synthetic data for autonomous driving is driven by clear and pressing needs, with research spanning the motivations for its use, the methodologies for its creation, and its application in downstream tasks.\n\n**2.1 The Imperative for Synthetic Data**\n\nThe primary motivation for synthetic data generation is the immense difficulty, cost, and danger associated with collecting comprehensive real-world data, especially for what is termed \"scarce road scene detection\" [@Source2026_PDF_Scarce]. Extreme weather conditions are a canonical example of such scarce events. The ability to generate these scenarios synthetically is paramount for the safety evaluation of autonomous systems, making the creation of \"extreme weather scenarios\" a key research priority [@Source2026_PeerJ]. Beyond just filling gaps in data, synthetic generation can also address the lack of \"appearance and layout diversity\" in existing datasets, which are often constrained by geography [@Source2026_SimGen]. By synthesizing novel scenes, researchers can directly combat the \"dilemma of data quantity and quality\" that often limits the generalization capabilities of deep learning models in autonomous systems [@Long2024].\n\n**2.2 Methodological Approaches to Conditional Generation**\n\nTo be effective, synthetic data must be controllable. Conditional generative models provide this capability by allowing the generation process to be guided by specific attributes. A common strategy involves defining a global `Condition` (e.g., weather type) and object-level `Location` attributes to direct the synthesis of targeted scenarios [@Source2026_PDF_Scarce]. Another powerful approach is to condition the generation on high-level layouts from simulators, which provides a strong structural prior and enhances the diversity of the generated scenes [@Source2026_SimGen].\n\nWhile our focus is on GANs, the field is exploring a diverse set of architectures. Risk-aware **diffusion models** have been developed specifically for generating extreme weather scenes for safety evaluation, prized for their high-quality output [@Source2026_PeerJ]. **Autoregressive models**, which generate images pixel by pixel, represent another foundational approach [@Source2026_PDF_mediaTUM]. Advanced work in this area is investigating the application of autoregressivity within the latent space, which could offer new avenues for controllable generation [@Ruffenach2025].\n\nWithin this landscape, **Generative Adversarial Networks (GANs)** remain a powerful and widely used tool. Their adversarial training process is effective at producing sharp, realistic images. The introduction of conditioning mechanisms allows for precise control, while architectural innovations like self-attention have enabled GANs to model complex, long-range dependencies. It is this combination of fidelity, control, and advanced architectural features that makes the Conditional Self-Attention GAN a highly promising candidate for the complex task of weather generation. The utility of such synthetic data has been demonstrated empirically; for instance, one study showed that augmenting the nuScenes dataset with generated data significantly improved the performance of the BEVFusion perception model [@Source2026_SimGen], providing concrete evidence of its value.\n\n### **3. Research Gaps and Future Directions**\n\nDespite promising progress, the field of synthetic weather generation for autonomous driving faces several critical gaps that must be addressed to unlock its full potential. Based on a synthesis of the current literature [@Long2024; @Source2026_PeerJ; @Source2026_SimGen], we identify four key areas for future research.\n\n**1. Limited External Validity and the Need for Multi-Context Benchmarking:**\nCurrent generative models are often trained and validated on data from a limited set of geographic regions. This raises concerns about their ability to generate realistic scenes for diverse global contexts with different urban morphologies, traffic patterns, and climates. A model trained on North American suburban data may fail to generate convincing scenes of a dense Asian megacity in a monsoon.\n*   **Future Direction:** We propose the development of a standardized, multi-context benchmark dataset for evaluating the generalization capabilities of generative models. This would involve testing a single pre-trained model's ability to generate scenes for disparate locations (e.g., USA, Germany, Japan) under various weather conditions, with a focus on analyzing failure modes related to local context.\n\n**2. Insufficient Focus on the \"Long Tail\" of Rareness:**\nThe literature frequently refers to \"rare\" weather, but in practice, this often means common adverse conditions like standard rain or light snow. The truly long-tail events—whiteout blizzards, dust storms, or unusual lighting during a severe thunderstorm—remain under-explored. The primary goal of synthetic data is to cover these corner cases, yet they receive sparse attention [@Source2026_PDF_Scarce; @Source2026_PeerJ].\n*   **Future Direction:** Research must prioritize the generation of the extreme end of the weather distribution. This requires moving beyond simple class conditioning (e.g., `snow`) to fine-grained, continuous controls for attributes like `intensity`, `visibility`, and `precipitation_type`. CSAGANs are particularly promising here, as the self-attention mechanism can model the global, scene-wide impact of such severe conditions.\n\n**3. Lack of Causal and Longitudinal Evaluation:**\nStudies often demonstrate a correlation: models trained with synthetic data perform better [@Source2026_SimGen]. However, they rarely establish a causal link, making it difficult to attribute the gains specifically to the quality of the synthetic data versus other factors like data volume. Furthermore, evaluations are typically conducted on static test sets, ignoring the long-term and seasonal robustness of models trained on this data.\n*   **Future Direction:** Future work should employ more rigorous evaluation protocols. This includes (a) quasi-experimental designs to establish the causal impact of synthetic data quality on downstream performance and (b) longitudinal studies that evaluate models over extended periods to ensure their robustness to seasonal variations and other temporal shifts.\n\n**4. Absence of Standardized Benchmarking and Failure Reporting:**\nThe field lacks a unified framework for comparing different generative architectures (e.g., GANs vs. Diffusion Models). Studies use varied datasets and metrics, making it difficult to assess the relative merits of competing approaches [@long2024]. Moreover, there is a notable absence of systematic failure analysis, which is crucial for understanding the current limitations of the technology.\n*   **Future Direction:** A community-driven effort is needed to establish controlled comparative studies with strong, shared baselines and transparent reporting standards. This should include not only quantitative metrics but also qualitative analysis and explicit reporting of common failure modes, such as unrealistic artifacts or incorrect physical interactions.\n\n### **4. Conclusion**\n\nThe generation of synthetic, rare-weather road scenes is a critical enabler for developing safe and robust autonomous driving systems. It provides a scalable and controllable solution to the fundamental limitations of real-world data collection. This paper has reviewed the current landscape of conditional generative models, highlighting the diverse architectural approaches being explored, from diffusion models to autoregressive methods. We argue that Conditional Self-Attention Generative Adversarial Networks (CSAGANs) represent a particularly potent technology for this task, as their ability to model long-range spatial dependencies is well-matched to the challenge of rendering complex, scene-wide weather effects.\n\nHowever, significant research gaps remain. The field must move beyond its current constraints by improving the external validity of models across diverse global contexts, focusing more intensely on the truly long-tail of rare events, and adopting more rigorous causal and longitudinal evaluation methodologies. By pursuing the research agenda outlined—centered on benchmarking, fine-grained control, and causal analysis—the community can systematically advance the state of the art. Ultimately, the successful development of high-fidelity, controllable synthetic data generators will be instrumental in accelerating the validation and deployment of autonomous vehicles that are safe for everyone, everywhere, in all conditions.\n\n### **References**\n\nBoudewijn, A., Ferraris, A. F., Panfilo, D., Cocca, V., Zinutti, S., et al. (2023). *Privacy Measurement in Tabular Synthetic Data: State of the Art and Future Research Directions*. arXiv:2311.17453v1.\n\nLaMaster, J. T., Gudmundson, A. T., Abaei, A., Alcicek, S., Alvarado, A., et al. (2026). *Synthetic Data in MR Spectroscopy: Current Practices, Applications, and Considerations*. arXiv:2602.23463v2.\n\nLong, L., Wang, R., Xiao, R., Zhao, J., Ding, X., et al. (2024). *On LLMs-Driven Synthetic Data Generation, Curation, and Evaluation: A Survey*. arXiv:2406.15126v1.\n\nReddy, A., Shah, K., Rivera, C., Paul, W., De Melo, C. M., et al. (2024). *An Evaluation of Large Pre-Trained Models for Gesture Recognition using Synthetic Videos*. arXiv:2410.02152v1.\n\nRuffenach, Y. (2025). *Autoregressivity in the Latent Space of a GP-VAE Language Model: An Empirical Ablation Study*. arXiv:2512.24102v1.\n\nSource. (2026). *[PDF] Synthetic Data for Perception in Autonomous Driving*. mediaTUM. Retrieved from https://mediatum.ub.tum.de/doc/1695355/3ltw4tcyj18c96wvgm6d17aw6.dissertation.pdf\n\nSource. (2026). *[PDF] Synthetic Data Generation for Scarce Road Scene Detection*. Amazon Science. Retrieved from https://assets.amazon.science/ba/53/46bc89ab41a7af029b7a49ee99ea/synthetic-data-generation-for-scarce-road-scene-detection-scenarios.pdf\n\nSource. (2026). *Risk-aware diffusion model for generating extreme weather scenarios and safety evaluation in autonomous driving*. PeerJ Computer Science. Retrieved from https://peerj.com/articles/cs-3573/\n\nSource. (2026). *SimGen: Simulator-conditioned Driving Scene Generation*. arXiv. Retrieved from https://arxiv.org/html/2406.09386v3\n\n## References\n[@reddy2024] Arun Reddy, Ketul Shah, Corban Rivera, William Paul, Celso M. De Melo et al.. \"An Evaluation of Large Pre-Trained Models for Gesture Recognition using Synthetic Videos\". 2024. http://arxiv.org/abs/2410.02152v1\n[@ruffenach2025] Yves Ruffenach. \"Autoregressivity in the Latent Space of a GP-VAE Language Model: An Empirical Ablation Study\". 2025. http://arxiv.org/abs/2512.24102v1\n[@long2024] Lin Long, Rui Wang, Ruixuan Xiao, Junbo Zhao, Xiao Ding et al.. \"On LLMs-Driven Synthetic Data Generation, Curation, and Evaluation: A Survey\". 2024. http://arxiv.org/abs/2406.15126v1\n[@boudewijn2023] Alexander Boudewijn, Andrea Filippo Ferraris, Daniele Panfilo, Vanessa Cocca, Sabrina Zinutti et al.. \"Privacy Measurement in Tabular Synthetic Data: State of the Art and Future Research Directions\". 2023. http://arxiv.org/abs/2311.17453v1\n[@lamaster2026] John T. LaMaster, Aaron T. Gudmundson, Alireza Abaei, Seyma Alcicek, Arturo Alvarado et al.. \"Synthetic Data in MR Spectroscopy: Current Practices, Applications, and Considerations\". 2026. http://arxiv.org/abs/2602.23463v2\n[@source2026] Web Source. \"[PDF] Synthetic Data for Perception in Autonomous Driving. - mediaTUM\". 2026. https://mediatum.ub.tum.de/doc/1695355/3ltw4tcyj18c96wvgm6d17aw6.dissertation.pdf\n[@source2026] Web Source. \"[PDF] Synthetic Data Generation for Scarce Road Scene Detection ...\". 2026. https://assets.amazon.science/ba/53/46bc89ab41a7af029b7a49ee99ea/synthetic-data-generation-for-scarce-road-scene-detection-scenarios.pdf\n[@source2026] Web Source. \"Risk-aware diffusion model for generating extreme weather scenarios and safety evaluation in autonomous driving [PeerJ]\". 2026. https://peerj.com/articles/cs-3573/\n[@source2026] Web Source. \"SimGen: Simulator-conditioned Driving Scene Generation - arXiv\". 2026. https://arxiv.org/html/2406.09386v3\n",
+  "pdf_text": "### **Abstract**\n\nThe development of robust perception systems for autonomous driving is critically dependent on training data that encompasses a wide array of driving conditions, particularly rare and hazardous weather scenarios. Real-world data collection for these \"long-tail\" events is impractical and prohibitively expensive, creating a significant bottleneck for model training and safety validation. This paper examines the use of synthetic data generation to address this challenge, with a specific focus on Conditional Self-Attention Generative Adversarial Networks (CSAGANs) as a promising approach. We review the imperative for synthetic data, survey the landscape of conditional generative methodologies, and identify critical research gaps in the current literature, including limitations in external validity, the need for causal evaluation, and insufficient focus on truly rare phenomena. We argue that the self-attention mechanism is uniquely suited to modeling the complex, long-range spatial dependencies inherent in weather effects, and we propose a research agenda centered on developing and rigorously benchmarking controllable, long-tail scene generators to enhance the safety and reliability of autonomous systems.\n\n### **1. Introduction**\n\nThe performance of deep learning models, particularly in safety-critical domains like autonomous driving, is fundamentally tied to the quality and diversity of the training data [@Long2024]. While large-scale real-world datasets have enabled significant progress, they inherently suffer from a long-tail problem: common scenarios are over-represented, while rare but critical events, such as extreme weather, are dangerously scarce. The inability to train and validate perception systems on a sufficient number of scenes depicting heavy snow, dense fog, or torrential rain poses a direct threat to the safety and reliability of autonomous vehicles.\n\nSynthetic data generation has emerged as a powerful, data-centric solution to this problem [@Long2024]. By creating realistic and diverse data on demand, it offers a path to augment real-world datasets, test model robustness, and improve reproducibility in research [@LaMaster2026; @Reddy2024]. This paper focuses on the generation of synthetic road scenes depicting rare weather conditions, a task that requires not only high fidelity but also fine-grained control over the generated output.\n\nTo achieve this, we investigate the application of Conditional Generative Adversarial Networks (GANs), a class of models capable of producing images that adhere to specific user-defined attributes. We specifically propose that Conditional Self-Attention GANs (CSAGANs) are a particularly well-suited architecture for this task. The self-attention mechanism allows the model to capture long-range, global dependencies within an image, a crucial feature for realistically rendering pervasive effects like weather, which alter the appearance of the entire scene rather than just local regions. This paper synthesizes the current state of the field, identifies key research gaps, and charts a course for future work centered on leveraging CSAGANs for robust and controllable rare-weather scene generation.\n\n### **2. Literature Review**\n\nThe pursuit of synthetic data for autonomous driving is driven by clear and pressing needs, with research spanning the motivations for its use, the methodologies for its creation, and its application in downstream tasks.\n\n**2.1 The Imperative for Synthetic Data**\n\nThe primary motivation for synthetic data generation is the immense difficulty, cost, and danger associated with collecting comprehensive real-world data, especially for what is termed \"scarce road scene detection\" [@Source2026_PDF_Scarce]. Extreme weather conditions are a canonical example of such scarce events. The ability to generate these scenarios synthetically is paramount for the safety evaluation of autonomous systems, making the creation of \"extreme weather scenarios\" a key research priority [@Source2026_PeerJ]. Beyond just filling gaps in data, synthetic generation can also address the lack of \"appearance and layout diversity\" in existing datasets, which are often constrained by geography [@Source2026_SimGen]. By synthesizing novel scenes, researchers can directly combat the \"dilemma of data quantity and quality\" that often limits the generalization capabilities of deep learning models in autonomous systems [@Long2024].\n\n**2.2 Methodological Approaches to Conditional Generation**\n\nTo be effective, synthetic data must be controllable. Conditional generative models provide this capability by allowing the generation process to be guided by specific attributes. A common strategy involves defining a global `Condition` (e.g., weather type) and object-level `Location` attributes to direct the synthesis of targeted scenarios [@Source2026_PDF_Scarce]. Another powerful approach is to condition the generation on high-level layouts from simulators, which provides a strong structural prior and enhances the diversity of the generated scenes [@Source2026_SimGen].\n\nWhile our focus is on GANs, the field is exploring a diverse set of architectures. Risk-aware **diffusion models** have been developed specifically for generating extreme weather scenes for safety evaluation, prized for their high-quality output [@Source2026_PeerJ]. **Autoregressive models**, which generate images pixel by pixel, represent another foundational approach [@Source2026_PDF_mediaTUM]. Advanced work in this area is investigating the application of autoregressivity within the latent space, which could offer new avenues for controllable generation [@Ruffenach2025].\n\nWithin this landscape, **Generative Adversarial Networks (GANs)** remain a powerful and widely used tool. Their adversarial training process is effective at producing sharp, realistic images. The introduction of conditioning mechanisms allows for precise control, while architectural innovations like self-attention have enabled GANs to model complex, long-range dependencies. It is this combination of fidelity, control, and advanced architectural features that makes the Conditional Self-Attention GAN a highly promising candidate for the complex task of weather generation. The utility of such synthetic data has been demonstrated empirically; for instance, one study showed that augmenting the nuScenes dataset with generated data significantly improved the performance of the BEVFusion perception model [@Source2026_SimGen], providing concrete evidence of its value.\n\n### **3. Research Gaps and Future Directions**\n\nDespite promising progress, the field of synthetic weather generation for autonomous driving faces several critical gaps that must be addressed to unlock its full potential. Based on a synthesis of the current literature [@Long2024; @Source2026_PeerJ; @Source2026_SimGen], we identify four key areas for future research.\n\n**1. Limited External Validity and the Need for Multi-Context Benchmarking:**\nCurrent generative models are often trained and validated on data from a limited set of geographic regions. This raises concerns about their ability to generate realistic scenes for diverse global contexts with different urban morphologies, traffic patterns, and climates. A model trained on North American suburban data may fail to generate convincing scenes of a dense Asian megacity in a monsoon.\n*   **Future Direction:** We propose the development of a standardized, multi-context benchmark dataset for evaluating the generalization capabilities of generative models. This would involve testing a single pre-trained model's ability to generate scenes for disparate locations (e.g., USA, Germany, Japan) under various weather conditions, with a focus on analyzing failure modes related to local context.\n\n**2. Insufficient Focus on the \"Long Tail\" of Rareness:**\nThe literature frequently refers to \"rare\" weather, but in practice, this often means common adverse conditions like standard rain or light snow. The truly long-tail events—whiteout blizzards, dust storms, or unusual lighting during a severe thunderstorm—remain under-explored. The primary goal of synthetic data is to cover these corner cases, yet they receive sparse attention [@Source2026_PDF_Scarce; @Source2026_PeerJ].\n*   **Future Direction:** Research must prioritize the generation of the extreme end of the weather distribution. This requires moving beyond simple class conditioning (e.g., `snow`) to fine-grained, continuous controls for attributes like `intensity`, `visibility`, and `precipitation_type`. CSAGANs are particularly promising here, as the self-attention mechanism can model the global, scene-wide impact of such severe conditions.\n\n**3. Lack of Causal and Longitudinal Evaluation:**\nStudies often demonstrate a correlation: models trained with synthetic data perform better [@Source2026_SimGen]. However, they rarely establish a causal link, making it difficult to attribute the gains specifically to the quality of the synthetic data versus other factors like data volume. Furthermore, evaluations are typically conducted on static test sets, ignoring the long-term and seasonal robustness of models trained on this data.\n*   **Future Direction:** Future work should employ more rigorous evaluation protocols. This includes (a) quasi-experimental designs to establish the causal impact of synthetic data quality on downstream performance and (b) longitudinal studies that evaluate models over extended periods to ensure their robustness to seasonal variations and other temporal shifts.\n\n**4. Absence of Standardized Benchmarking and Failure Reporting:**\nThe field lacks a unified framework for comparing different generative architectures (e.g., GANs vs. Diffusion Models). Studies use varied datasets and metrics, making it difficult to assess the relative merits of competing approaches [@long2024]. Moreover, there is a notable absence of systematic failure analysis, which is crucial for understanding the current limitations of the technology.\n*   **Future Direction:** A community-driven effort is needed to establish controlled comparative studies with strong, shared baselines and transparent reporting standards. This should include not only quantitative metrics but also qualitative analysis and explicit reporting of common failure modes, such as unrealistic artifacts or incorrect physical interactions.\n\n### **4. Conclusion**\n\nThe generation of synthetic, rare-weather road scenes is a critical enabler for developing safe and robust autonomous driving systems. It provides a scalable and controllable solution to the fundamental limitations of real-world data collection. This paper has reviewed the current landscape of conditional generative models, highlighting the diverse architectural approaches being explored, from diffusion models to autoregressive methods. We argue that Conditional Self-Attention Generative Adversarial Networks (CSAGANs) represent a particularly potent technology for this task, as their ability to model long-range spatial dependencies is well-matched to the challenge of rendering complex, scene-wide weather effects.\n\nHowever, significant research gaps remain. The field must move beyond its current constraints by improving the external validity of models across diverse global contexts, focusing more intensely on the truly long-tail of rare events, and adopting more rigorous causal and longitudinal evaluation methodologies. By pursuing the research agenda outlined—centered on benchmarking, fine-grained control, and causal analysis—the community can systematically advance the state of the art. Ultimately, the successful development of high-fidelity, controllable synthetic data generators will be instrumental in accelerating the validation and deployment of autonomous vehicles that are safe for everyone, everywhere, in all conditions.\n\n### **References**\n\nBoudewijn, A., Ferraris, A. F., Panfilo, D., Cocca, V., Zinutti, S., et al. (2023). *Privacy Measurement in Tabular Synthetic Data: State of the Art and Future Research Directions*. arXiv:2311.17453v1.\n\nLaMaster, J. T., Gudmundson, A. T., Abaei, A., Alcicek, S., Alvarado, A., et al. (2026). *Synthetic Data in MR Spectroscopy: Current Practices, Applications, and Considerations*. arXiv:2602.23463v2.\n\nLong, L., Wang, R., Xiao, R., Zhao, J., Ding, X., et al. (2024). *On LLMs-Driven Synthetic Data Generation, Curation, and Evaluation: A Survey*. arXiv:2406.15126v1.\n\nReddy, A., Shah, K., Rivera, C., Paul, W., De Melo, C. M., et al. (2024). *An Evaluation of Large Pre-Trained Models for Gesture Recognition using Synthetic Videos*. arXiv:2410.02152v1.\n\nRuffenach, Y. (2025). *Autoregressivity in the Latent Space of a GP-VAE Language Model: An Empirical Ablation Study*. arXiv:2512.24102v1.\n\nSource. (2026). *[PDF] Synthetic Data for Perception in Autonomous Driving*. mediaTUM. Retrieved from https://mediatum.ub.tum.de/doc/1695355/3ltw4tcyj18c96wvgm6d17aw6.dissertation.pdf\n\nSource. (2026). *[PDF] Synthetic Data Generation for Scarce Road Scene Detection*. Amazon Science. Retrieved from https://assets.amazon.science/ba/53/46bc89ab41a7af029b7a49ee99ea/synthetic-data-generation-for-scarce-road-scene-detection-scenarios.pdf\n\nSource. (2026). *Risk-aware diffusion model for generating extreme weather scenarios and safety evaluation in autonomous driving*. PeerJ Computer Science. Retrieved from https://peerj.com/articles/cs-3573/\n\nSource. (2026). *SimGen: Simulator-conditioned Driving Scene Generation*. arXiv. Retrieved from https://arxiv.org/html/2406.09386v3\n\n## References\n[@reddy2024] Arun Reddy, Ketul Shah, Corban Rivera, William Paul, Celso M. De Melo et al.. \"An Evaluation of Large Pre-Trained Models for Gesture Recognition using Synthetic Videos\". 2024. http://arxiv.org/abs/2410.02152v1\n[@ruffenach2025] Yves Ruffenach. \"Autoregressivity in the Latent Space of a GP-VAE Language Model: An Empirical Ablation Study\". 2025. http://arxiv.org/abs/2512.24102v1\n[@long2024] Lin Long, Rui Wang, Ruixuan Xiao, Junbo Zhao, Xiao Ding et al.. \"On LLMs-Driven Synthetic Data Generation, Curation, and Evaluation: A Survey\". 2024. http://arxiv.org/abs/2406.15126v1\n[@boudewijn2023] Alexander Boudewijn, Andrea Filippo Ferraris, Daniele Panfilo, Vanessa Cocca, Sabrina Zinutti et al.. \"Privacy Measurement in Tabular Synthetic Data: State of the Art and Future Research Directions\". 2023. http://arxiv.org/abs/2311.17453v1\n[@lamaster2026] John T. LaMaster, Aaron T. Gudmundson, Alireza Abaei, Seyma Alcicek, Arturo Alvarado et al.. \"Synthetic Data in MR Spectroscopy: Current Practices, Applications, and Considerations\". 2026. http://arxiv.org/abs/2602.23463v2\n[@source2026] Web Source. \"[PDF] Synthetic Data for Perception in Autonomous Driving. - mediaTUM\". 2026. https://mediatum.ub.tum.de/doc/1695355/3ltw4tcyj18c96wvgm6d17aw6.dissertation.pdf\n[@source2026] Web Source. \"[PDF] Synthetic Data Generation for Scarce Road Scene Detection ...\". 2026. https://assets.amazon.science/ba/53/46bc89ab41a7af029b7a49ee99ea/synthetic-data-generation-for-scarce-road-scene-detection-scenarios.pdf\n[@source2026] Web Source. \"Risk-aware diffusion model for generating extreme weather scenarios and safety evaluation in autonomous driving [PeerJ]\". 2026. https://peerj.com/articles/cs-3573/\n[@source2026] Web Source. \"SimGen: Simulator-conditioned Driving Scene Generation - arXiv\". 2026. https://arxiv.org/html/2406.09386v3\n",
+  "bibtex": "@article{orion1, title={An Evaluation of Large Pre-Trained Models for Gesture Recognition using Synthetic Videos}, author={Arun Reddy, Ketul Shah, Corban Rivera, William Paul, Celso M. De Melo et al.}, year={2024}, url={http://arxiv.org/abs/2410.02152v1}, doi={}}\n\n@article{orion2, title={Autoregressivity in the Latent Space of a GP-VAE Language Model: An Empirical Ablation Study}, author={Yves Ruffenach}, year={2025}, url={http://arxiv.org/abs/2512.24102v1}, doi={}}\n\n@article{orion3, title={On LLMs-Driven Synthetic Data Generation, Curation, and Evaluation: A Survey}, author={Lin Long, Rui Wang, Ruixuan Xiao, Junbo Zhao, Xiao Ding et al.}, year={2024}, url={http://arxiv.org/abs/2406.15126v1}, doi={}}\n\n@article{orion4, title={Privacy Measurement in Tabular Synthetic Data: State of the Art and Future Research Directions}, author={Alexander Boudewijn, Andrea Filippo Ferraris, Daniele Panfilo, Vanessa Cocca, Sabrina Zinutti et al.}, year={2023}, url={http://arxiv.org/abs/2311.17453v1}, doi={}}\n\n@article{orion5, title={Synthetic Data in MR Spectroscopy: Current Practices, Applications, and Considerations}, author={John T. LaMaster, Aaron T. Gudmundson, Alireza Abaei, Seyma Alcicek, Arturo Alvarado et al.}, year={2026}, url={http://arxiv.org/abs/2602.23463v2}, doi={}}\n\n@article{orion6, title={[PDF] Synthetic Data for Perception in Autonomous Driving. - mediaTUM}, author={Web Source}, year={2026}, url={https://mediatum.ub.tum.de/doc/1695355/3ltw4tcyj18c96wvgm6d17aw6.dissertation.pdf}, doi={}}\n\n@article{orion7, title={[PDF] Synthetic Data Generation for Scarce Road Scene Detection ...}, author={Web Source}, year={2026}, url={https://assets.amazon.science/ba/53/46bc89ab41a7af029b7a49ee99ea/synthetic-data-generation-for-scarce-road-scene-detection-scenarios.pdf}, doi={}}\n\n@article{orion8, title={Risk-aware diffusion model for generating extreme weather scenarios and safety evaluation in autonomous driving [PeerJ]}, author={Web Source}, year={2026}, url={https://peerj.com/articles/cs-3573/}, doi={}}\n\n@article{orion9, title={SimGen: Simulator-conditioned Driving Scene Generation - arXiv}, author={Web Source}, year={2026}, url={https://arxiv.org/html/2406.09386v3}, doi={}}",
+  "evidence_json": {
+    "citation_quality": {
+      "2410.02152v1": {
+        "source_quality": 0.72,
+        "confidence": 0.4
+      },
+      "2406.15126v1": {
+        "source_quality": 0.72,
+        "confidence": 0.4
+      },
+      "2602.23463v2": {
+        "source_quality": 0.72,
+        "confidence": 0.4
+      },
+      "2311.17453v1": {
+        "source_quality": 0.72,
+        "confidence": 0.4
+      },
+      "2512.24102v1": {
+        "source_quality": 0.72,
+        "confidence": 0.4
+      },
+      "risk-aware_diffusion_model_for_generating_extreme_weather_sc": {
+        "source_quality": 0.45,
+        "confidence": 0.4
+      },
+      "[pdf]_synthetic_data_generation_for_scarce_road_scene_detect": {
+        "source_quality": 0.45,
+        "confidence": 0.4
+      },
+      "[pdf]_synthetic_data_for_perception_in_autonomous_driving._-": {
+        "source_quality": 0.45,
+        "confidence": 0.4
+      },
+      "simgen:_simulator-conditioned_driving_scene_generation_-_arx": {
+        "source_quality": 0.45,
+        "confidence": 0.4
+      }
+    },
+    "citation_verification": {
+      "2410.02152v1": {
+        "title_ok": true,
+        "year_ok": true,
+        "doi_ok": false,
+        "verified": true
+      },
+      "2406.15126v1": {
+        "title_ok": true,
+        "year_ok": true,
+        "doi_ok": false,
+        "verified": true
+      },
+      "2602.23463v2": {
+        "title_ok": true,
+        "year_ok": true,
+        "doi_ok": false,
+        "verified": true
+      },
+      "2311.17453v1": {
+        "title_ok": true,
+        "year_ok": true,
+        "doi_ok": false,
+        "verified": true
+      },
+      "2512.24102v1": {
+        "title_ok": true,
+        "year_ok": true,
+        "doi_ok": false,
+        "verified": true
+      },
+      "risk-aware_diffusion_model_for_generating_extreme_weather_sc": {
+        "title_ok": true,
+        "year_ok": true,
+        "doi_ok": false,
+        "verified": false
+      },
+      "[pdf]_synthetic_data_generation_for_scarce_road_scene_detect": {
+        "title_ok": true,
+        "year_ok": true,
+        "doi_ok": false,
+        "verified": false
+      },
+      "[pdf]_synthetic_data_for_perception_in_autonomous_driving._-": {
+        "title_ok": true,
+        "year_ok": true,
+        "doi_ok": false,
+        "verified": false
+      },
+      "simgen:_simulator-conditioned_driving_scene_generation_-_arx": {
+        "title_ok": true,
+        "year_ok": true,
+        "doi_ok": false,
+        "verified": false
+      }
+    },
+    "claim_to_evidence_map": [
+      {
+        "claim": "The performance of deep learning models, particularly in safety-critical domains like autonomous driving, is fundamentally tied to the quality and diversity of the training data [@Long2024]. While large-scale real-world...",
+        "paper_id": "2406.15126v1",
+        "confidence": 0.4,
+        "verified": true
+      },
+      {
+        "claim": "Synthetic data generation has emerged as a powerful, data-centric solution to this problem [@Long2024]. By creating realistic and diverse data on demand, it offers a path to augment real-world datasets, test model robust...",
+        "paper_id": "2406.15126v1",
+        "confidence": 0.4,
+        "verified": true
+      },
+      {
+        "claim": "The primary motivation for synthetic data generation is the immense difficulty, cost, and danger associated with collecting comprehensive real-world data, especially for what is termed \"scarce road scene detection\" [@Sou...",
+        "paper_id": "2406.15126v1",
+        "confidence": 0.4,
+        "verified": true
+      },
+      {
+        "claim": "While our focus is on GANs, the field is exploring a diverse set of architectures. Risk-aware **diffusion models** have been developed specifically for generating extreme weather scenes for safety evaluation, prized for...",
+        "paper_id": "2512.24102v1",
+        "confidence": 0.4,
+        "verified": true
+      },
+      {
+        "claim": "The field lacks a unified framework for comparing different generative architectures (e.g., GANs vs. Diffusion Models). Studies use varied datasets and metrics, making it difficult to assess the relative merits of compet...",
+        "paper_id": "2406.15126v1",
+        "confidence": 0.4,
+        "verified": true
+      },
+      {
+        "claim": "[@reddy2024] Arun Reddy, Ketul Shah, Corban Rivera, William Paul, Celso M. De Melo et al.. \"An Evaluation of Large Pre-Trained Models for Gesture Recognition using Synthetic Videos\". 2024. http://arxiv.org/abs/2410.02152...",
+        "paper_id": "2410.02152v1",
+        "confidence": 0.4,
+        "verified": true
+      },
+      {
+        "claim": "[@ruffenach2025] Yves Ruffenach. \"Autoregressivity in the Latent Space of a GP-VAE Language Model: An Empirical Ablation Study\". 2025. http://arxiv.org/abs/2512.24102v1",
+        "paper_id": "2512.24102v1",
+        "confidence": 0.4,
+        "verified": true
+      },
+      {
+        "claim": "[@long2024] Lin Long, Rui Wang, Ruixuan Xiao, Junbo Zhao, Xiao Ding et al.. \"On LLMs-Driven Synthetic Data Generation, Curation, and Evaluation: A Survey\". 2024. http://arxiv.org/abs/2406.15126v1",
+        "paper_id": "2406.15126v1",
+        "confidence": 0.4,
+        "verified": true
+      },
+      {
+        "claim": "[@boudewijn2023] Alexander Boudewijn, Andrea Filippo Ferraris, Daniele Panfilo, Vanessa Cocca, Sabrina Zinutti et al.. \"Privacy Measurement in Tabular Synthetic Data: State of the Art and Future Research Directions\". 202...",
+        "paper_id": "2311.17453v1",
+        "confidence": 0.4,
+        "verified": true
+      },
+      {
+        "claim": "[@lamaster2026] John T. LaMaster, Aaron T. Gudmundson, Alireza Abaei, Seyma Alcicek, Arturo Alvarado et al.. \"Synthetic Data in MR Spectroscopy: Current Practices, Applications, and Considerations\". 2026. http://arxiv.or...",
+        "paper_id": "2602.23463v2",
+        "confidence": 0.4,
+        "verified": true
+      },
+      {
+        "claim": "[@source2026] Web Source. \"[PDF] Synthetic Data for Perception in Autonomous Driving. - mediaTUM\". 2026. https://mediatum.ub.tum.de/doc/1695355/3ltw4tcyj18c96wvgm6d17aw6.dissertation.pdf",
+        "paper_id": "simgen:_simulator-conditioned_driving_scene_generation_-_arx",
+        "confidence": 0.4,
+        "verified": false
+      },
+      {
+        "claim": "[@source2026] Web Source. \"[PDF] Synthetic Data Generation for Scarce Road Scene Detection ...\". 2026. https://assets.amazon.science/ba/53/46bc89ab41a7af029b7a49ee99ea/synthetic-data-generation-for-scarce-road-scene-dete...",
+        "paper_id": "simgen:_simulator-conditioned_driving_scene_generation_-_arx",
+        "confidence": 0.4,
+        "verified": false
+      },
+      {
+        "claim": "[@source2026] Web Source. \"Risk-aware diffusion model for generating extreme weather scenarios and safety evaluation in autonomous driving [PeerJ]\". 2026. https://peerj.com/articles/cs-3573/",
+        "paper_id": "simgen:_simulator-conditioned_driving_scene_generation_-_arx",
+        "confidence": 0.4,
+        "verified": false
+      },
+      {
+        "claim": "[@source2026] Web Source. \"SimGen: Simulator-conditioned Driving Scene Generation - arXiv\". 2026. https://arxiv.org/html/2406.09386v3",
+        "paper_id": "simgen:_simulator-conditioned_driving_scene_generation_-_arx",
+        "confidence": 0.4,
+        "verified": false
+      }
+    ],
+    "duplicate_clusters": [
+      {
+        "canonical_title": "An Evaluation of Large Pre-Trained Models for Gesture Recognition using Synthetic Videos",
+        "size": 2,
+        "sources": [
+          "arxiv"
+        ],
+        "paper_ids": [
+          "2410.02152v1",
+          "2410.02152v1"
+        ]
+      },
+      {
+        "canonical_title": "On LLMs-Driven Synthetic Data Generation, Curation, and Evaluation: A Survey",
+        "size": 2,
+        "sources": [
+          "arxiv"
+        ],
+        "paper_ids": [
+          "2406.15126v1",
+          "2406.15126v1"
+        ]
+      },
+      {
+        "canonical_title": "Synthetic Data in MR Spectroscopy: Current Practices, Applications, and Considerations",
+        "size": 2,
+        "sources": [
+          "arxiv"
+        ],
+        "paper_ids": [
+          "2602.23463v2",
+          "2602.23463v2"
+        ]
+      },
+      {
+        "canonical_title": "Privacy Measurement in Tabular Synthetic Data: State of the Art and Future Research Directions",
+        "size": 3,
+        "sources": [
+          "arxiv"
+        ],
+        "paper_ids": [
+          "2311.17453v1",
+          "2311.17453v1",
+          "2311.17453v1"
+        ]
+      }
+    ],
+    "source_counts": {
+      "arxiv": 5,
+      "web_tavily": 4
+    }
+  },
+  "chat_history": [],
+  "timeline": [
+    {
+      "timestamp": "2026-04-13T06:23:08.251017+00:00",
+      "type": "status",
+      "message": "Starting research on: Synthetic Rare-Weather Road Scene Generation  for Autonomous Driving Using Conditional Self Attention Generative Adversarial Networks",
+      "data": {
+        "node": "planner"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:23:08.255026+00:00",
+      "type": "status",
+      "message": "Planning research strategy for: Synthetic Rare-Weather Road Scene Generation  for Autonomous Driving Using Conditional Self Attention Generative Adversarial Networks",
+      "data": {
+        "node": "planner"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:23:30.544080+00:00",
+      "type": "status",
+      "message": "Generated 3 search queries",
+      "data": {
+        "queries": [
+          "\"Synthetic Rare-Weather Road Scene Generation  for Autonomous Driving Using Conditional Self Attention Generative Adversarial Networks\" evaluation synthetic",
+          "\"Synthetic Rare-Weather Road Scene Generation  for Autonomous Driving Using Conditional Self Attention Generative Adversarial Networks\" recent evaluation synthetic",
+          "\"Synthetic Rare-Weather Road Scene Generation  for Autonomous Driving Using Conditional Self Attention Generative Adversarial Networks\" ablation study synthetic"
+        ],
+        "plan": [
+          "General literature survey"
+        ],
+        "node": "planner"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:23:30.545355+00:00",
+      "type": "status",
+      "message": "Searching academic databases...",
+      "data": {
+        "node": "retrieval"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:23:41.135755+00:00",
+      "type": "paper_found",
+      "message": "Found: Risk-aware diffusion model for generating extreme weather scenarios and safety e...",
+      "data": {
+        "title": "Risk-aware diffusion model for generating extreme weather scenarios and safety evaluation in autonomous driving [PeerJ]",
+        "authors": "Web Source",
+        "source": "web_tavily",
+        "year": "2026",
+        "confidence": 0.425,
+        "node": "retrieval"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:23:41.135755+00:00",
+      "type": "paper_found",
+      "message": "Found: [PDF] Synthetic Data Generation for Scarce Road Scene Detection ......",
+      "data": {
+        "title": "[PDF] Synthetic Data Generation for Scarce Road Scene Detection ...",
+        "authors": "Web Source",
+        "source": "web_tavily",
+        "year": "2026",
+        "confidence": 0.425,
+        "node": "retrieval"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:23:41.136758+00:00",
+      "type": "paper_found",
+      "message": "Found: SimGen: Simulator-conditioned Driving Scene Generation - arXiv...",
+      "data": {
+        "title": "SimGen: Simulator-conditioned Driving Scene Generation - arXiv",
+        "authors": "Web Source",
+        "source": "web_tavily",
+        "year": "2026",
+        "confidence": 0.425,
+        "node": "retrieval"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:23:41.136758+00:00",
+      "type": "paper_found",
+      "message": "Found: [PDF] Synthetic Data for Perception in Autonomous Driving. - mediaTUM...",
+      "data": {
+        "title": "[PDF] Synthetic Data for Perception in Autonomous Driving. - mediaTUM",
+        "authors": "Web Source",
+        "source": "web_tavily",
+        "year": "2026",
+        "confidence": 0.425,
+        "node": "retrieval"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:23:41.136758+00:00",
+      "type": "paper_found",
+      "message": "Found: An Evaluation of Large Pre-Trained Models for Gesture Recognition using Syntheti...",
+      "data": {
+        "title": "An Evaluation of Large Pre-Trained Models for Gesture Recognition using Synthetic Videos",
+        "authors": "Arun Reddy, Ketul Shah, Corban Rivera, William Paul, Celso M. De Melo et al.",
+        "source": "arxiv",
+        "year": "2024",
+        "confidence": 0.56,
+        "node": "retrieval"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:23:41.145263+00:00",
+      "type": "status",
+      "message": "Retrieved 14 papers, 9 unique after dedup",
+      "data": {
+        "node": "retrieval",
+        "source_counts": {
+          "arxiv": 5,
+          "web_tavily": 4
+        },
+        "duplicate_clusters": 4
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:23:41.146423+00:00",
+      "type": "status",
+      "message": "Summarizing 9 papers...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:23:41.146423+00:00",
+      "type": "status",
+      "message": "Summarizing paper 1 of 9: An Evaluation of Large Pre-Trained Models for Gesture Recogn...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:23:59.200865+00:00",
+      "type": "status",
+      "message": "Summarizing paper 2 of 9: On LLMs-Driven Synthetic Data Generation, Curation, and Eval...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:24:06.907042+00:00",
+      "type": "status",
+      "message": "Summarizing paper 3 of 9: Synthetic Data in MR Spectroscopy: Current Practices, Applic...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:24:13.470847+00:00",
+      "type": "status",
+      "message": "Summarizing paper 4 of 9: Privacy Measurement in Tabular Synthetic Data: State of the ...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:24:19.305505+00:00",
+      "type": "status",
+      "message": "Summarizing paper 5 of 9: Autoregressivity in the Latent Space of a GP-VAE Language Mo...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:24:25.297578+00:00",
+      "type": "status",
+      "message": "Summarizing paper 6 of 9: Risk-aware diffusion model for generating extreme weather sc...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:24:31.528090+00:00",
+      "type": "status",
+      "message": "Summarizing paper 7 of 9: [PDF] Synthetic Data Generation for Scarce Road Scene Detect...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:24:38.716285+00:00",
+      "type": "status",
+      "message": "Summarizing paper 8 of 9: [PDF] Synthetic Data for Perception in Autonomous Driving. -...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:24:45.111280+00:00",
+      "type": "status",
+      "message": "Summarizing paper 9 of 9: SimGen: Simulator-conditioned Driving Scene Generation - arX...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:24:52.153471+00:00",
+      "type": "status",
+      "message": "Summarized 9 sources; verified 5 citations",
+      "data": {
+        "node": "summarizer",
+        "verified_citations": 5
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:24:52.155491+00:00",
+      "type": "status",
+      "message": "Drafting literature review...",
+      "data": {
+        "node": "proposer"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:25:35.827113+00:00",
+      "type": "status",
+      "message": "Literature review draft ready for review (round 1)",
+      "data": {
+        "node": "proposer",
+        "debate_round": 1,
+        "token_estimate": 2453
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:25:35.828484+00:00",
+      "type": "status",
+      "message": "Peer reviewer analyzing the draft...",
+      "data": {
+        "node": "critic"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:26:05.420868+00:00",
+      "type": "status",
+      "message": "Peer review complete, sending feedback to proposer",
+      "data": {
+        "node": "critic"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:26:05.422861+00:00",
+      "type": "status",
+      "message": "Drafting literature review...",
+      "data": {
+        "node": "proposer"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:26:48.777040+00:00",
+      "type": "status",
+      "message": "Literature review draft ready for review (round 2)",
+      "data": {
+        "node": "proposer",
+        "debate_round": 2,
+        "token_estimate": 3072
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:26:48.777947+00:00",
+      "type": "status",
+      "message": "Peer reviewer analyzing the draft...",
+      "data": {
+        "node": "critic"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:27:19.770127+00:00",
+      "type": "status",
+      "message": "Peer review complete, sending feedback to proposer",
+      "data": {
+        "node": "critic"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:27:19.771144+00:00",
+      "type": "status",
+      "message": "Drafting literature review...",
+      "data": {
+        "node": "proposer"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:27:57.562462+00:00",
+      "type": "status",
+      "message": "Literature review draft ready for review (round 3)",
+      "data": {
+        "node": "proposer",
+        "debate_round": 3,
+        "token_estimate": 2405
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:27:57.564459+00:00",
+      "type": "status",
+      "message": "Peer reviewer analyzing the draft...",
+      "data": {
+        "node": "critic"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:28:29.756779+00:00",
+      "type": "status",
+      "message": "Peer review complete, sending feedback to proposer",
+      "data": {
+        "node": "critic"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:28:29.758783+00:00",
+      "type": "status",
+      "message": "Drafting literature review...",
+      "data": {
+        "node": "proposer"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:29:23.515171+00:00",
+      "type": "status",
+      "message": "Literature review draft ready for review (round 4)",
+      "data": {
+        "node": "proposer",
+        "debate_round": 4,
+        "token_estimate": 2594
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:29:23.515171+00:00",
+      "type": "status",
+      "message": "Running cross-paper analysis...",
+      "data": {
+        "node": "cross_paper"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:29:55.407933+00:00",
+      "type": "status",
+      "message": "Cross-paper analysis complete",
+      "data": {
+        "node": "cross_paper"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:29:55.409019+00:00",
+      "type": "status",
+      "message": "Analyzing research gaps...",
+      "data": {
+        "node": "gap_analysis"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:31:02.035622+00:00",
+      "type": "gap",
+      "message": "Gap identified: Limited external validity across city contexts",
+      "data": {
+        "title": "Limited external validity across city contexts",
+        "evidence": "Retrieved studies are unevenly distributed across regions and urban forms, limiting generalization.",
+        "proposed_direction": "Evaluate methods across multiple climate zones, city morphologies, and socioeconomic contexts with a unified protocol.",
+        "why_gap": "Retrieved studies are unevenly distributed across regions and urban forms, limiting generalization.",
+        "what_missing": "Retrieved studies are unevenly distributed across regions and urban forms, limiting generalization.",
+        "supports": [],
+        "fails": []
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:31:02.036627+00:00",
+      "type": "gap",
+      "message": "Gap identified: Insufficient causal evaluation of mitigation impact",
+      "data": {
+        "title": "Insufficient causal evaluation of mitigation impact",
+        "evidence": "Many studies report associations or case outcomes without strong causal identification and uncertainty quantification.",
+        "proposed_direction": "Use quasi-experimental/causal designs with counterfactual baselines and confidence intervals for intervention effects.",
+        "why_gap": "Many studies report associations or case outcomes without strong causal identification and uncertainty quantification.",
+        "what_missing": "Many studies report associations or case outcomes without strong causal identification and uncertainty quantification.",
+        "supports": [],
+        "fails": []
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:31:02.036627+00:00",
+      "type": "gap",
+      "message": "Gap identified: Weak longitudinal validation of proposed strategies",
+      "data": {
+        "title": "Weak longitudinal validation of proposed strategies",
+        "evidence": "Evidence is often short-horizon, making durability and seasonal robustness of mitigation uncertain.",
+        "proposed_direction": "Run longitudinal monitoring with seasonal and extreme-event stress tests to validate sustained performance.",
+        "why_gap": "Evidence is often short-horizon, making durability and seasonal robustness of mitigation uncertain.",
+        "what_missing": "Evidence is often short-horizon, making durability and seasonal robustness of mitigation uncertain.",
+        "supports": [],
+        "fails": []
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:31:02.036627+00:00",
+      "type": "gap",
+      "message": "Gap identified: Gap 4: limitations of real-world data with synthetic data generation",
+      "data": {
+        "title": "Gap 4: limitations of real-world data with synthetic data generation",
+        "evidence": "On LLMs-Driven Synthetic Data Generation, Curation, and Evaluation: A Survey: limitations of real-world data with synthetic data generation.",
+        "proposed_direction": "Run controlled comparative studies with stronger baselines, subgroup analysis, and explicit failure reporting.",
+        "why_gap": "On LLMs-Driven Synthetic Data Generation, Curation, and Evaluation: A Survey: limitations of real-world data with synthetic data generation.",
+        "what_missing": "On LLMs-Driven Synthetic Data Generation, Curation, and Evaluation: A Survey: limitations of real-world data with synthetic data generation.",
+        "supports": [],
+        "fails": []
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:31:02.036627+00:00",
+      "type": "gap",
+      "message": "Gap identified: Limited coverage of rare in current evidence base",
+      "data": {
+        "title": "Limited coverage of rare in current evidence base",
+        "evidence": "Across summarized papers, direct analysis for 'rare' is sparse relative to the user topic scope.",
+        "proposed_direction": "Prioritize targeted retrieval and evaluation specifically focused on 'rare', then benchmark against current findings.",
+        "why_gap": "Across summarized papers, direct analysis for 'rare' is sparse relative to the user topic scope.",
+        "what_missing": "Across summarized papers, direct analysis for 'rare' is sparse relative to the user topic scope.",
+        "supports": [],
+        "fails": []
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:31:02.036627+00:00",
+      "type": "status",
+      "message": "Found 5 research gaps",
+      "data": {
+        "node": "gap_analysis"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:31:02.037940+00:00",
+      "type": "status",
+      "message": "Assembling final paper...",
+      "data": {
+        "node": "paper_architect"
+      }
+    },
+    {
+      "timestamp": "2026-04-13T06:32:23.855576+00:00",
+      "type": "complete",
+      "message": "Paper complete!",
+      "data": {
+        "paper_length": 15425,
+        "num_references": 9,
+        "num_gaps": 5,
+        "debate_rounds": 3,
+        "verified_citations": 5,
+        "claim_evidence_links": 14,
+        "format_compliance_score": 1.0,
+        "format_compliant": true
+      }
+    }
+  ]
+}

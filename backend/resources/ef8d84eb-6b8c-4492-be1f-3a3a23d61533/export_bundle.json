@@ -1,0 +1,443 @@
+{
+  "session_id": "ef8d84eb-6b8c-4492-be1f-3a3a23d61533",
+  "markdown": "# Regulatory-Grade Evaluation of Multilingual Clinical RAG Assistants: A Research Survey\n\n### Abstract\n\nRetrieval-Augmented Generation (RAG) systems are poised to revolutionize clinical decision support by providing synthesized, evidence-based answers from vast medical corpora. However, their deployment in regulated healthcare settings, especially across multiple languages, necessitates exceptionally rigorous evaluation to ensure safety, accuracy, and equity. This survey paper synthesizes the current state of regulatory-grade evaluation for multilingual clinical RAG assistants. We review the literature, highlighting the consensus on using multifaceted evaluation frameworks that combine quantitative metrics with qualitative assessments. Key methodologies, including annotated question-answering, comparative model analysis, and out-of-distribution (OOD) robustness testing, are examined. The unique challenges of multilingual assessment are discussed, emphasizing the need for language-specific validation. A critical research gap is identified: the lack of systematic reporting and analysis of model limitations, which is essential for risk assessment. We conclude that the future of safe clinical RAG deployment hinges on the development and standardization of these comprehensive evaluation protocols, particularly those that transparently address model failure modes. This paper provides a structured overview of current practices and charts a course for future research to establish the trustworthiness required for regulatory approval.\n\n### 1. Introduction\n\nThe integration of advanced artificial intelligence into healthcare has accelerated with the advent of Retrieval-Augmented Generation (RAG) models. These systems, which combine the knowledge-grounding capabilities of information retrieval with the fluent generative power of large language models, offer a promising solution for delivering timely, evidence-based information to clinicians and patients [@Source2026a]. In a clinical context, RAG assistants can synthesize data from extensive sources—such as medical literature, clinical trial protocols, and regulatory documents—to answer complex queries, thereby supporting decision-making and improving care efficiency [@Source2026b].\n\nHowever, the high-stakes nature of healthcare demands a level of scrutiny far exceeding that of general-purpose AI applications. For a clinical RAG assistant to be considered \"regulatory-grade,\" it must undergo a rigorous, transparent, and reproducible evaluation process that guarantees its safety, reliability, and efficacy. This is complicated by the inherent complexity of medical and regulatory texts, which can be long, intricate, and require specialized domain knowledge to interpret correctly [@Rayo2025]. Furthermore, the increasing need for equitable healthcare solutions requires these systems to function effectively across diverse linguistic contexts, introducing significant challenges in multilingual validation [@Clinic2026]. Failure to perform reliably in any given language is not merely a performance issue but a direct threat to patient safety.\n\nThis survey paper addresses the critical topic of establishing regulatory-grade evaluation standards for multilingual clinical RAG assistants. We synthesize the nascent but growing body of literature on this subject to provide a comprehensive overview of the state of the art. This paper's contribution is threefold: first, it consolidates current evaluation methodologies and frameworks as described in recent studies; second, it identifies a crucial gap in the literature concerning the systematic analysis of model limitations; and third, it proposes future research directions to build the robust evaluation infrastructure necessary for regulatory approval and safe clinical deployment.\n\n### 2. Literature Review\n\nThis review synthesizes the current literature on the evaluation of multilingual clinical RAG assistants, focusing on the methodologies, metrics, and challenges that define a \"regulatory-grade\" standard. The review organizes findings into key themes: the call for multifaceted evaluation frameworks, the specific evaluation tasks and methodologies being employed, the unique challenges of multilingual assessment, and the critical importance of robustness testing.\n\n#### 2.1 The Need for Multifaceted Evaluation Frameworks\n\nA central theme in the literature is the recognition that evaluating clinical RAG systems requires a combination of quantitative metrics and qualitative assessments. A single metric is insufficient to capture the complexity of clinical information delivery. One survey highlights the need for standardized assessment using both quantitative metrics—such as accuracy, BLEU, and ROUGE—and qualitative frameworks like S.C.O.R.E. to provide a more holistic view of model performance on established medical benchmarks [@Source2026c]. This dual approach is critical for regulatory-grade evaluation, which must assess not only the factual correctness of an answer but also its coherence, readability, and safety. The inherent complexity of the source material, such as the long and intricate nature of regulatory texts, further complicates retrieval and generation, necessitating robust evaluation to ensure systems can support compliance tasks effectively [@Rayo2025].\n\n#### 2.2 Core Evaluation Tasks and Methodologies\n\nResearchers are employing a variety of specific tasks and methods to assess the performance of clinical RAG systems. One practical approach involves evaluation based on annotated question-and-answer pairs, which has been used in a patient-centric context to measure the performance of RAG systems enhanced with fine-tuned clinical embedding models [@Source2026b]. This method provides a structured way to score system outputs against a gold standard. Another methodology involves comparative evaluation, where a RAG system's outputs are benchmarked against those of another model. For instance, in an evaluation focused on regulatory compliance for withdrawn drugs, a RAG system's explanations were compared to outputs from ChatGPT, revealing that the answers were generally concordant [@Source2026a]. This demonstrates a method for assessing the plausibility and alignment of a specialized RAG system against a well-known baseline.\n\n#### 2.3 The Multilingual Dimension in Evaluation\n\nThe multilingual capability of clinical assistants introduces significant evaluation challenges. Performance can vary drastically between languages, and models must be assessed for competency in each target language. The literature shows a clear focus on this area, with studies directly comparing the performance of fine-tuned models against established multilingual embedding models. For example, one study demonstrated that fine-tuned models achieved higher scores than general-purpose multilingual models such as `multilingual-e5-large`, `bge-m3`, `german-bge-m3`, and `gte-multilingual-base` in a patient-centric RAG evaluation scenario [@Source2026b]. The very existence of a study titled \"Evaluating Multilingual Trustworthiness in Language Models for Healthcare\" underscores that multilingualism is a primary axis for evaluation, not an afterthought [@Clinic2026]. This focus is essential for ensuring equitable and safe performance across diverse patient populations.\n\n#### 2.4 Robustness and Safety: Testing for Out-of-Distribution Scenarios\n\nA hallmark of regulatory-grade evaluation is assessing a system's robustness and safety when encountering novel or unexpected information. This is particularly critical in medicine, where new drugs, guidelines, and research findings emerge continuously. The literature describes methodologies for testing Out-of-Distribution (OOD) robustness to assess how models perform with clinically relevant but previously unseen information. One study explicitly simulated this scenario by curating a set of drug names approved after the training data cutoff for the models under evaluation [@Clinic2026]. This type of stress testing is fundamental for understanding potential failure modes and ensuring that a clinical RAG assistant can fail gracefully—or flag its own uncertainty—rather than providing outdated or incorrect information. Beyond performance, critical implementation challenges such as data privacy and algorithmic bias are also cited as key barriers to deployment that must be addressed through rigorous analysis and evaluation [@Source2026c].\n\n### 3. Research Gaps & Future Directions\n\nWhile the literature demonstrates a clear trajectory towards more rigorous evaluation, a critical gap remains in how model limitations are reported and analyzed. A comprehensive review of current methodologies reveals a primary focus on performance metrics, with less attention paid to the systematic identification and documentation of failure modes.\n\n**Gap: Lack of Systematic Reporting and Analysis of Model Limitations**\n\n*   **Evidence:** A synthesis of the reviewed literature indicates that while studies evaluate performance, they do not consistently provide a structured analysis of their systems' specific limitations or failure modes. For instance, papers may report overall accuracy or concordance [@Source2026a, @Source2026b] but often lack a detailed breakdown of where and why the system fails. The provided source material for this survey did not contain explicit sections detailing the limitations of the proposed evaluation methods or RAG systems themselves. This omission is a significant barrier to regulatory-grade assessment, which requires a comprehensive understanding of a system's risks and operational boundaries.\n\n*   **Proposed Direction:** Future research must prioritize the development of frameworks for systematic limitation analysis. We propose that evaluation protocols for clinical RAG systems should mandate a \"Failure Mode and Effects Analysis\" (FMEA) component. This would involve:\n    1.  **Adversarial Testing:** Designing targeted empirical studies that probe for specific vulnerabilities, such as susceptibility to generating plausible but factually incorrect information (\"hallucination\"), handling of ambiguous queries, or failure to retrieve and synthesize conflicting evidence from different sources.\n    2.  **Structured Reporting:** Creating standardized templates for reporting limitations, detailing the conditions under which a model is likely to fail, the potential impact of such failures in a clinical setting, and any built-in mitigation strategies (e.g., uncertainty flagging).\n    3.  **Extending Frameworks:** Integrating this analysis into existing evaluation frameworks [@Source2026c] to ensure that a model's \"trustworthiness score\" reflects not only its performance but also the transparency with which its weaknesses are documented.\n\nAddressing this gap is essential for moving beyond performance benchmarking to true risk assessment, a non-negotiable step for regulatory bodies and for fostering clinical trust.\n\n### 4. Conclusion\n\nThis survey has synthesized the current landscape of regulatory-grade evaluation for multilingual clinical RAG assistants, revealing a field that is rapidly maturing. The literature converges on the necessity of multifaceted evaluation, moving beyond simple accuracy metrics to embrace a combination of quantitative scores, qualitative human assessments, and robust safety checks. Key methodologies are emerging, including benchmarking against annotated datasets, comparative analysis with baseline models, and, critically, out-of-distribution testing to ensure systems can handle the dynamic nature of clinical information [@Clinic2026]. The emphasis on multilingual validation is a crucial step towards ensuring equitable and safe performance across diverse patient populations.\n\nDespite this progress, a significant gap persists: the lack of systematic reporting and analysis of model limitations. For these powerful tools to be responsibly integrated into clinical workflows, their failure modes must be as well-understood as their capabilities. The most promising future direction, therefore, lies in establishing rigorous protocols for adversarial testing and transparently documenting system weaknesses. By embedding failure analysis into the core of the evaluation process, the research community can build the foundation of trust required for regulatory approval and, ultimately, for the safe and effective use of RAG assistants to improve patient care worldwide.\n\n### References\n\n[@Clinic2026] Web Source. \"Clinic: Evaluating Multilingual Trustworthiness in Language Models for Healthcare.\" arXiv, 2026. https://arxiv.org/html/2512.11437v1\n\n[@Rayo2025] J. Rayo, R. de la Rosa, and M. Garrido. \"A Hybrid Approach to Information Retrieval and Answer Generation for Regulatory Texts.\" arXiv, 2025. http://arxiv.org/abs/2502.16767v1\n\n[@Source2026a] Web Source. \"Retrieval Augmented Generation (RAG) for Evaluating Regulatory Compliance of Drug Information and Clinical Trial Protocols - PMC.\" National Center for Biotechnology Information, 2026. https://pmc.ncbi.nlm.nih.gov/articles/PMC12917324/\n\n[@Source2026b] Web Source. \"Improving Retrieval Augmented Generation for Health Care by Fine-Tuning Clinical Embedding Models: Development and Evaluation Study.\" Journal of Medical Internet Research, 2026. https://www.jmir.org/2026/1/e82997\n\n[@Source2026c] Web Source. \"A survey on retrieval-augmentation generation (RAG) models for healthcare applications.\" Neural Computing and Applications, 2025. https://link.springer.com/article/10.1007/s00521-025-11666-9",
+  "pdf_text": "# Regulatory-Grade Evaluation of Multilingual Clinical RAG Assistants: A Research Survey\n\n### Abstract\n\nRetrieval-Augmented Generation (RAG) systems are poised to revolutionize clinical decision support by providing synthesized, evidence-based answers from vast medical corpora. However, their deployment in regulated healthcare settings, especially across multiple languages, necessitates exceptionally rigorous evaluation to ensure safety, accuracy, and equity. This survey paper synthesizes the current state of regulatory-grade evaluation for multilingual clinical RAG assistants. We review the literature, highlighting the consensus on using multifaceted evaluation frameworks that combine quantitative metrics with qualitative assessments. Key methodologies, including annotated question-answering, comparative model analysis, and out-of-distribution (OOD) robustness testing, are examined. The unique challenges of multilingual assessment are discussed, emphasizing the need for language-specific validation. A critical research gap is identified: the lack of systematic reporting and analysis of model limitations, which is essential for risk assessment. We conclude that the future of safe clinical RAG deployment hinges on the development and standardization of these comprehensive evaluation protocols, particularly those that transparently address model failure modes. This paper provides a structured overview of current practices and charts a course for future research to establish the trustworthiness required for regulatory approval.\n\n### 1. Introduction\n\nThe integration of advanced artificial intelligence into healthcare has accelerated with the advent of Retrieval-Augmented Generation (RAG) models. These systems, which combine the knowledge-grounding capabilities of information retrieval with the fluent generative power of large language models, offer a promising solution for delivering timely, evidence-based information to clinicians and patients [@Source2026a]. In a clinical context, RAG assistants can synthesize data from extensive sources—such as medical literature, clinical trial protocols, and regulatory documents—to answer complex queries, thereby supporting decision-making and improving care efficiency [@Source2026b].\n\nHowever, the high-stakes nature of healthcare demands a level of scrutiny far exceeding that of general-purpose AI applications. For a clinical RAG assistant to be considered \"regulatory-grade,\" it must undergo a rigorous, transparent, and reproducible evaluation process that guarantees its safety, reliability, and efficacy. This is complicated by the inherent complexity of medical and regulatory texts, which can be long, intricate, and require specialized domain knowledge to interpret correctly [@Rayo2025]. Furthermore, the increasing need for equitable healthcare solutions requires these systems to function effectively across diverse linguistic contexts, introducing significant challenges in multilingual validation [@Clinic2026]. Failure to perform reliably in any given language is not merely a performance issue but a direct threat to patient safety.\n\nThis survey paper addresses the critical topic of establishing regulatory-grade evaluation standards for multilingual clinical RAG assistants. We synthesize the nascent but growing body of literature on this subject to provide a comprehensive overview of the state of the art. This paper's contribution is threefold: first, it consolidates current evaluation methodologies and frameworks as described in recent studies; second, it identifies a crucial gap in the literature concerning the systematic analysis of model limitations; and third, it proposes future research directions to build the robust evaluation infrastructure necessary for regulatory approval and safe clinical deployment.\n\n### 2. Literature Review\n\nThis review synthesizes the current literature on the evaluation of multilingual clinical RAG assistants, focusing on the methodologies, metrics, and challenges that define a \"regulatory-grade\" standard. The review organizes findings into key themes: the call for multifaceted evaluation frameworks, the specific evaluation tasks and methodologies being employed, the unique challenges of multilingual assessment, and the critical importance of robustness testing.\n\n#### 2.1 The Need for Multifaceted Evaluation Frameworks\n\nA central theme in the literature is the recognition that evaluating clinical RAG systems requires a combination of quantitative metrics and qualitative assessments. A single metric is insufficient to capture the complexity of clinical information delivery. One survey highlights the need for standardized assessment using both quantitative metrics—such as accuracy, BLEU, and ROUGE—and qualitative frameworks like S.C.O.R.E. to provide a more holistic view of model performance on established medical benchmarks [@Source2026c]. This dual approach is critical for regulatory-grade evaluation, which must assess not only the factual correctness of an answer but also its coherence, readability, and safety. The inherent complexity of the source material, such as the long and intricate nature of regulatory texts, further complicates retrieval and generation, necessitating robust evaluation to ensure systems can support compliance tasks effectively [@Rayo2025].\n\n#### 2.2 Core Evaluation Tasks and Methodologies\n\nResearchers are employing a variety of specific tasks and methods to assess the performance of clinical RAG systems. One practical approach involves evaluation based on annotated question-and-answer pairs, which has been used in a patient-centric context to measure the performance of RAG systems enhanced with fine-tuned clinical embedding models [@Source2026b]. This method provides a structured way to score system outputs against a gold standard. Another methodology involves comparative evaluation, where a RAG system's outputs are benchmarked against those of another model. For instance, in an evaluation focused on regulatory compliance for withdrawn drugs, a RAG system's explanations were compared to outputs from ChatGPT, revealing that the answers were generally concordant [@Source2026a]. This demonstrates a method for assessing the plausibility and alignment of a specialized RAG system against a well-known baseline.\n\n#### 2.3 The Multilingual Dimension in Evaluation\n\nThe multilingual capability of clinical assistants introduces significant evaluation challenges. Performance can vary drastically between languages, and models must be assessed for competency in each target language. The literature shows a clear focus on this area, with studies directly comparing the performance of fine-tuned models against established multilingual embedding models. For example, one study demonstrated that fine-tuned models achieved higher scores than general-purpose multilingual models such as `multilingual-e5-large`, `bge-m3`, `german-bge-m3`, and `gte-multilingual-base` in a patient-centric RAG evaluation scenario [@Source2026b]. The very existence of a study titled \"Evaluating Multilingual Trustworthiness in Language Models for Healthcare\" underscores that multilingualism is a primary axis for evaluation, not an afterthought [@Clinic2026]. This focus is essential for ensuring equitable and safe performance across diverse patient populations.\n\n#### 2.4 Robustness and Safety: Testing for Out-of-Distribution Scenarios\n\nA hallmark of regulatory-grade evaluation is assessing a system's robustness and safety when encountering novel or unexpected information. This is particularly critical in medicine, where new drugs, guidelines, and research findings emerge continuously. The literature describes methodologies for testing Out-of-Distribution (OOD) robustness to assess how models perform with clinically relevant but previously unseen information. One study explicitly simulated this scenario by curating a set of drug names approved after the training data cutoff for the models under evaluation [@Clinic2026]. This type of stress testing is fundamental for understanding potential failure modes and ensuring that a clinical RAG assistant can fail gracefully—or flag its own uncertainty—rather than providing outdated or incorrect information. Beyond performance, critical implementation challenges such as data privacy and algorithmic bias are also cited as key barriers to deployment that must be addressed through rigorous analysis and evaluation [@Source2026c].\n\n### 3. Research Gaps & Future Directions\n\nWhile the literature demonstrates a clear trajectory towards more rigorous evaluation, a critical gap remains in how model limitations are reported and analyzed. A comprehensive review of current methodologies reveals a primary focus on performance metrics, with less attention paid to the systematic identification and documentation of failure modes.\n\n**Gap: Lack of Systematic Reporting and Analysis of Model Limitations**\n\n*   **Evidence:** A synthesis of the reviewed literature indicates that while studies evaluate performance, they do not consistently provide a structured analysis of their systems' specific limitations or failure modes. For instance, papers may report overall accuracy or concordance [@Source2026a, @Source2026b] but often lack a detailed breakdown of where and why the system fails. The provided source material for this survey did not contain explicit sections detailing the limitations of the proposed evaluation methods or RAG systems themselves. This omission is a significant barrier to regulatory-grade assessment, which requires a comprehensive understanding of a system's risks and operational boundaries.\n\n*   **Proposed Direction:** Future research must prioritize the development of frameworks for systematic limitation analysis. We propose that evaluation protocols for clinical RAG systems should mandate a \"Failure Mode and Effects Analysis\" (FMEA) component. This would involve:\n    1.  **Adversarial Testing:** Designing targeted empirical studies that probe for specific vulnerabilities, such as susceptibility to generating plausible but factually incorrect information (\"hallucination\"), handling of ambiguous queries, or failure to retrieve and synthesize conflicting evidence from different sources.\n    2.  **Structured Reporting:** Creating standardized templates for reporting limitations, detailing the conditions under which a model is likely to fail, the potential impact of such failures in a clinical setting, and any built-in mitigation strategies (e.g., uncertainty flagging).\n    3.  **Extending Frameworks:** Integrating this analysis into existing evaluation frameworks [@Source2026c] to ensure that a model's \"trustworthiness score\" reflects not only its performance but also the transparency with which its weaknesses are documented.\n\nAddressing this gap is essential for moving beyond performance benchmarking to true risk assessment, a non-negotiable step for regulatory bodies and for fostering clinical trust.\n\n### 4. Conclusion\n\nThis survey has synthesized the current landscape of regulatory-grade evaluation for multilingual clinical RAG assistants, revealing a field that is rapidly maturing. The literature converges on the necessity of multifaceted evaluation, moving beyond simple accuracy metrics to embrace a combination of quantitative scores, qualitative human assessments, and robust safety checks. Key methodologies are emerging, including benchmarking against annotated datasets, comparative analysis with baseline models, and, critically, out-of-distribution testing to ensure systems can handle the dynamic nature of clinical information [@Clinic2026]. The emphasis on multilingual validation is a crucial step towards ensuring equitable and safe performance across diverse patient populations.\n\nDespite this progress, a significant gap persists: the lack of systematic reporting and analysis of model limitations. For these powerful tools to be responsibly integrated into clinical workflows, their failure modes must be as well-understood as their capabilities. The most promising future direction, therefore, lies in establishing rigorous protocols for adversarial testing and transparently documenting system weaknesses. By embedding failure analysis into the core of the evaluation process, the research community can build the foundation of trust required for regulatory approval and, ultimately, for the safe and effective use of RAG assistants to improve patient care worldwide.\n\n### References\n\n[@Clinic2026] Web Source. \"Clinic: Evaluating Multilingual Trustworthiness in Language Models for Healthcare.\" arXiv, 2026. https://arxiv.org/html/2512.11437v1\n\n[@Rayo2025] J. Rayo, R. de la Rosa, and M. Garrido. \"A Hybrid Approach to Information Retrieval and Answer Generation for Regulatory Texts.\" arXiv, 2025. http://arxiv.org/abs/2502.16767v1\n\n[@Source2026a] Web Source. \"Retrieval Augmented Generation (RAG) for Evaluating Regulatory Compliance of Drug Information and Clinical Trial Protocols - PMC.\" National Center for Biotechnology Information, 2026. https://pmc.ncbi.nlm.nih.gov/articles/PMC12917324/\n\n[@Source2026b] Web Source. \"Improving Retrieval Augmented Generation for Health Care by Fine-Tuning Clinical Embedding Models: Development and Evaluation Study.\" Journal of Medical Internet Research, 2026. https://www.jmir.org/2026/1/e82997\n\n[@Source2026c] Web Source. \"A survey on retrieval-augmentation generation (RAG) models for healthcare applications.\" Neural Computing and Applications, 2025. https://link.springer.com/article/10.1007/s00521-025-11666-9",
+  "bibtex": "@article{orion1, title={Retrieval Augmented Generation (RAG) for Evaluating Regulatory Compliance of Drug Information and Clinical Trial Protocols - PMC}, author={Web Source}, year={2026}, url={https://pmc.ncbi.nlm.nih.gov/articles/PMC12917324/}, doi={}}\n\n@article{orion2, title={Improving Retrieval Augmented Generation for Health Care by Fine-Tuning Clinical Embedding Models: Development and Evaluation Study}, author={Web Source}, year={2026}, url={https://www.jmir.org/2026/1/e82997}, doi={}}\n\n@article{orion3, title={A survey on retrieval-augmentation generation (RAG) models for healthcare applications | Neural Computing and Applications | Springer Nature Link}, author={Web Source}, year={2026}, url={https://link.springer.com/article/10.1007/s00521-025-11666-9}, doi={}}\n\n@article{orion4, title={Clinic: Evaluating Multilingual Trustworthiness in Language Models for Healthcare}, author={Web Source}, year={2026}, url={https://arxiv.org/html/2512.11437v1}, doi={}}\n\n@article{orion5, title={A Hybrid Approach to Information Retrieval and Answer Generation for Regulatory Texts}, author={Jhon Rayo, Raul de la Rosa, Mario Garrido}, year={2025}, url={http://arxiv.org/abs/2502.16767v1}, doi={}}\n\n@article{orion6, title={Gene regulatory network inference: an introductory survey}, author={Vân Anh Huynh-Thu, Guido Sanguinetti}, year={2018}, url={http://arxiv.org/abs/1801.04087v2}, doi={}}\n\n@article{orion7, title={Gene regulatory networks: a primer in biological processes and statistical modelling}, author={Olivia Angelin-Bonnet, Patrick J. Biggs, Matthieu Vignes}, year={2018}, url={http://arxiv.org/abs/1805.01098v1}, doi={}}\n\n@article{orion8, title={Comment on \"Evidence of Abundant and Purifying Selection in Humans for Recently Acquired Regulatory Functions\"}, author={Nicolas Bray, Lior Pachter}, year={2012}, url={http://arxiv.org/abs/1212.3076v1}, doi={}}",
+  "evidence_json": {
+    "citation_quality": {
+      "retrieval_augmented_generation_(rag)_for_evaluating_regulato": {
+        "source_quality": 0.45,
+        "confidence": 0.4
+      },
+      "improving_retrieval_augmented_generation_for_health_care_by_": {
+        "source_quality": 0.45,
+        "confidence": 0.4
+      },
+      "a_survey_on_retrieval-augmentation_generation_(rag)_models_f": {
+        "source_quality": 0.45,
+        "confidence": 0.4
+      },
+      "clinic:_evaluating_multilingual_trustworthiness_in_language_": {
+        "source_quality": 0.45,
+        "confidence": 0.4
+      },
+      "2502.16767v1": {
+        "source_quality": 0.72,
+        "confidence": 0.4
+      },
+      "1801.04087v2": {
+        "source_quality": 0.72,
+        "confidence": 0.4
+      },
+      "1805.01098v1": {
+        "source_quality": 0.72,
+        "confidence": 0.4
+      },
+      "1212.3076v1": {
+        "source_quality": 0.72,
+        "confidence": 0.4
+      }
+    },
+    "citation_verification": {
+      "retrieval_augmented_generation_(rag)_for_evaluating_regulato": {
+        "title_ok": true,
+        "year_ok": true,
+        "doi_ok": false,
+        "verified": false
+      },
+      "improving_retrieval_augmented_generation_for_health_care_by_": {
+        "title_ok": true,
+        "year_ok": true,
+        "doi_ok": false,
+        "verified": false
+      },
+      "a_survey_on_retrieval-augmentation_generation_(rag)_models_f": {
+        "title_ok": true,
+        "year_ok": true,
+        "doi_ok": false,
+        "verified": false
+      },
+      "clinic:_evaluating_multilingual_trustworthiness_in_language_": {
+        "title_ok": true,
+        "year_ok": true,
+        "doi_ok": false,
+        "verified": false
+      },
+      "2502.16767v1": {
+        "title_ok": true,
+        "year_ok": true,
+        "doi_ok": false,
+        "verified": false
+      },
+      "1801.04087v2": {
+        "title_ok": true,
+        "year_ok": true,
+        "doi_ok": false,
+        "verified": false
+      },
+      "1805.01098v1": {
+        "title_ok": true,
+        "year_ok": true,
+        "doi_ok": false,
+        "verified": false
+      },
+      "1212.3076v1": {
+        "title_ok": true,
+        "year_ok": true,
+        "doi_ok": false,
+        "verified": false
+      }
+    },
+    "claim_to_evidence_map": [],
+    "duplicate_clusters": [
+      {
+        "canonical_title": "A Hybrid Approach to Information Retrieval and Answer Generation for Regulatory Texts",
+        "size": 3,
+        "sources": [
+          "arxiv"
+        ],
+        "paper_ids": [
+          "2502.16767v1",
+          "2502.16767v1",
+          "2502.16767v1"
+        ]
+      },
+      {
+        "canonical_title": "Gene regulatory network inference: an introductory survey",
+        "size": 2,
+        "sources": [
+          "arxiv"
+        ],
+        "paper_ids": [
+          "1801.04087v2",
+          "1801.04087v2"
+        ]
+      },
+      {
+        "canonical_title": "Gene regulatory networks: a primer in biological processes and statistical modelling",
+        "size": 2,
+        "sources": [
+          "arxiv"
+        ],
+        "paper_ids": [
+          "1805.01098v1",
+          "1805.01098v1"
+        ]
+      },
+      {
+        "canonical_title": "Comment on \"Evidence of Abundant and Purifying Selection in Humans for Recently Acquired Regulatory Functions\"",
+        "size": 2,
+        "sources": [
+          "arxiv"
+        ],
+        "paper_ids": [
+          "1212.3076v1",
+          "1212.3076v1"
+        ]
+      }
+    ],
+    "source_counts": {
+      "web_tavily": 4,
+      "arxiv": 4
+    }
+  },
+  "timeline": [
+    {
+      "timestamp": "2026-04-12T14:41:57.653681+00:00",
+      "type": "status",
+      "message": "Starting research on: Regulatory-grade evaluation of multilingual clinical RAG assistants:",
+      "data": {
+        "node": "planner"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:41:57.655893+00:00",
+      "type": "status",
+      "message": "Planning research strategy for: Regulatory-grade evaluation of multilingual clinical RAG assistants:",
+      "data": {
+        "node": "planner"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:42:19.629779+00:00",
+      "type": "status",
+      "message": "Generated 3 search queries",
+      "data": {
+        "queries": [
+          "\"Regulatory-grade evaluation of multilingual clinical RAG assistants:\" evaluation regulatory",
+          "\"Regulatory-grade evaluation of multilingual clinical RAG assistants:\" recent evaluation regulatory",
+          "\"Regulatory-grade evaluation of multilingual clinical RAG assistants:\" ablation study regulatory"
+        ],
+        "plan": [
+          "General literature survey"
+        ],
+        "node": "planner"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:42:19.631845+00:00",
+      "type": "status",
+      "message": "Searching academic databases...",
+      "data": {
+        "node": "retrieval"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:42:48.008949+00:00",
+      "type": "paper_found",
+      "message": "Found: Retrieval Augmented Generation (RAG) for Evaluating Regulatory Compliance of Dru...",
+      "data": {
+        "title": "Retrieval Augmented Generation (RAG) for Evaluating Regulatory Compliance of Drug Information and Clinical Trial Protocols - PMC",
+        "authors": "Web Source",
+        "source": "web_tavily",
+        "year": "2026",
+        "confidence": 0.425,
+        "node": "retrieval"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:42:48.010096+00:00",
+      "type": "paper_found",
+      "message": "Found: Improving Retrieval Augmented Generation for Health Care by Fine-Tuning Clinical...",
+      "data": {
+        "title": "Improving Retrieval Augmented Generation for Health Care by Fine-Tuning Clinical Embedding Models: Development and Evaluation Study",
+        "authors": "Web Source",
+        "source": "web_tavily",
+        "year": "2026",
+        "confidence": 0.425,
+        "node": "retrieval"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:42:48.010096+00:00",
+      "type": "paper_found",
+      "message": "Found: A survey on retrieval-augmentation generation (RAG) models for healthcare applic...",
+      "data": {
+        "title": "A survey on retrieval-augmentation generation (RAG) models for healthcare applications | Neural Computing and Applications | Springer Nature Link",
+        "authors": "Web Source",
+        "source": "web_tavily",
+        "year": "2026",
+        "confidence": 0.425,
+        "node": "retrieval"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:42:48.010096+00:00",
+      "type": "paper_found",
+      "message": "Found: Clinic: Evaluating Multilingual Trustworthiness in Language Models for Healthcar...",
+      "data": {
+        "title": "Clinic: Evaluating Multilingual Trustworthiness in Language Models for Healthcare",
+        "authors": "Web Source",
+        "source": "web_tavily",
+        "year": "2026",
+        "confidence": 0.425,
+        "node": "retrieval"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:42:48.010096+00:00",
+      "type": "paper_found",
+      "message": "Found: A Hybrid Approach to Information Retrieval and Answer Generation for Regulatory ...",
+      "data": {
+        "title": "A Hybrid Approach to Information Retrieval and Answer Generation for Regulatory Texts",
+        "authors": "Jhon Rayo, Raul de la Rosa, Mario Garrido",
+        "source": "arxiv",
+        "year": "2025",
+        "confidence": 0.56,
+        "node": "retrieval"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:42:48.018248+00:00",
+      "type": "status",
+      "message": "Retrieved 13 papers, 8 unique after dedup",
+      "data": {
+        "node": "retrieval",
+        "source_counts": {
+          "web_tavily": 4,
+          "arxiv": 4
+        },
+        "duplicate_clusters": 4
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:42:48.019753+00:00",
+      "type": "status",
+      "message": "Summarizing 8 papers...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:42:48.019753+00:00",
+      "type": "status",
+      "message": "Summarizing paper 1 of 8: Retrieval Augmented Generation (RAG) for Evaluating Regulato...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:43:06.132542+00:00",
+      "type": "status",
+      "message": "Summarizing paper 2 of 8: Improving Retrieval Augmented Generation for Health Care by ...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:43:12.916924+00:00",
+      "type": "status",
+      "message": "Summarizing paper 3 of 8: A survey on retrieval-augmentation generation (RAG) models f...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:43:19.361065+00:00",
+      "type": "status",
+      "message": "Summarizing paper 4 of 8: Clinic: Evaluating Multilingual Trustworthiness in Language ...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:43:27.563209+00:00",
+      "type": "status",
+      "message": "Summarizing paper 5 of 8: A Hybrid Approach to Information Retrieval and Answer Genera...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:43:33.886947+00:00",
+      "type": "status",
+      "message": "Summarizing paper 6 of 8: Gene regulatory network inference: an introductory survey...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:43:41.147777+00:00",
+      "type": "status",
+      "message": "Summarizing paper 7 of 8: Gene regulatory networks: a primer in biological processes a...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:43:47.822975+00:00",
+      "type": "status",
+      "message": "Summarizing paper 8 of 8: Comment on \"Evidence of Abundant and Purifying Selection in ...",
+      "data": {
+        "node": "summarizer"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:43:55.449726+00:00",
+      "type": "status",
+      "message": "Summarized 8 sources; verified 0 citations",
+      "data": {
+        "node": "summarizer",
+        "verified_citations": 0
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:43:55.450604+00:00",
+      "type": "status",
+      "message": "Drafting literature review...",
+      "data": {
+        "node": "proposer"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:44:25.551059+00:00",
+      "type": "status",
+      "message": "Literature review draft ready for review (round 1)",
+      "data": {
+        "node": "proposer",
+        "debate_round": 1,
+        "token_estimate": 2009
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:44:25.553039+00:00",
+      "type": "status",
+      "message": "Peer reviewer analyzing the draft...",
+      "data": {
+        "node": "critic"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:44:44.933883+00:00",
+      "type": "status",
+      "message": "Peer review complete, sending feedback to proposer",
+      "data": {
+        "node": "critic"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:44:44.935906+00:00",
+      "type": "status",
+      "message": "Drafting literature review...",
+      "data": {
+        "node": "proposer"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:45:17.104276+00:00",
+      "type": "status",
+      "message": "Literature review draft ready for review (round 2)",
+      "data": {
+        "node": "proposer",
+        "debate_round": 2,
+        "token_estimate": 1574
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:45:17.105635+00:00",
+      "type": "status",
+      "message": "Analyzing research gaps...",
+      "data": {
+        "node": "gap_analysis"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:45:52.266297+00:00",
+      "type": "gap",
+      "message": "Gap identified: Gap 1: Underexplored limitation",
+      "data": {
+        "title": "Gap 1: Underexplored limitation",
+        "evidence": "No specific limitations extracted from the retrieved papers.",
+        "proposed_direction": "Design targeted empirical studies with stronger evaluation criteria for this limitation."
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:45:52.266297+00:00",
+      "type": "status",
+      "message": "Found 1 research gaps",
+      "data": {
+        "node": "gap_analysis"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:45:52.267295+00:00",
+      "type": "status",
+      "message": "Assembling final paper...",
+      "data": {
+        "node": "paper_architect"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T14:46:31.415787+00:00",
+      "type": "complete",
+      "message": "Paper complete!",
+      "data": {
+        "paper_length": 13574,
+        "num_references": 8,
+        "num_gaps": 1,
+        "debate_rounds": 1,
+        "verified_citations": 0
+      }
+    }
+  ]
+}

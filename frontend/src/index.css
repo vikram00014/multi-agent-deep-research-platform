@@ -1,0 +1,215 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ORION Design System – Lumina Ethos (Premium Light Theme)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  --color-orion-bg: #f7f9fb;
+  --color-orion-surface: #ffffff;
+  --color-orion-surface-2: #f0f4f7;
+  --color-orion-surface-3: #eaeff2;
+  --color-orion-border: rgba(172, 179, 183, 0.4);
+  --color-orion-border-hover: rgba(172, 179, 183, 0.7);
+  
+  --color-orion-text: #000000;
+  --color-orion-text-muted: #000000;
+  --color-orion-text-dim: #000000;
+  
+  --color-orion-accent: #1a433b;
+  --color-orion-accent-light: #3e665d;
+  --color-orion-accent-glow: rgba(26, 67, 59, 0.15);
+  
+  --color-orion-success: #315950;
+  --color-orion-warning: #c26a15;
+  --color-orion-error: #a83836;
+  --color-orion-info: #4e6360;
+  --color-orion-cyan: #1d463e;
+
+  --font-sans: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-display: 'Manrope', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Base Styles
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    background-color: var(--color-orion-bg);
+    background-image:
+      radial-gradient(circle at 12% 10%, rgba(26, 67, 59, 0.10), transparent 40%),
+      radial-gradient(circle at 88% 14%, rgba(78, 99, 96, 0.08), transparent 34%),
+      radial-gradient(circle at 50% 100%, rgba(26, 67, 59, 0.06), transparent 36%),
+      linear-gradient(160deg, #f7f9fb 0%, #eef3f6 52%, #e9eff3 100%);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    color: var(--color-orion-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "liga" 1, "kern" 1;
+    letter-spacing: 0.01em;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-orion-border);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-orion-border-hover);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Utility Classes
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@layer utilities {
+  .glass {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 8px 32px rgba(44, 52, 55, 0.04), inset 0.5px 0.5px 0 rgba(255, 255, 255, 0.8);
+  }
+
+  .glass-solid {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 12px 40px rgba(44, 52, 55, 0.06), inset 0.5px 0.5px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .glass-hover:hover {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 12px 40px rgba(44, 52, 55, 0.06), inset 0.5px 0.5px 0 rgba(255, 255, 255, 1);
+  }
+
+  .glow-accent {
+    box-shadow:
+      0 0 20px var(--color-orion-accent-glow),
+      0 0 40px rgba(26, 67, 59, 0.05);
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, var(--color-orion-accent), var(--color-orion-cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse-slow 3s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0) 0%,
+      rgba(255,255,255,0.4) 50%,
+      rgba(255,255,255,0) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2.5s infinite;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.4s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.5s ease-out forwards;
+  }
+
+  .animate-scale-in {
+    animation: scale-in 0.3s ease-out forwards;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Keyframes
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes orbit {
+  from { transform: rotate(0deg) translateX(3px) rotate(0deg); }
+  to { transform: rotate(360deg) translateX(3px) rotate(-360deg); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Markdown Rendered Content
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.markdown-body {
+  & h1 { font-family: var(--font-display); font-size: 2rem; font-weight: 300; margin: 2rem 0 1rem; color: var(--color-orion-text); border-bottom: 1px solid var(--color-orion-border); padding-bottom: 0.5rem; letter-spacing: -0.02em; }
+  & h2 { font-family: var(--font-display); font-size: 1.5rem; font-weight: 400; margin: 1.75rem 0 0.75rem; color: var(--color-orion-text); letter-spacing: -0.01em; }
+  & h3 { font-family: var(--font-display); font-size: 1.125rem; font-weight: 600; margin: 1.5rem 0 0.5rem; color: var(--color-orion-accent); }
+  & p { margin: 0.85rem 0; line-height: 1.8; color: var(--color-orion-text-muted); font-weight: 400; font-size: 0.95rem; }
+  & ul, & ol { margin: 0.85rem 0; padding-left: 1.5rem; color: var(--color-orion-text-muted); line-height: 1.8; font-size: 0.95rem; }
+  & li { margin: 0.35rem 0; }
+  & blockquote { border-left: 3px solid var(--color-orion-accent-light); padding-left: 1.25rem; margin: 1.5rem 0; color: var(--color-orion-text-muted); font-style: italic; background: rgba(255,255,255,0.4); border-radius: 0 8px 8px 0; padding-top: 0.5rem; padding-bottom: 0.5rem; }
+  & code { background: rgba(0,0,0,0.04); padding: 0.2em 0.4em; border-radius: 4px; font-size: 0.85em; font-family: var(--font-mono); color: var(--color-orion-accent-light); border: 1px solid rgba(0,0,0,0.05); }
+  & pre { background: var(--color-orion-surface-2); padding: 1.25rem; border-radius: 12px; overflow-x: auto; margin: 1.5rem 0; border: 1px solid var(--color-orion-border); box-shadow: inset 0 2px 10px rgba(0,0,0,0.02); }
+  & pre code { background: transparent; padding: 0; color: var(--color-orion-text-muted); border: none; }
+  & a { color: var(--color-orion-accent); text-decoration: none; font-weight: 500; transition: color 0.2s ease; border-bottom: 1px solid transparent; &:hover { color: var(--color-orion-accent-light); border-bottom-color: var(--color-orion-accent-light); } }
+  & strong { color: var(--color-orion-text); font-weight: 600; }
+  & table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
+  & th { background: var(--color-orion-surface-3); padding: 0.75rem 1rem; text-align: left; border-bottom: 2px solid var(--color-orion-border); color: var(--color-orion-text); font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-display); }
+  & td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--color-orion-border); color: var(--color-orion-text-muted); font-size: 0.9rem; }
+  & hr { border: none; border-top: 1px solid var(--color-orion-border); margin: 2rem 0; }
+}

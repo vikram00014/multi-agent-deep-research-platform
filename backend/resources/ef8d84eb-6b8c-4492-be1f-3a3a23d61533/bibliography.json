@@ -1,0 +1,90 @@
+[
+  {
+    "paper_id": "retrieval_augmented_generation_(rag)_for_evaluating_regulato",
+    "title": "Retrieval Augmented Generation (RAG) for Evaluating Regulatory Compliance of Drug Information and Clinical Trial Protocols - PMC",
+    "authors": "Web Source",
+    "year": "2026",
+    "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12917324/",
+    "doi": "",
+    "source_quality": 0.45,
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "paper_id": "improving_retrieval_augmented_generation_for_health_care_by_",
+    "title": "Improving Retrieval Augmented Generation for Health Care by Fine-Tuning Clinical Embedding Models: Development and Evaluation Study",
+    "authors": "Web Source",
+    "year": "2026",
+    "url": "https://www.jmir.org/2026/1/e82997",
+    "doi": "",
+    "source_quality": 0.45,
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "paper_id": "a_survey_on_retrieval-augmentation_generation_(rag)_models_f",
+    "title": "A survey on retrieval-augmentation generation (RAG) models for healthcare applications | Neural Computing and Applications | Springer Nature Link",
+    "authors": "Web Source",
+    "year": "2026",
+    "url": "https://link.springer.com/article/10.1007/s00521-025-11666-9",
+    "doi": "",
+    "source_quality": 0.45,
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "paper_id": "clinic:_evaluating_multilingual_trustworthiness_in_language_",
+    "title": "Clinic: Evaluating Multilingual Trustworthiness in Language Models for Healthcare",
+    "authors": "Web Source",
+    "year": "2026",
+    "url": "https://arxiv.org/html/2512.11437v1",
+    "doi": "",
+    "source_quality": 0.45,
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "paper_id": "2502.16767v1",
+    "title": "A Hybrid Approach to Information Retrieval and Answer Generation for Regulatory Texts",
+    "authors": "Jhon Rayo, Raul de la Rosa, Mario Garrido",
+    "year": "2025",
+    "url": "http://arxiv.org/abs/2502.16767v1",
+    "doi": "",
+    "source_quality": 0.72,
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "paper_id": "1801.04087v2",
+    "title": "Gene regulatory network inference: an introductory survey",
+    "authors": "Vân Anh Huynh-Thu, Guido Sanguinetti",
+    "year": "2018",
+    "url": "http://arxiv.org/abs/1801.04087v2",
+    "doi": "",
+    "source_quality": 0.72,
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "paper_id": "1805.01098v1",
+    "title": "Gene regulatory networks: a primer in biological processes and statistical modelling",
+    "authors": "Olivia Angelin-Bonnet, Patrick J. Biggs, Matthieu Vignes",
+    "year": "2018",
+    "url": "http://arxiv.org/abs/1805.01098v1",
+    "doi": "",
+    "source_quality": 0.72,
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "paper_id": "1212.3076v1",
+    "title": "Comment on \"Evidence of Abundant and Purifying Selection in Humans for Recently Acquired Regulatory Functions\"",
+    "authors": "Nicolas Bray, Lior Pachter",
+    "year": "2012",
+    "url": "http://arxiv.org/abs/1212.3076v1",
+    "doi": "",
+    "source_quality": 0.72,
+    "confidence": 0.4,
+    "verified": false
+  }
+]

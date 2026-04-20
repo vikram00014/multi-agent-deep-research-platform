@@ -1,0 +1,299 @@
+[
+  {
+    "timestamp": "2026-04-12T14:41:57.653681+00:00",
+    "type": "status",
+    "message": "Starting research on: Regulatory-grade evaluation of multilingual clinical RAG assistants:",
+    "data": {
+      "node": "planner"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:41:57.655893+00:00",
+    "type": "status",
+    "message": "Planning research strategy for: Regulatory-grade evaluation of multilingual clinical RAG assistants:",
+    "data": {
+      "node": "planner"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:42:19.629779+00:00",
+    "type": "status",
+    "message": "Generated 3 search queries",
+    "data": {
+      "queries": [
+        "\"Regulatory-grade evaluation of multilingual clinical RAG assistants:\" evaluation regulatory",
+        "\"Regulatory-grade evaluation of multilingual clinical RAG assistants:\" recent evaluation regulatory",
+        "\"Regulatory-grade evaluation of multilingual clinical RAG assistants:\" ablation study regulatory"
+      ],
+      "plan": [
+        "General literature survey"
+      ],
+      "node": "planner"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:42:19.631845+00:00",
+    "type": "status",
+    "message": "Searching academic databases...",
+    "data": {
+      "node": "retrieval"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:42:48.008949+00:00",
+    "type": "paper_found",
+    "message": "Found: Retrieval Augmented Generation (RAG) for Evaluating Regulatory Compliance of Dru...",
+    "data": {
+      "title": "Retrieval Augmented Generation (RAG) for Evaluating Regulatory Compliance of Drug Information and Clinical Trial Protocols - PMC",
+      "authors": "Web Source",
+      "source": "web_tavily",
+      "year": "2026",
+      "confidence": 0.425,
+      "node": "retrieval"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:42:48.010096+00:00",
+    "type": "paper_found",
+    "message": "Found: Improving Retrieval Augmented Generation for Health Care by Fine-Tuning Clinical...",
+    "data": {
+      "title": "Improving Retrieval Augmented Generation for Health Care by Fine-Tuning Clinical Embedding Models: Development and Evaluation Study",
+      "authors": "Web Source",
+      "source": "web_tavily",
+      "year": "2026",
+      "confidence": 0.425,
+      "node": "retrieval"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:42:48.010096+00:00",
+    "type": "paper_found",
+    "message": "Found: A survey on retrieval-augmentation generation (RAG) models for healthcare applic...",
+    "data": {
+      "title": "A survey on retrieval-augmentation generation (RAG) models for healthcare applications | Neural Computing and Applications | Springer Nature Link",
+      "authors": "Web Source",
+      "source": "web_tavily",
+      "year": "2026",
+      "confidence": 0.425,
+      "node": "retrieval"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:42:48.010096+00:00",
+    "type": "paper_found",
+    "message": "Found: Clinic: Evaluating Multilingual Trustworthiness in Language Models for Healthcar...",
+    "data": {
+      "title": "Clinic: Evaluating Multilingual Trustworthiness in Language Models for Healthcare",
+      "authors": "Web Source",
+      "source": "web_tavily",
+      "year": "2026",
+      "confidence": 0.425,
+      "node": "retrieval"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:42:48.010096+00:00",
+    "type": "paper_found",
+    "message": "Found: A Hybrid Approach to Information Retrieval and Answer Generation for Regulatory ...",
+    "data": {
+      "title": "A Hybrid Approach to Information Retrieval and Answer Generation for Regulatory Texts",
+      "authors": "Jhon Rayo, Raul de la Rosa, Mario Garrido",
+      "source": "arxiv",
+      "year": "2025",
+      "confidence": 0.56,
+      "node": "retrieval"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:42:48.018248+00:00",
+    "type": "status",
+    "message": "Retrieved 13 papers, 8 unique after dedup",
+    "data": {
+      "node": "retrieval",
+      "source_counts": {
+        "web_tavily": 4,
+        "arxiv": 4
+      },
+      "duplicate_clusters": 4
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:42:48.019753+00:00",
+    "type": "status",
+    "message": "Summarizing 8 papers...",
+    "data": {
+      "node": "summarizer"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:42:48.019753+00:00",
+    "type": "status",
+    "message": "Summarizing paper 1 of 8: Retrieval Augmented Generation (RAG) for Evaluating Regulato...",
+    "data": {
+      "node": "summarizer"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:43:06.132542+00:00",
+    "type": "status",
+    "message": "Summarizing paper 2 of 8: Improving Retrieval Augmented Generation for Health Care by ...",
+    "data": {
+      "node": "summarizer"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:43:12.916924+00:00",
+    "type": "status",
+    "message": "Summarizing paper 3 of 8: A survey on retrieval-augmentation generation (RAG) models f...",
+    "data": {
+      "node": "summarizer"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:43:19.361065+00:00",
+    "type": "status",
+    "message": "Summarizing paper 4 of 8: Clinic: Evaluating Multilingual Trustworthiness in Language ...",
+    "data": {
+      "node": "summarizer"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:43:27.563209+00:00",
+    "type": "status",
+    "message": "Summarizing paper 5 of 8: A Hybrid Approach to Information Retrieval and Answer Genera...",
+    "data": {
+      "node": "summarizer"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:43:33.886947+00:00",
+    "type": "status",
+    "message": "Summarizing paper 6 of 8: Gene regulatory network inference: an introductory survey...",
+    "data": {
+      "node": "summarizer"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:43:41.147777+00:00",
+    "type": "status",
+    "message": "Summarizing paper 7 of 8: Gene regulatory networks: a primer in biological processes a...",
+    "data": {
+      "node": "summarizer"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:43:47.822975+00:00",
+    "type": "status",
+    "message": "Summarizing paper 8 of 8: Comment on \"Evidence of Abundant and Purifying Selection in ...",
+    "data": {
+      "node": "summarizer"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:43:55.449726+00:00",
+    "type": "status",
+    "message": "Summarized 8 sources; verified 0 citations",
+    "data": {
+      "node": "summarizer",
+      "verified_citations": 0
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:43:55.450604+00:00",
+    "type": "status",
+    "message": "Drafting literature review...",
+    "data": {
+      "node": "proposer"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:44:25.551059+00:00",
+    "type": "status",
+    "message": "Literature review draft ready for review (round 1)",
+    "data": {
+      "node": "proposer",
+      "debate_round": 1,
+      "token_estimate": 2009
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:44:25.553039+00:00",
+    "type": "status",
+    "message": "Peer reviewer analyzing the draft...",
+    "data": {
+      "node": "critic"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:44:44.933883+00:00",
+    "type": "status",
+    "message": "Peer review complete, sending feedback to proposer",
+    "data": {
+      "node": "critic"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:44:44.935906+00:00",
+    "type": "status",
+    "message": "Drafting literature review...",
+    "data": {
+      "node": "proposer"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:45:17.104276+00:00",
+    "type": "status",
+    "message": "Literature review draft ready for review (round 2)",
+    "data": {
+      "node": "proposer",
+      "debate_round": 2,
+      "token_estimate": 1574
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:45:17.105635+00:00",
+    "type": "status",
+    "message": "Analyzing research gaps...",
+    "data": {
+      "node": "gap_analysis"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:45:52.266297+00:00",
+    "type": "gap",
+    "message": "Gap identified: Gap 1: Underexplored limitation",
+    "data": {
+      "title": "Gap 1: Underexplored limitation",
+      "evidence": "No specific limitations extracted from the retrieved papers.",
+      "proposed_direction": "Design targeted empirical studies with stronger evaluation criteria for this limitation."
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:45:52.266297+00:00",
+    "type": "status",
+    "message": "Found 1 research gaps",
+    "data": {
+      "node": "gap_analysis"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:45:52.267295+00:00",
+    "type": "status",
+    "message": "Assembling final paper...",
+    "data": {
+      "node": "paper_architect"
+    }
+  },
+  {
+    "timestamp": "2026-04-12T14:46:31.415787+00:00",
+    "type": "complete",
+    "message": "Paper complete!",
+    "data": {
+      "paper_length": 13574,
+      "num_references": 8,
+      "num_gaps": 1,
+      "debate_rounds": 1,
+      "verified_citations": 0
+    }
+  }
+]

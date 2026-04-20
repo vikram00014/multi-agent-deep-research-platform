@@ -1,0 +1,122 @@
+[
+  {
+    "paper_id": "2108.04141v1",
+    "citation_key": "guerrini2021",
+    "title": "A coupled model for the linked dynamics of marine pollution by microplastics and plastic-related organic pollutants",
+    "authors": "Federica Guerrini, Lorenzo Mari, Renato Casagrandi",
+    "year": "2021",
+    "url": "http://arxiv.org/abs/2108.04141v1",
+    "doi": "",
+    "source_quality": 0.72,
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "paper_id": "2508.02952v1",
+    "citation_key": "iqbal2025",
+    "title": "A novel autonomous microplastics surveying robot for beach environments",
+    "authors": "Hassan Iqbal, Kobiny Rex, Joseph Shirley, Carlos Baiz, Christian Claudel",
+    "year": "2025",
+    "url": "http://arxiv.org/abs/2508.02952v1",
+    "doi": "",
+    "source_quality": 0.72,
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "paper_id": "2410.17391v1",
+    "citation_key": "du2024",
+    "title": "Marine Microplastics and Infant Health",
+    "authors": "Xinming Du, Shan Zhang, Eric Zou",
+    "year": "2024",
+    "url": "http://arxiv.org/abs/2410.17391v1",
+    "doi": "",
+    "source_quality": 0.72,
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "paper_id": "10.36685/jhsp.v2i3.1689",
+    "citation_key": "rahman2025",
+    "title": "Microplastic Contamination in Drinking Water: A Review",
+    "authors": "A. Rahman, Ramadhan Tosepu, Surya Cipta Ramadhan Kete, Asnia Zainuddin, Mubarak",
+    "year": "2025",
+    "url": "https://www.semanticscholar.org/paper/274c589f04cac2ccd0cba795ea3ad46f6366fa9c",
+    "doi": "10.36685/jhsp.v2i3.1689",
+    "source_quality": 0.95,
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "paper_id": "10.64252/bz0smp69",
+    "citation_key": "rao2025",
+    "title": "Microplastics In The Environment Pathways, Impacts, And Removal Technologies",
+    "authors": "A. V. Raghavendra Rao, Prof. Dr. Manisha A. Bora, Dr. Channamma. Gour, Dr. Prashant Rambhau Mahalle, Dr Rubina Sahin",
+    "year": "2025",
+    "url": "https://www.semanticscholar.org/paper/4828d4fc709fc44997e81a4d60dfbc920d47cedb",
+    "doi": "10.64252/bz0smp69",
+    "source_quality": 0.95,
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "paper_id": "10.1002/tqem.70143",
+    "citation_key": "chang2025",
+    "title": "Occurrence, Characteristics, and Risk Assessment of Microplastics in Tap Water and Bottled Water, China",
+    "authors": "Yueya Chang, Jun Yang",
+    "year": "2025",
+    "url": "https://www.semanticscholar.org/paper/af1754ea1ac30471ab4d724be812177578d29a75",
+    "doi": "10.1002/tqem.70143",
+    "source_quality": 0.95,
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "paper_id": "[pdf]_microplastics_in_drinking-water_-_world_health_organiz",
+    "citation_key": "source2026",
+    "title": "[PDF] Microplastics in drinking-water - World Health Organization (WHO)",
+    "authors": "Web Source",
+    "year": "2026",
+    "url": "https://cdn.who.int/media/docs/default-source/wash-documents/microplastics-in-dw-information-sheet190822.pdf",
+    "doi": "",
+    "source_quality": 0.45,
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "paper_id": "filtering_microplastics_and_nanoplastics_from_drinking_water",
+    "citation_key": "source2026",
+    "title": "Filtering Microplastics and Nanoplastics from Drinking Water | LifeStraw Water Filters & Purifiers",
+    "authors": "Web Source",
+    "year": "2026",
+    "url": "https://lifestraw.com/blogs/news/filtering-microplastics-and-nanoplastics-from-drinking-water",
+    "doi": "",
+    "source_quality": 0.45,
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "paper_id": "microplastic_removal_from_drinking_water_using_point-of-use_",
+    "citation_key": "source2026",
+    "title": "Microplastic Removal from Drinking Water Using Point-of-Use Devices - PMC",
+    "authors": "Web Source",
+    "year": "2026",
+    "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10054062/",
+    "doi": "",
+    "source_quality": 0.45,
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "paper_id": "microplastics_in_water:_threats_and_solutions_|_earth.org",
+    "citation_key": "source2026",
+    "title": "Microplastics in Water: Threats and Solutions | Earth.Org",
+    "authors": "Web Source",
+    "year": "2026",
+    "url": "https://earth.org/microplastics-in-water/",
+    "doi": "",
+    "source_quality": 0.45,
+    "confidence": 0.4,
+    "verified": false
+  }
+]

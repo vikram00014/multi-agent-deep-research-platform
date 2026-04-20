@@ -1,0 +1,146 @@
+[
+  {
+    "claim": "The exponential growth of plastic production has led to the unprecedented accumulation of plastic waste in aquatic ecosystems [@Du2024]. The subsequent degradation of this waste results in the formation of microplastics,...",
+    "paper_id": "2410.17391v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "The exponential growth of plastic production has led to the unprecedented accumulation of plastic waste in aquatic ecosystems [@Du2024]. The subsequent degradation of this waste results in the formation of microplastics,...",
+    "paper_id": "who_calls_for_more_research_on_microplastics_in_drinking_wat",
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "claim": "A primary health concern is the ability of microplastics to cross biological barriers. Research suggests that particles smaller than 5 microns are capable of such infiltration, raising questions about potential bioaccumu...",
+    "paper_id": "2108.04141v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "A primary health concern is the ability of microplastics to cross biological barriers. Research suggests that particles smaller than 5 microns are capable of such infiltration, raising questions about potential bioaccumu...",
+    "paper_id": "2410.17391v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "A primary health concern is the ability of microplastics to cross biological barriers. Research suggests that particles smaller than 5 microns are capable of such infiltration, raising questions about potential bioaccumu...",
+    "paper_id": "who_calls_for_more_research_on_microplastics_in_drinking_wat",
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "claim": "Accurate assessment of human exposure is fundamental to risk analysis but remains a formidable challenge [@Iqbal2025; @source2026]. A significant impediment is the lack of globally standardized methods for sampling, extr...",
+    "paper_id": "who_calls_for_more_research_on_microplastics_in_drinking_wat",
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "claim": "MP distribution is not uniform; concentrations in freshwater are heavily influenced by anthropogenic pressures, with significantly higher levels found near urban centers and downstream from wastewater treatment plants [@...",
+    "paper_id": "2108.04141v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "MP distribution is not uniform; concentrations in freshwater are heavily influenced by anthropogenic pressures, with significantly higher levels found near urban centers and downstream from wastewater treatment plants [@...",
+    "paper_id": "2508.02952v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "MP distribution is not uniform; concentrations in freshwater are heavily influenced by anthropogenic pressures, with significantly higher levels found near urban centers and downstream from wastewater treatment plants [@...",
+    "paper_id": "who_calls_for_more_research_on_microplastics_in_drinking_wat",
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "claim": "In response to growing evidence of contamination, focus has shifted towards mitigation strategies, particularly the removal of MPs during the water treatment process. The development of advanced, scalable, and cost-effec...",
+    "paper_id": "who_calls_for_more_research_on_microplastics_in_drinking_wat",
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "claim": "First, there is a pressing need to **develop and implement standardized methods for MP detection and quantification** [@source2026]. Without a common analytical framework, comparing data across regions and over time is i...",
+    "paper_id": "who_calls_for_more_research_on_microplastics_in_drinking_wat",
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "claim": "Second, the **evidence base for health risks remains incomplete**. The WHO's call for more research highlights the need for comprehensive toxicological studies to understand the dose-response effects of various MP types,...",
+    "paper_id": "2410.17391v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "Second, the **evidence base for health risks remains incomplete**. The WHO's call for more research highlights the need for comprehensive toxicological studies to understand the dose-response effects of various MP types,...",
+    "paper_id": "who_calls_for_more_research_on_microplastics_in_drinking_wat",
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "claim": "Third, there is a **lack of robust, comparative data on the real-world effectiveness of mitigation technologies**. Current evidence is often from lab-scale or short-term studies. Future research must focus on quasi-exper...",
+    "paper_id": "who_calls_for_more_research_on_microplastics_in_drinking_wat",
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "claim": "Finally, **exposure models require better validation with field data from a wider range of environments**. While modeling efforts exist [@Guerrini2021], their predictive power is limited by a lack of high-quality, geogra...",
+    "paper_id": "2108.04141v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "[@guerrini2021] Federica Guerrini, Lorenzo Mari, Renato Casagrandi. \"A coupled model for the linked dynamics of marine pollution by microplastics and plastic-related organic pollutants\". 2021. http://arxiv.org/abs/2108.0...",
+    "paper_id": "2108.04141v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "[@iqbal2025] Hassan Iqbal, Kobiny Rex, Joseph Shirley, Carlos Baiz, Christian Claudel. \"A novel autonomous microplastics surveying robot for beach environments\". 2025. http://arxiv.org/abs/2508.02952v1",
+    "paper_id": "2508.02952v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "[@ruffenach2025] Yves Ruffenach. \"Autoregressivity in the Latent Space of a GP-VAE Language Model: An Empirical Ablation Study\". 2025. http://arxiv.org/abs/2512.24102v1",
+    "paper_id": "2512.24102v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "[@du2024] Xinming Du, Shan Zhang, Eric Zou. \"Marine Microplastics and Infant Health\". 2024. http://arxiv.org/abs/2410.17391v1",
+    "paper_id": "2410.17391v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "[@kenna2010] Ralph Kenna, Bertrand Berche. \"Normalization of peer-evaluation measures of group research quality across academic disciplines\". 2010. http://arxiv.org/abs/1006.3863v2",
+    "paper_id": "1006.3863v2",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "[@source2026] Web Source. \"Microplastics in City Water: Are You Drinking Plastic?\". 2026. https://www.cleanwaterstore.com/blog/microplastics-in-city-water-filtering-guide",
+    "paper_id": "who_calls_for_more_research_on_microplastics_in_drinking_wat",
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "claim": "[@source2026] Web Source. \"Microplastics in Our Waters: Insights from a Configurative Systematic Review of Water Bodies and Drinking Water Sources\". 2026. https://www.mdpi.com/2673-8929/4/2/24",
+    "paper_id": "who_calls_for_more_research_on_microplastics_in_drinking_wat",
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "claim": "[@source2026] Web Source. \"Microplastics – Microplastics\". 2026. https://mp-1.itrcweb.org/microplastics/",
+    "paper_id": "who_calls_for_more_research_on_microplastics_in_drinking_wat",
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "claim": "[@source2026] Web Source. \"WHO calls for more research on microplastics in drinking water | UN-Water\". 2026. https://www.unwater.org/news/who-calls-more-research-microplastics-drinking-water",
+    "paper_id": "who_calls_for_more_research_on_microplastics_in_drinking_wat",
+    "confidence": 0.4,
+    "verified": false
+  }
+]

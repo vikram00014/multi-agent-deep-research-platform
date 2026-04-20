@@ -1,0 +1,47 @@
+[
+  {
+    "title": "Limited external validity across city contexts",
+    "evidence": "Retrieved studies are unevenly distributed across regions and urban forms, limiting generalization.",
+    "proposed_direction": "Evaluate methods across multiple climate zones, city morphologies, and socioeconomic contexts with a unified protocol.",
+    "why_gap": "Retrieved studies are unevenly distributed across regions and urban forms, limiting generalization.",
+    "what_missing": "Retrieved studies are unevenly distributed across regions and urban forms, limiting generalization.",
+    "supports": [],
+    "fails": []
+  },
+  {
+    "title": "Insufficient causal evaluation of mitigation impact",
+    "evidence": "Many studies report associations or case outcomes without strong causal identification and uncertainty quantification.",
+    "proposed_direction": "Use quasi-experimental/causal designs with counterfactual baselines and confidence intervals for intervention effects.",
+    "why_gap": "Many studies report associations or case outcomes without strong causal identification and uncertainty quantification.",
+    "what_missing": "Many studies report associations or case outcomes without strong causal identification and uncertainty quantification.",
+    "supports": [],
+    "fails": []
+  },
+  {
+    "title": "Weak longitudinal validation of proposed strategies",
+    "evidence": "Evidence is often short-horizon, making durability and seasonal robustness of mitigation uncertain.",
+    "proposed_direction": "Run longitudinal monitoring with seasonal and extreme-event stress tests to validate sustained performance.",
+    "why_gap": "Evidence is often short-horizon, making durability and seasonal robustness of mitigation uncertain.",
+    "what_missing": "Evidence is often short-horizon, making durability and seasonal robustness of mitigation uncertain.",
+    "supports": [],
+    "fails": []
+  },
+  {
+    "title": "Gap 4: Further research is needed to obtain a more",
+    "evidence": "WHO calls for more research on microplastics in drinking water | UN-Water: Further research is needed to obtain a more accurate assessment of exposure to microplastics and their potential impacts on human health.",
+    "proposed_direction": "Run controlled comparative studies with stronger baselines, subgroup analysis, and explicit failure reporting.",
+    "why_gap": "WHO calls for more research on microplastics in drinking water | UN-Water: Further research is needed to obtain a more accurate assessment of exposure to microplastics and their potential impacts on human health.",
+    "what_missing": "WHO calls for more research on microplastics in drinking water | UN-Water: Further research is needed to obtain a more accurate assessment of exposure to microplastics and their potential impacts on human health.",
+    "supports": [],
+    "fails": []
+  },
+  {
+    "title": "Limited coverage of risks in current evidence base",
+    "evidence": "Across summarized papers, direct analysis for 'risks' is sparse relative to the user topic scope.",
+    "proposed_direction": "Prioritize targeted retrieval and evaluation specifically focused on 'risks', then benchmark against current findings.",
+    "why_gap": "Across summarized papers, direct analysis for 'risks' is sparse relative to the user topic scope.",
+    "what_missing": "Across summarized papers, direct analysis for 'risks' is sparse relative to the user topic scope.",
+    "supports": [],
+    "fails": []
+  }
+]

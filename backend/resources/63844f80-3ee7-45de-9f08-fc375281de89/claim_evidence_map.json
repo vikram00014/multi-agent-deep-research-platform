@@ -1,0 +1,86 @@
+[
+  {
+    "claim": "The performance of deep learning models, particularly in safety-critical domains like autonomous driving, is fundamentally tied to the quality and diversity of the training data [@Long2024]. While large-scale real-world...",
+    "paper_id": "2406.15126v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "Synthetic data generation has emerged as a powerful, data-centric solution to this problem [@Long2024]. By creating realistic and diverse data on demand, it offers a path to augment real-world datasets, test model robust...",
+    "paper_id": "2406.15126v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "The primary motivation for synthetic data generation is the immense difficulty, cost, and danger associated with collecting comprehensive real-world data, especially for what is termed \"scarce road scene detection\" [@Sou...",
+    "paper_id": "2406.15126v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "While our focus is on GANs, the field is exploring a diverse set of architectures. Risk-aware **diffusion models** have been developed specifically for generating extreme weather scenes for safety evaluation, prized for...",
+    "paper_id": "2512.24102v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "The field lacks a unified framework for comparing different generative architectures (e.g., GANs vs. Diffusion Models). Studies use varied datasets and metrics, making it difficult to assess the relative merits of compet...",
+    "paper_id": "2406.15126v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "[@reddy2024] Arun Reddy, Ketul Shah, Corban Rivera, William Paul, Celso M. De Melo et al.. \"An Evaluation of Large Pre-Trained Models for Gesture Recognition using Synthetic Videos\". 2024. http://arxiv.org/abs/2410.02152...",
+    "paper_id": "2410.02152v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "[@ruffenach2025] Yves Ruffenach. \"Autoregressivity in the Latent Space of a GP-VAE Language Model: An Empirical Ablation Study\". 2025. http://arxiv.org/abs/2512.24102v1",
+    "paper_id": "2512.24102v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "[@long2024] Lin Long, Rui Wang, Ruixuan Xiao, Junbo Zhao, Xiao Ding et al.. \"On LLMs-Driven Synthetic Data Generation, Curation, and Evaluation: A Survey\". 2024. http://arxiv.org/abs/2406.15126v1",
+    "paper_id": "2406.15126v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "[@boudewijn2023] Alexander Boudewijn, Andrea Filippo Ferraris, Daniele Panfilo, Vanessa Cocca, Sabrina Zinutti et al.. \"Privacy Measurement in Tabular Synthetic Data: State of the Art and Future Research Directions\". 202...",
+    "paper_id": "2311.17453v1",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "[@lamaster2026] John T. LaMaster, Aaron T. Gudmundson, Alireza Abaei, Seyma Alcicek, Arturo Alvarado et al.. \"Synthetic Data in MR Spectroscopy: Current Practices, Applications, and Considerations\". 2026. http://arxiv.or...",
+    "paper_id": "2602.23463v2",
+    "confidence": 0.4,
+    "verified": true
+  },
+  {
+    "claim": "[@source2026] Web Source. \"[PDF] Synthetic Data for Perception in Autonomous Driving. - mediaTUM\". 2026. https://mediatum.ub.tum.de/doc/1695355/3ltw4tcyj18c96wvgm6d17aw6.dissertation.pdf",
+    "paper_id": "simgen:_simulator-conditioned_driving_scene_generation_-_arx",
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "claim": "[@source2026] Web Source. \"[PDF] Synthetic Data Generation for Scarce Road Scene Detection ...\". 2026. https://assets.amazon.science/ba/53/46bc89ab41a7af029b7a49ee99ea/synthetic-data-generation-for-scarce-road-scene-dete...",
+    "paper_id": "simgen:_simulator-conditioned_driving_scene_generation_-_arx",
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "claim": "[@source2026] Web Source. \"Risk-aware diffusion model for generating extreme weather scenarios and safety evaluation in autonomous driving [PeerJ]\". 2026. https://peerj.com/articles/cs-3573/",
+    "paper_id": "simgen:_simulator-conditioned_driving_scene_generation_-_arx",
+    "confidence": 0.4,
+    "verified": false
+  },
+  {
+    "claim": "[@source2026] Web Source. \"SimGen: Simulator-conditioned Driving Scene Generation - arXiv\". 2026. https://arxiv.org/html/2406.09386v3",
+    "paper_id": "simgen:_simulator-conditioned_driving_scene_generation_-_arx",
+    "confidence": 0.4,
+    "verified": false
+  }
+]
