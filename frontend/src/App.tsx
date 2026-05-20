@@ -1,53 +1,59 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Search, Loader2, Radio, FileText, Square, PlusCircle, BarChart3, RotateCcw, Download, Activity, CheckCircle2, AlertCircle, Clock3, FolderArchive } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { Search, Loader2, Radio, FileText, Square, PlusCircle, BarChart3, RotateCcw, Download, Activity, CheckCircle2, Clock, FolderArchive, Moon, Sun } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from './components/Sidebar';
 import { ResearchFeed } from './components/ResearchFeed';
 import { PaperViewer } from './components/PaperViewer';
 import { PdfUpload } from './components/PdfUpload';
 import { ResearchChatFloating } from './components/ResearchChatFloating';
+import { VisualInsights } from './components/VisualInsights';
 import { useWebSocket } from './hooks/useWebSocket';
 import { api } from './api';
 import type { SessionDetail } from './types';
 
-type Tab = 'new' | 'feed' | 'paper' | 'analytics' | 'resources';
+type Tab = 'new' | 'feed' | 'paper' | 'insights' | 'resources';
+
+const tabs: Array<{ key: Tab; label: string; requiresSession?: boolean }> = [
+  { key: 'new', label: 'New Research' },
+  { key: 'feed', label: 'Research Feed', requiresSession: true },
+  { key: 'paper', label: 'Final Paper', requiresSession: true },
+  { key: 'insights', label: 'Visual Insights', requiresSession: true },
+  { key: 'resources', label: 'Resources', requiresSession: true },
+];
 
 export default function App() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('new');
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') === 'dark' || 
+        (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+    return false;
+  });
   const [topic, setTopic] = useState('');
   const [isStarting, setIsStarting] = useState(false);
   const [uploadedFileIds, setUploadedFileIds] = useState<string[]>([]);
   const [polledComplete, setPolledComplete] = useState(false);
   const [strictMode, setStrictMode] = useState(false);
-  const [debateRounds, setDebateRounds] = useState(1);
+  const [enableDebate, setEnableDebate] = useState(false);
   const [paperFormat, setPaperFormat] = useState('academic');
-  const [sessionsSnapshot, setSessionsSnapshot] = useState<Array<{
-    session_id: string;
-    topic: string;
-    status: string;
-    updated_at?: string;
-    token_estimate?: number;
-    cost_estimate_usd?: number;
-  }>>([]);
-  const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionDetail, setSessionDetail] = useState<SessionDetail | null>(null);
   const [resourceBibliography, setResourceBibliography] = useState<Array<Record<string, unknown>>>([]);
   const [sessionResources, setSessionResources] = useState<Array<{ name: string; size_bytes: number; updated_at: string }>>([]);
 
-  const { isConnected, feedItems, isComplete, error, sendStop } = useWebSocket(currentSessionId);
+  const { isConnected, isPollingFallback, feedItems, isComplete, error, warning, sendStop } = useWebSocket(currentSessionId);
   const effectiveComplete = isComplete || polledComplete;
-  const totalSessions = sessionsSnapshot.length;
-  const completedSessions = sessionsSnapshot.filter((s) => s.status === 'complete').length;
-  const runningSessions = sessionsSnapshot.filter((s) => s.status === 'running').length;
-  const erroredSessions = sessionsSnapshot.filter((s) => s.status === 'error').length;
-  const completionRate = totalSessions ? Math.round((completedSessions / totalSessions) * 100) : 0;
-  const totalTokens = sessionsSnapshot.reduce((acc, s) => acc + Number(s.token_estimate || 0), 0);
-  const totalCost = sessionsSnapshot.reduce((acc, s) => acc + Number(s.cost_estimate_usd || 0), 0);
-  const avgTokensPerRun = totalSessions ? Math.round(totalTokens / totalSessions) : 0;
-  const recentSessions = useMemo(
-    () => [...sessionsSnapshot].sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || ''))).slice(0, 6),
-    [sessionsSnapshot],
-  );
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [darkMode]);
 
   const handleStart = async () => {
     if (!topic.trim()) return;
@@ -58,8 +64,9 @@ export default function App() {
         topic: topic.trim(),
         uploaded_paper_ids: uploadedFileIds,
         strict_mode: strictMode,
-        max_debate_rounds: debateRounds,
+        max_debate_rounds: enableDebate ? 2 : 0,
         paper_format: paperFormat,
+        depth: 'deep',
       });
       setCurrentSessionId(result.session_id);
       setActiveTab('feed');
@@ -90,7 +97,10 @@ export default function App() {
 
   const handleRetry = () => {
     if (!currentSessionId) return;
-    api.retrySession(currentSessionId).catch(() => {});
+    setPolledComplete(false);
+    api.retrySession(currentSessionId)
+      .then(() => setActiveTab('feed'))
+      .catch(() => {});
   };
 
   const handleExport = () => {
@@ -106,14 +116,6 @@ export default function App() {
     }).catch(() => {});
   };
 
-  const refreshSessionsSnapshot = () => {
-    setSessionsLoading(true);
-    api.listSessions()
-      .then((data) => setSessionsSnapshot(Array.isArray(data?.sessions) ? data.sessions : []))
-      .catch(() => {})
-      .finally(() => setSessionsLoading(false));
-  };
-
   const refreshSessionDetail = () => {
     if (!currentSessionId) return;
     api.getSessionDetail(currentSessionId)
@@ -121,8 +123,21 @@ export default function App() {
       .catch(() => {});
   };
 
+  const loadResources = useCallback((sessId: string) => {
+    api.getPaper(sessId)
+      .then((p) => setResourceBibliography(Array.isArray(p?.bibliography) ? p.bibliography : []))
+      .catch(() => setResourceBibliography([]));
+    api.listSessionResources(sessId)
+      .then((res) => setSessionResources(Array.isArray(res?.resources) ? res.resources : []))
+      .catch(() => setSessionResources([]));
+  }, []);
+
+  // Reset polling state when session changes
   useEffect(() => {
     setPolledComplete(false);
+  }, [currentSessionId]);
+
+  useEffect(() => {
     if (!currentSessionId) return;
 
     const poll = () => {
@@ -136,42 +151,30 @@ export default function App() {
         .catch(() => {});
     };
 
+    // Initial poll
     poll();
+
+    // Only poll if not complete and websocket is not connected (fallback) or very rarely if complete
     const interval = setInterval(() => {
-      const isRunning = !effectiveComplete && !error;
-      if (!isRunning && document.visibilityState !== 'visible') return;
+      if (document.visibilityState !== 'visible') return;
       poll();
-    }, effectiveComplete ? 20000 : 6000);
+    }, effectiveComplete ? 60000 : (isConnected ? 30000 : 6000));
+    
     return () => clearInterval(interval);
-  }, [currentSessionId, effectiveComplete, error]);
+  }, [currentSessionId, effectiveComplete, error, isConnected]);
 
   useEffect(() => {
-    if (activeTab !== 'analytics' && activeTab !== 'resources') return;
-    refreshSessionsSnapshot();
-    const interval = setInterval(refreshSessionsSnapshot, 12000);
-    return () => clearInterval(interval);
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (!currentSessionId || !effectiveComplete) {
+    const isReady = effectiveComplete || sessionDetail?.status === 'complete';
+    if (!currentSessionId || !isReady) {
       setResourceBibliography([]);
       setSessionResources([]);
       return;
     }
-    api.getPaper(currentSessionId)
-      .then((p) => {
-        setResourceBibliography(Array.isArray(p?.bibliography) ? p.bibliography : []);
-      })
-      .catch(() => setResourceBibliography([]));
-    api.listSessionResources(currentSessionId)
-      .then((res) => {
-        setSessionResources(Array.isArray(res?.resources) ? res.resources : []);
-      })
-      .catch(() => setSessionResources([]));
-  }, [currentSessionId, effectiveComplete]);
+    loadResources(currentSessionId);
+  }, [currentSessionId, effectiveComplete, sessionDetail?.status, loadResources]);
 
   return (
-    <div className="h-screen flex">
+    <div className="h-screen flex mesh-bg">
       {/* ── Sidebar ─────────────────────────────────── */}
       <aside className="w-64 shrink-0 hidden md:block">
         <Sidebar
@@ -182,22 +185,33 @@ export default function App() {
       </aside>
 
       {/* ── Main Content ────────────────────────────── */}
-      <main className="flex-1 flex flex-col min-w-0">
+      <main className="flex-1 flex flex-col min-w-0 animate-premium-fade">
         {/* ── Top Bar ─────────────────────────────────── */}
-        <header className="flex items-center justify-between px-6 py-4 glass z-10 sticky top-0 border-b border-orion-border/40">
-          <div className="flex items-center gap-4">
+        <header className="flex items-center justify-between px-6 md:px-10 py-5 glass z-20 sticky top-0 border-b border-orion-border/60 backdrop-blur-xl shadow-sm transition-all duration-300">
+          <div className="flex items-center gap-6">
             {/* Mobile menu trigger */}
-            <button onClick={handleNewSession} className="md:hidden p-2 rounded-lg hover:bg-orion-surface/50 transition-colors">
+            <button onClick={handleNewSession} className="md:hidden p-2 rounded-xl hover:bg-orion-surface-2 transition-colors border border-orion-border">
               <Search className="h-5 w-5 text-orion-text-muted" />
             </button>
+            <select
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value as Tab)}
+              className="md:hidden min-w-0 rounded-xl border border-orion-border bg-orion-surface px-3 py-1.5 text-sm font-semibold text-orion-text shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            >
+              {tabs.map((tab) => (
+                <option key={tab.key} value={tab.key} disabled={tab.requiresSession && !currentSessionId}>
+                  {tab.label}
+                </option>
+              ))}
+            </select>
 
             {/* Tab Switcher */}
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-orion-surface-2/50 border border-orion-border/60 backdrop-blur-md shadow-sm">
+            <div className="hidden md:flex items-center p-1 rounded-full bg-orion-surface/40 border border-white/60 shadow-sm backdrop-blur-xl">
               <button
                 onClick={() => setActiveTab('new')}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`flex items-center gap-2 px-5 py-2 nav-pill text-sm transition-all ${
                   activeTab === 'new'
-                    ? 'bg-orion-surface text-orion-accent shadow-sm border border-orion-border'
+                    ? 'nav-pill-active holographic-glow'
                     : 'text-orion-text-muted hover:text-orion-text hover:bg-orion-surface/50'
                 }`}
               >
@@ -207,9 +221,9 @@ export default function App() {
               <button
                 onClick={() => setActiveTab('feed')}
                 disabled={!currentSessionId}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`flex items-center gap-2 px-5 py-2 nav-pill text-sm transition-all ${
                   activeTab === 'feed'
-                    ? 'bg-orion-surface text-orion-accent shadow-sm border border-orion-border'
+                    ? 'nav-pill-active holographic-glow'
                     : 'text-orion-text-muted hover:text-orion-text hover:bg-orion-surface/50'
                 } ${!currentSessionId ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
@@ -219,9 +233,9 @@ export default function App() {
               <button
                 onClick={() => setActiveTab('paper')}
                 disabled={!currentSessionId}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`flex items-center gap-2 px-5 py-2 nav-pill text-sm transition-all ${
                   activeTab === 'paper'
-                    ? 'bg-orion-surface text-orion-accent shadow-sm border border-orion-border'
+                    ? 'nav-pill-active holographic-glow'
                     : 'text-orion-text-muted hover:text-orion-text hover:bg-orion-surface/50'
                 } ${!currentSessionId ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
@@ -229,23 +243,25 @@ export default function App() {
                 Final Paper
               </button>
               <button
-                onClick={() => setActiveTab('analytics')}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  activeTab === 'analytics'
-                    ? 'bg-orion-surface text-orion-accent shadow-sm border border-orion-border'
+                onClick={() => setActiveTab('insights')}
+                disabled={!currentSessionId}
+                className={`flex items-center gap-2 px-5 py-2 nav-pill text-sm transition-all ${
+                  activeTab === 'insights'
+                    ? 'nav-pill-active holographic-glow'
                     : 'text-orion-text-muted hover:text-orion-text hover:bg-orion-surface/50'
-                }`}
+                } ${!currentSessionId ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <BarChart3 className="h-4 w-4" />
-                Analytics
+                Visual Insights
               </button>
               <button
                 onClick={() => setActiveTab('resources')}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                disabled={!currentSessionId}
+                className={`flex items-center gap-2 px-5 py-2 nav-pill text-sm transition-all ${
                   activeTab === 'resources'
-                    ? 'bg-orion-surface text-orion-accent shadow-sm border border-orion-border'
+                    ? 'nav-pill-active holographic-glow'
                     : 'text-orion-text-muted hover:text-orion-text hover:bg-orion-surface/50'
-                }`}
+                } ${!currentSessionId ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <FolderArchive className="h-4 w-4" />
                 Resources
@@ -254,72 +270,78 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Status Badge */}
             {currentSessionId && (
-              <div className="flex items-center gap-2">
-                 {!effectiveComplete && !error && (
+              <div className="flex items-center gap-3">
+                {!effectiveComplete && sessionDetail?.status !== 'cancelled' && !error && (
                   <button
-                    onClick={() => {
-                      sendStop();
-                      if (currentSessionId) {
-                        api.cancelSession(currentSessionId).catch(() => {});
-                      }
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm
-                      text-orion-error border border-orion-error/30 hover:bg-orion-error/10 transition-all"
+                    onClick={() => { sendStop(); api.cancelSession(currentSessionId).catch(() => {}); }}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium text-orion-error border border-orion-error/30 bg-orion-error/5 hover:bg-orion-error/15 transition-all shadow-sm"
                   >
-                    <Square className="h-3 w-3" />
+                    <Square className="h-3.5 w-3.5" />
                     Stop
                   </button>
                 )}
-                <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
-                   effectiveComplete ? 'bg-orion-success/10 text-orion-success border border-orion-success/20' :
-                  error ? 'bg-orion-error/10 text-orion-error border border-orion-error/20' :
-                  'bg-orion-accent/10 text-orion-accent-light border border-orion-accent/20'
+                {(error || sessionDetail?.status === 'cancelled' || sessionDetail?.status === 'error') && (
+                  <button
+                    onClick={handleRetry}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium text-orion-accent border border-orion-accent/30 bg-orion-accent/5 hover:bg-orion-accent/15 transition-all shadow-sm"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Retry
+                  </button>
+                )}
+                <span className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm border ${
+                  effectiveComplete ? 'bg-orion-success/10 text-orion-success border-orion-success/30' :
+                  error || sessionDetail?.status === 'error' ? 'bg-orion-error/10 text-orion-error border-orion-error/30' :
+                  sessionDetail?.status === 'cancelled' ? 'bg-amber-500/10 text-amber-500 border-amber-500/30' :
+                  'bg-orion-accent/10 text-orion-accent border-orion-accent/30'
                 }`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${
-                     effectiveComplete ? 'bg-orion-success' :
-                    error ? 'bg-orion-error' :
+                  <span className={`h-2 w-2 rounded-full ${
+                    effectiveComplete ? 'bg-orion-success' :
+                    error || sessionDetail?.status === 'error' ? 'bg-orion-error' :
+                    sessionDetail?.status === 'cancelled' ? 'bg-amber-500' :
                     'bg-orion-accent animate-pulse'
                   }`} />
-                   {effectiveComplete ? 'Complete' : error ? 'Error' : 'In Progress'}
+                  {effectiveComplete ? 'Complete' : error || sessionDetail?.status === 'error' ? 'Error' : sessionDetail?.status === 'cancelled' ? 'Cancelled' : 'In Progress'}
                 </span>
+                <div className="h-8 w-px bg-orion-border mx-1 hidden md:block" />
                 <button
                   onClick={handleNewSession}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-orion-accent-light border border-orion-accent/30 hover:bg-orion-accent/10 transition-all"
+                  className="hidden md:flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium text-orion-text bg-orion-surface border border-orion-border hover:bg-orion-surface-2 transition-all shadow-sm"
                 >
-                  <PlusCircle className="h-3.5 w-3.5" />
+                  <PlusCircle className="h-4 w-4 text-orion-accent" />
                   New
                 </button>
-                <button
-                  onClick={handleRetry}
-                  disabled={!currentSessionId}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-orion-accent-light border border-orion-accent/30 hover:bg-orion-accent/10 transition-all disabled:opacity-50"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  Retry
-                </button>
-                <button
-                  onClick={handleExport}
-                  disabled={!currentSessionId || !effectiveComplete}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-orion-accent-light border border-orion-accent/30 hover:bg-orion-accent/10 transition-all disabled:opacity-50"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Export
+                <button onClick={() => setDarkMode(!darkMode)} className="p-2.5 rounded-xl border border-orion-border bg-orion-surface text-orion-text hover:bg-orion-surface-2 transition-all shadow-sm active:scale-90" title="Toggle Theme">
+                  {darkMode ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-orion-accent" />}
                 </button>
               </div>
+            )}
+            {!currentSessionId && (
+              <button onClick={() => setDarkMode(!darkMode)} className="p-2.5 rounded-xl border border-orion-border bg-orion-surface text-orion-text hover:bg-orion-surface-2 transition-all shadow-sm active:scale-90">
+                {darkMode ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-orion-accent" />}
+              </button>
             )}
           </div>
         </header>
 
         {/* ── Content Area ────────────────────────────── */}
-        <div className="flex-1 min-h-0 overflow-hidden p-3 md:p-4">
-          <div className="h-full rounded-2xl border border-orion-border/50 bg-white/55 backdrop-blur-sm shadow-sm overflow-hidden">
-          {activeTab === 'new' ? (
+        <div className="flex-1 min-h-0 overflow-hidden p-3 md:p-6">
+          <div className="h-full rounded-[24px] border border-orion-border bg-orion-surface/40 backdrop-blur-3xl shadow-[0_8px_40px_rgba(0,0,0,0.06)] overflow-hidden">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 10, scale: 0.99 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 1.01 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="h-full"
+            >
+              {activeTab === 'new' ? (
             <div className="h-full overflow-y-auto">
-              <div className="glass-solid p-6 m-4 md:m-8 rounded-2xl animate-slide-up z-10 relative border border-orion-border/50">
-                <div className="max-w-3xl mx-auto space-y-4">
-                  <h2 className="text-xl font-display text-orion-text tracking-tight mb-2">Deep Research Query</h2>
+              <div className="card-premium section-accent max-w-4xl mx-auto mt-8 md:mt-16 animate-slide-up relative">
+                <div className="space-y-6">
+                  <h2 className="text-title text-center mb-6">Deep Research Query</h2>
                   {/* Topic Input */}
                   <div className="flex gap-3">
                     <div className="relative flex-1 group">
@@ -330,19 +352,17 @@ export default function App() {
                         onChange={(e) => setTopic(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleStart()}
                         placeholder="Enter your research topic"
-                        className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-white shadow-sm border border-orion-border/50
+                        className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-orion-surface shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-orion-border/50
                           text-orion-text placeholder:text-orion-text-dim text-md font-medium
-                          focus:outline-none focus:border-orion-accent/40 focus:ring-4 focus:ring-orion-accent/5
+                          focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10
                           transition-all duration-300"
                       />
                     </div>
                     <button
                       onClick={handleStart}
                       disabled={isStarting || !topic.trim()}
-                      className="px-8 py-3.5 rounded-xl bg-orion-accent text-white font-medium text-md
-                        shadow-lg shadow-orion-accent/20 hover:shadow-orion-accent/30 hover:bg-orion-accent-light 
+                      className="px-8 py-3.5 btn-primary font-medium text-md
                         disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed
-                        transition-all duration-300 active:scale-[0.98]
                         flex items-center gap-2"
                     >
                       {isStarting ? (
@@ -357,40 +377,40 @@ export default function App() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="flex items-center justify-between rounded-xl border border-orion-border/50 bg-white px-3 py-2">
-                      <span className="text-sm text-orion-text-muted">Strict synthesis mode</span>
+                    <div className="flex items-center justify-between rounded-xl border border-orion-border/50 bg-orion-surface-2 px-4 py-3">
+                      <span className="text-sm font-medium text-orion-text-muted">Strict synthesis mode</span>
                       <button
                         type="button"
                         onClick={() => setStrictMode((v) => !v)}
-                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${strictMode ? 'bg-orion-accent' : 'bg-orion-surface-3'}`}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orion-accent/20 ${strictMode ? 'bg-orion-accent' : 'bg-orion-border/60'}`}
                         aria-pressed={strictMode}
                         aria-label="Toggle strict synthesis mode"
                       >
                         <span
-                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${strictMode ? 'translate-x-6' : 'translate-x-1'}`}
+                          className={`inline-block h-4 w-4 transform rounded-full bg-orion-surface shadow-sm transition-transform ${strictMode ? 'translate-x-6' : 'translate-x-1'}`}
                         />
                       </button>
                     </div>
-                    <label className="flex items-center gap-2 text-sm text-orion-text-muted">
-                      Debate rounds
-                      <select
-                        value={debateRounds}
-                        onChange={(e) => setDebateRounds(Number(e.target.value))}
-                        className="border border-orion-border rounded-md px-2 py-1 bg-white"
+                    <div className="flex items-center justify-between rounded-xl border border-orion-border/50 bg-orion-surface-2 px-4 py-3">
+                      <span className="text-sm font-medium text-orion-text-muted">Peer-review debate</span>
+                      <button
+                        type="button"
+                        onClick={() => setEnableDebate((v) => !v)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orion-accent/20 ${enableDebate ? 'bg-orion-accent' : 'bg-orion-border/60'}`}
+                        aria-pressed={enableDebate}
+                        aria-label="Toggle peer-review debate"
                       >
-                        <option value={1}>1</option>
-                        <option value={2}>2</option>
-                        <option value={3}>3</option>
-                        <option value={4}>4</option>
-                        <option value={5}>5</option>
-                      </select>
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-orion-text-muted">
-                      Paper format
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-orion-surface shadow-sm transition-transform ${enableDebate ? 'translate-x-6' : 'translate-x-1'}`}
+                        />
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl border border-orion-border/50 bg-orion-surface-2 px-4 py-3">
+                      <span className="text-sm font-medium text-orion-text-muted">Paper format</span>
                       <select
                         value={paperFormat}
                         onChange={(e) => setPaperFormat(e.target.value)}
-                        className="border border-orion-border rounded-md px-2 py-1 bg-white"
+                        className="border border-orion-border/50 rounded-lg px-3 py-1 bg-orion-surface text-sm font-medium text-orion-text focus:outline-none focus:ring-2 focus:ring-orion-accent/20 cursor-pointer"
                       >
                         <option value="academic">Academic</option>
                         <option value="ieee">IEEE</option>
@@ -398,7 +418,7 @@ export default function App() {
                         <option value="acm">ACM</option>
                         <option value="mla">MLA</option>
                       </select>
-                    </label>
+                    </div>
                   </div>
 
                   {/* PDF Upload */}
@@ -409,239 +429,172 @@ export default function App() {
               </div>
             </div>
           ) : activeTab === 'feed' ? (
-            <ResearchFeed items={feedItems} isConnected={isConnected} />
+            <ResearchFeed items={feedItems} isConnected={isConnected} isPollingFallback={isPollingFallback} warning={warning} />
           ) : activeTab === 'paper' ? (
              <PaperViewer sessionId={currentSessionId} isComplete={effectiveComplete} />
-          ) : activeTab === 'analytics' ? (
-            <div className="h-full overflow-y-auto p-6 md:p-8 animate-fade-in">
-              <div className="max-w-5xl space-y-5">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-2xl font-display text-orion-text">Analytics</h2>
-                  {sessionsLoading && <span className="text-xs text-orion-text-dim">Refreshing…</span>}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="rounded-xl border border-orion-border/50 bg-white p-4">
-                    <p className="text-xs text-orion-text-dim uppercase tracking-wide">Total Runs</p>
-                    <p className="mt-1 text-lg font-semibold text-orion-text-muted">{totalSessions}</p>
-                  </div>
-                  <div className="rounded-xl border border-orion-border/50 bg-white p-4">
-                    <p className="text-xs text-orion-text-dim uppercase tracking-wide">Completion Rate</p>
-                    <p className="mt-1 text-lg font-semibold text-orion-text-muted">{completionRate}%</p>
-                  </div>
-                  <div className="rounded-xl border border-orion-border/50 bg-white p-4">
-                    <p className="text-xs text-orion-text-dim uppercase tracking-wide">Total Tokens</p>
-                    <p className="mt-1 text-lg font-semibold text-orion-text-muted">{totalTokens.toLocaleString()}</p>
-                  </div>
-                  <div className="rounded-xl border border-orion-border/50 bg-white p-4">
-                    <p className="text-xs text-orion-text-dim uppercase tracking-wide">Estimated Cost</p>
-                    <p className="mt-1 text-lg font-semibold text-orion-text-muted">${totalCost.toFixed(4)}</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="rounded-xl border border-orion-border/50 bg-white p-5">
-                    <p className="text-sm font-semibold text-orion-text-muted mb-3">Run Status Distribution</p>
-                    <div className="space-y-3">
-                      {[
-                        { label: 'Completed', value: completedSessions, color: 'bg-orion-success' },
-                        { label: 'Running', value: runningSessions, color: 'bg-orion-accent' },
-                        { label: 'Errored', value: erroredSessions, color: 'bg-orion-error' },
-                      ].map((item) => {
-                        const pct = totalSessions ? Math.round((item.value / totalSessions) * 100) : 0;
-                        return (
-                          <div key={item.label}>
-                            <div className="flex items-center justify-between text-xs text-orion-text-dim mb-1">
-                              <span>{item.label}</span>
-                              <span>{item.value} ({pct}%)</span>
-                            </div>
-                            <div className="h-2 rounded-full bg-orion-surface-2 overflow-hidden">
-                              <div className={`h-full ${item.color}`} style={{ width: `${pct}%` }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-orion-border/50 bg-white p-5">
-                    <p className="text-sm font-semibold text-orion-text-muted mb-3">Current Workspace Pulse</p>
-                    <div className="space-y-2 text-sm text-orion-text-muted">
-                      <p className="flex items-center gap-2"><Activity className="h-4 w-4 text-orion-accent" /> Feed events in selected run: <strong>{feedItems.length}</strong></p>
-                      <p className="flex items-center gap-2"><Clock3 className="h-4 w-4 text-orion-info" /> Active session: <strong>{currentSessionId ? currentSessionId.slice(0, 8) : 'None'}</strong></p>
-                      <p className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-orion-success" /> Avg tokens per run: <strong>{avgTokensPerRun.toLocaleString()}</strong></p>
-                      <p className="flex items-center gap-2"><AlertCircle className="h-4 w-4 text-orion-error" /> Current state: <strong>{effectiveComplete ? 'Complete' : error ? 'Error' : currentSessionId ? 'In Progress' : 'Idle'}</strong></p>
-                      <p className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-orion-success" /> Strict mode: <strong>{strictMode ? 'On' : 'Off'}</strong></p>
-                      <p className="flex items-center gap-2"><Clock3 className="h-4 w-4 text-orion-info" /> Debate rounds: <strong>{debateRounds}</strong></p>
-                      <p className="flex items-center gap-2"><Activity className="h-4 w-4 text-orion-accent" /> Paper format: <strong>{String(sessionDetail?.controls?.paper_format || paperFormat).toUpperCase()}</strong></p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-orion-border/50 bg-white p-5">
-                  <p className="text-sm font-semibold text-orion-text-muted mb-3">Recent Runs</p>
-                  {recentSessions.length === 0 ? (
-                    <p className="text-sm text-orion-text-dim">No runs available yet.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {recentSessions.map((s) => (
-                        <div key={s.session_id} className="flex items-center gap-3 text-sm border border-orion-border/30 rounded-lg px-3 py-2">
-                          <span className="font-mono text-xs text-orion-text-dim w-20">{s.session_id.slice(0, 8)}</span>
-                          <span className="truncate flex-1 text-orion-text-muted">{s.topic}</span>
-                          <span className="text-xs px-2 py-0.5 rounded-full border border-orion-border/40">{s.status}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+          ) : activeTab === 'insights' ? (
+            <VisualInsights
+              sessionId={currentSessionId}
+              isReady={effectiveComplete || sessionDetail?.status === 'complete'}
+              sessionDetail={sessionDetail}
+              feedItems={feedItems}
+            />
           ) : activeTab === 'resources' ? (
-            <div className="h-full overflow-y-auto p-6 md:p-8 animate-fade-in">
-              <div className="max-w-5xl space-y-5">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-2xl font-display text-orion-text">Resources</h2>
+            <div className="h-full overflow-y-auto p-6 md:p-10 animate-fade-in relative">
+              <div className="max-w-6xl mx-auto space-y-8 relative z-10">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                  <div>
+                    <h2 className="text-xl font-black tracking-tight text-orion-text mb-2">Research Library</h2>
+                    <p className="text-orion-text-dim text-xs font-medium max-w-lg">Access all synthesized sources, verified citations, and generated artifacts from your research session.</p>
+                  </div>
                   <button
-                    onClick={refreshSessionDetail}
+                    onClick={() => currentSessionId && loadResources(currentSessionId)}
                     disabled={!currentSessionId}
-                    className="px-3 py-1.5 text-xs rounded-lg border border-orion-border/50 bg-white hover:bg-orion-surface transition-all disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orion-surface border border-orion-border text-orion-text font-bold hover:bg-orion-surface-2 transition-all shadow-sm disabled:opacity-50"
                   >
-                    Refresh
+                    <RotateCcw className="h-4 w-4" />
+                    Refresh Library
                   </button>
                 </div>
-                <div className="rounded-xl border border-orion-border/50 bg-white p-5">
-                  <p className="text-sm text-orion-text-muted">Session artifacts and exports for the selected research run.</p>
-                  <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
-                    <div className="rounded-lg border border-orion-border/40 bg-orion-surface p-3">
-                      <p className="text-xs text-orion-text-dim uppercase tracking-wide">Selected Session</p>
-                      <p className="mt-1 text-orion-text-muted"><strong>{currentSessionId ? currentSessionId.slice(0, 8) : 'None'}</strong></p>
-                    </div>
-                    <div className="rounded-lg border border-orion-border/40 bg-orion-surface p-3">
-                      <p className="text-xs text-orion-text-dim uppercase tracking-wide">Paper Format</p>
-                      <p className="mt-1 text-orion-text-muted"><strong>{String(sessionDetail?.controls?.paper_format || paperFormat).toUpperCase()}</strong></p>
-                    </div>
-                    <div className="rounded-lg border border-orion-border/40 bg-orion-surface p-3">
-                      <p className="text-xs text-orion-text-dim uppercase tracking-wide">Uploaded PDFs</p>
-                      <p className="mt-1 text-orion-text-muted"><strong>{sessionDetail?.uploaded_paper_ids?.length || 0}</strong></p>
-                    </div>
-                    <div className="rounded-lg border border-orion-border/40 bg-orion-surface p-3">
-                      <p className="text-xs text-orion-text-dim uppercase tracking-wide">Quality Signals</p>
-                      <p className="mt-1 text-orion-text-muted"><strong>{resourceBibliography.length > 0 ? 'Available' : 'Pending'}</strong></p>
-                    </div>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="rounded-xl border border-orion-border/50 bg-white p-5">
-                    <p className="text-sm font-semibold text-orion-text-muted mb-3">Downloads</p>
-                    <div className="space-y-2">
-                      <button
-                        onClick={handleExport}
-                        disabled={!currentSessionId || !effectiveComplete}
-                        className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-orion-border/40 bg-orion-surface hover:bg-white transition-all disabled:opacity-50"
-                      >
-                        <span className="text-sm text-orion-text-muted">Full Export Bundle (JSON)</span>
-                        <Download className="h-4 w-4 text-orion-accent-light" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (!currentSessionId) return;
-                          api.getPaper(currentSessionId).then((p) => {
-                            const blob = new Blob([p.paper || ''], { type: 'text/markdown' });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `orion-paper-${currentSessionId.slice(0, 8)}.md`;
-                            a.click();
-                            URL.revokeObjectURL(url);
-                          }).catch(() => {});
-                        }}
-                        disabled={!currentSessionId || !effectiveComplete}
-                        className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-orion-border/40 bg-orion-surface hover:bg-white transition-all disabled:opacity-50"
-                      >
-                        <span className="text-sm text-orion-text-muted">Paper Markdown</span>
-                        <Download className="h-4 w-4 text-orion-accent-light" />
-                      </button>
-                      <button
-                        onClick={() => window.print()}
-                        disabled={!currentSessionId || !effectiveComplete}
-                        className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-orion-border/40 bg-orion-surface hover:bg-white transition-all disabled:opacity-50"
-                      >
-                        <span className="text-sm text-orion-text-muted">Print / Save as PDF</span>
-                        <Download className="h-4 w-4 text-orion-accent-light" />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-orion-border/50 bg-white p-5">
-                    <p className="text-sm font-semibold text-orion-text-muted mb-3">Session Summary</p>
-                    <div className="space-y-2 text-sm text-orion-text-muted">
-                      <p>Selected session: <strong>{currentSessionId ? currentSessionId.slice(0, 8) : 'None'}</strong></p>
-                      <p>Status: <strong>{sessionDetail?.status || (effectiveComplete ? 'complete' : currentSessionId ? 'running' : 'idle')}</strong></p>
-                      <p>Current step: <strong>{sessionDetail?.current_step || 'n/a'}</strong></p>
-                      <p>Elapsed seconds: <strong>{sessionDetail?.elapsed_seconds ?? 0}</strong></p>
-                      <p>Token estimate: <strong>{sessionDetail?.token_estimate ?? 0}</strong></p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-orion-border/50 bg-white p-5">
-                  <p className="text-sm font-semibold text-orion-text-muted mb-3">Recent Sessions</p>
-                  {recentSessions.length === 0 ? (
-                    <p className="text-sm text-orion-text-dim">No session activity yet.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {recentSessions.slice(0, 4).map((s) => (
-                        <div key={s.session_id} className="flex items-center gap-3 border border-orion-border/30 rounded-lg px-3 py-2">
-                          <span className="font-mono text-xs text-orion-text-dim w-20">{s.session_id.slice(0, 8)}</span>
-                          <span className="text-sm text-orion-text-muted truncate flex-1">{s.topic}</span>
-                          <span className="text-xs px-2 py-0.5 rounded-full border border-orion-border/40">{s.status}</span>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="md:col-span-2 space-y-6">
+                    <section>
+                      <div className="flex items-center gap-3 mb-4">
+                        <FileText className="h-5 w-5 text-orion-accent" />
+                        <h3 className="text-sm font-black text-orion-text uppercase tracking-widest">Synthesized Sources</h3>
+                      </div>
+                      
+                      {resourceBibliography.length === 0 ? (
+                        <div className="card-premium flex flex-col items-center justify-center py-16 text-center">
+                          <div className="p-4 rounded-full bg-orion-surface-2 border border-orion-border mb-4">
+                            <FolderArchive className="h-10 w-10 text-orion-text-dim" />
+                          </div>
+                          <p className="text-orion-text-muted font-medium">No sources synthesized yet.</p>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="rounded-xl border border-orion-border/50 bg-white p-5">
-                  <p className="text-sm font-semibold text-orion-text-muted mb-3">Resources Used in This Topic</p>
-                  {resourceBibliography.length === 0 ? (
-                    <p className="text-sm text-orion-text-dim">No bibliography resources available yet.</p>
-                  ) : (
-                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                      {resourceBibliography.map((b, i) => (
-                        <div key={`${String(b.paper_id || i)}-${i}`} className="rounded-lg border border-orion-border/30 px-3 py-2">
-                          <p className="text-sm text-orion-text-muted font-medium">
-                            {String(b.title || 'Untitled resource')}
-                          </p>
-                          <p className="text-xs text-orion-text-dim mt-1">
-                            {String(b.authors || 'Unknown')} · {String(b.year || 'n.d.')}
-                          </p>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-4">
+                          {resourceBibliography.map((b, i) => (
+                            <div key={`${String(b.paper_id || i)}-${i}`} className="card-premium !p-6 flex flex-col md:flex-row gap-6 items-start">
+                              <div className="w-10 h-10 shrink-0 rounded-xl bg-orion-surface-2 border border-orion-border flex items-center justify-center text-orion-text-dim font-bold text-xl">
+                                {i + 1}
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="text-sm font-bold text-orion-text leading-snug mb-1">{String(b.title || 'Untitled Source')}</h4>
+                                <p className="text-orion-text-dim text-[11px] font-medium mb-2">{String(b.authors || 'Unknown Authors')} · {String(b.year || 'n.d.')}</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {Boolean(b.verified) && <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold border border-emerald-100 dark:border-emerald-800/40 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Verified</span>}
+                                  {Boolean(b.doi) && <span className="px-2.5 py-1 rounded-lg bg-orion-accent/10 text-orion-accent text-xs font-bold border border-orion-accent/20">DOI: {String(b.doi)}</span>}
+                                  {Boolean(b.url) && <a href={String(b.url)} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-lg bg-orion-surface-2 text-orion-text-muted text-xs font-bold border border-orion-border hover:bg-orion-surface-3 transition-colors">View Source</a>}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                      )}
+                    </section>
+                  </div>
 
-                <div className="rounded-xl border border-orion-border/50 bg-white p-5">
-                  <p className="text-sm font-semibold text-orion-text-muted mb-3">Saved Session Files</p>
-                  {sessionResources.length === 0 ? (
-                    <p className="text-sm text-orion-text-dim">No saved files yet for this session.</p>
-                  ) : (
-                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                      {sessionResources.map((f) => (
-                        <a
-                          key={f.name}
-                          href={currentSessionId ? api.resourceDownloadUrl(currentSessionId, f.name) : '#'}
-                          className="flex items-center justify-between rounded-lg border border-orion-border/30 px-3 py-2 hover:bg-orion-surface transition-all"
+                  <div className="space-y-6">
+                    <section>
+                      <div className="flex items-center gap-3 mb-4">
+                        <Download className="h-5 w-5 text-orion-accent" />
+                        <h3 className="text-sm font-black text-orion-text uppercase tracking-widest">Export Artifacts</h3>
+                      </div>
+                      <div className="space-y-3">
+                        <button
+                          onClick={handleExport}
+                          disabled={!currentSessionId || !effectiveComplete}
+                          className="w-full card-premium !p-5 flex items-center justify-between group"
                         >
-                          <span className="text-sm text-orion-text-muted">{f.name}</span>
-                          <span className="text-xs text-orion-text-dim">{(f.size_bytes / 1024).toFixed(1)} KB</span>
-                        </a>
-                      ))}
-                    </div>
-                  )}
+                          <div className="flex items-center gap-4">
+                            <div className="p-3 rounded-2xl bg-orion-accent/10 text-orion-accent group-hover:bg-orion-accent group-hover:text-white transition-all"><FolderArchive className="h-5 w-5" /></div>
+                            <div className="text-left">
+                              <p className="font-bold text-orion-text">Research Bundle</p>
+                              <p className="text-xs text-orion-text-muted">JSON Archive</p>
+                            </div>
+                          </div>
+                          <Download className="h-5 w-5 text-orion-text-dim group-hover:text-orion-accent transition-colors" />
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            if (!currentSessionId) return;
+                            api.getPaper(currentSessionId).then((p) => {
+                              const blob = new Blob([p.paper || ''], { type: 'text/markdown' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `orion-paper-${currentSessionId.slice(0, 8)}.md`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            }).catch(() => {});
+                          }}
+                          disabled={!currentSessionId || !effectiveComplete}
+                          className="w-full card-premium !p-5 flex items-center justify-between group"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-all"><FileText className="h-5 w-5" /></div>
+                            <div className="text-left">
+                              <p className="font-bold text-orion-text">Final Manuscript</p>
+                              <p className="text-xs text-orion-text-muted">Markdown Format</p>
+                            </div>
+                          </div>
+                          <Download className="h-5 w-5 text-orion-text-dim group-hover:text-emerald-600 transition-colors" />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            if (!currentSessionId) return;
+                            const a = document.createElement('a');
+                            a.href = api.paperPdfDownloadUrl(currentSessionId);
+                            a.download = `orion-report-${currentSessionId.slice(0, 8)}.pdf`;
+                            a.click();
+                          }}
+                          disabled={!currentSessionId || !effectiveComplete}
+                          className="w-full card-premium !p-5 flex items-center justify-between group"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 group-hover:bg-rose-600 group-hover:text-white transition-all"><FileText className="h-5 w-5" /></div>
+                            <div className="text-left">
+                              <p className="font-bold text-orion-text">PDF Report</p>
+                              <p className="text-xs text-orion-text-muted">Backend-generated PDF</p>
+                            </div>
+                          </div>
+                          <Download className="h-5 w-5 text-orion-text-dim group-hover:text-rose-600 transition-colors" />
+                        </button>
+                      </div>
+                    </section>
+
+                    <section>
+                      <div className="flex items-center gap-3 mb-4">
+                        <Activity className="h-5 w-5 text-orion-accent" />
+                        <h3 className="text-sm font-black text-orion-text uppercase tracking-widest">Session Files</h3>
+                      </div>
+                      <div className="card-premium !p-4 space-y-2">
+                        {sessionResources.length === 0 ? (
+                          <p className="text-orion-text-dim text-sm font-medium text-center py-4">No individual files saved.</p>
+                        ) : (
+                          sessionResources.map((f) => (
+                            <a
+                              key={f.name}
+                              href={currentSessionId ? api.resourceDownloadUrl(currentSessionId, f.name) : '#'}
+                              className="flex items-center justify-between p-3 rounded-xl hover:bg-orion-surface-2 group transition-all"
+                            >
+                              <span className="text-sm font-bold text-orion-text-muted group-hover:text-orion-accent">{f.name}</span>
+                              <span className="text-xs text-orion-text-dim">{(f.size_bytes / 1024).toFixed(1)} KB</span>
+                            </a>
+                          ))
+                        )}
+                      </div>
+                    </section>
+                  </div>
                 </div>
               </div>
             </div>
-          ) : null}
+) : null}
+            </motion.div>
+          </AnimatePresence>
           </div>
         </div>
       </main>

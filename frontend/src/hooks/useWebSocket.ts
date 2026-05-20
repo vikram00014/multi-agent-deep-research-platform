@@ -2,15 +2,28 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { WSMessage, FeedItem } from '../types';
 import { api } from '../api';
 
+function getWebSocketUrl(sessionId: string) {
+  const configuredBase = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '');
+  if (configuredBase) {
+    const wsBase = configuredBase.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+    return `${wsBase}/ws/${sessionId}`;
+  }
+
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${window.location.host}/ws/${sessionId}`;
+}
+
 /**
  * Custom hook for WebSocket connection to ORION backend.
  * Manages connection lifecycle, heartbeats, and message parsing.
  */
 export function useWebSocket(sessionId: string | null) {
   const [isConnected, setIsConnected] = useState(false);
+  const [isPollingFallback, setIsPollingFallback] = useState(false);
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
   const completedRef = useRef(false);
@@ -52,12 +65,26 @@ export function useWebSocket(sessionId: string | null) {
     setFeedItems(prev => [...prev, item]);
   }, [getIcon]);
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     if (!sessionId) return;
 
-    const apiBase = (import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000').replace(/\/$/, '');
-    const wsBase = apiBase.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
-    const url = `${wsBase}/ws/${sessionId}`;
+    // Pre-flight: skip WS for sessions that are already done or errored
+    try {
+      const statusRes = await api.getSessionStatus(sessionId);
+      const s = statusRes?.status;
+      if (s === 'complete' || s === 'error' || s === 'cancelled') {
+        if (s === 'complete') {
+          setIsComplete(true);
+          completedRef.current = true;
+        }
+        if (s === 'error') setError('Session ended with an error');
+        return; // don't open WebSocket
+      }
+    } catch {
+      // session might not exist; skip silently
+      return;
+    }
+    const url = getWebSocketUrl(sessionId);
 
     try {
       const ws = new WebSocket(url);
@@ -65,6 +92,8 @@ export function useWebSocket(sessionId: string | null) {
 
       ws.onopen = () => {
         setIsConnected(true);
+        setIsPollingFallback(false);
+        setWarning(null);
         setError(null);
         reconnectAttempts.current = 0;
       };
@@ -90,22 +119,24 @@ export function useWebSocket(sessionId: string | null) {
         setIsConnected(false);
         wsRef.current = null;
 
-        // Attempt reconnect (max 3 times)
+        // Reconnect only for non-terminal sessions (max 3 times)
         if (!completedRef.current && sessionId && reconnectAttempts.current < 3) {
           reconnectAttempts.current++;
-          if (connectTimeoutRef.current) {
-            window.clearTimeout(connectTimeoutRef.current);
-          }
+          if (connectTimeoutRef.current) window.clearTimeout(connectTimeoutRef.current);
           connectTimeoutRef.current = window.setTimeout(connect, 2000 * reconnectAttempts.current);
+        } else if (!completedRef.current) {
+          setIsPollingFallback(true);
+          setWarning('Live updates unavailable, using polling fallback');
         }
       };
 
       ws.onerror = () => {
-        setError('WebSocket connection error');
+        setWarning('Live updates unavailable, using polling fallback');
       };
 
     } catch (e) {
-      setError('Failed to create WebSocket connection');
+      setIsPollingFallback(true);
+      setWarning('Failed to create live connection, using polling fallback');
     }
   }, [sessionId, addFeedItem]);
 
@@ -117,6 +148,8 @@ export function useWebSocket(sessionId: string | null) {
       setIsComplete(false);
       completedRef.current = false;
       setError(null);
+      setWarning(null);
+      setIsPollingFallback(false);
       reconnectAttempts.current = 0;
       connect();
 
@@ -153,6 +186,8 @@ export function useWebSocket(sessionId: string | null) {
       setFeedItems([]);
       setIsComplete(false);
       setError(null);
+      setWarning(null);
+      setIsPollingFallback(false);
       completedRef.current = false;
     }
 
@@ -176,9 +211,11 @@ export function useWebSocket(sessionId: string | null) {
 
   return {
     isConnected,
+    isPollingFallback,
     feedItems,
     isComplete,
     error,
+    warning,
     sendStop,
   };
 }

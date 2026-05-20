@@ -85,7 +85,7 @@ export function PdfUpload({ onFilesChange }: PdfUploadProps) {
           transition-all duration-300 backdrop-blur-sm
           ${isDragging
             ? 'border-orion-accent bg-orion-accent/10 scale-[1.01]'
-            : 'border-orion-accent/20 bg-white/40 hover:bg-white/70 hover:shadow-md'
+            : 'border-orion-accent/20 bg-orion-surface hover:bg-orion-surface hover:shadow-md'
           }
         `}
       >
@@ -109,7 +109,7 @@ export function PdfUpload({ onFilesChange }: PdfUploadProps) {
           {files.map(f => (
             <div
               key={f.file_id}
-              className="flex items-center gap-3 rounded-xl bg-white/80 backdrop-blur shadow-sm border border-orion-border/40 px-4 py-2.5 animate-fade-in hover:bg-white transition-colors"
+              className="flex items-center gap-3 rounded-xl bg-orion-surface backdrop-blur shadow-sm border border-orion-border/40 px-4 py-2.5 animate-fade-in hover:bg-orion-surface-2 transition-colors"
             >
               <FileText className="h-4 w-4 text-orion-accent shrink-0" />
               <span className="text-sm text-orion-text-muted truncate flex-1">{f.filename}</span>

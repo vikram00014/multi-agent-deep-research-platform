@@ -39,6 +39,7 @@ export function Sidebar({ currentSessionId, onSelectSession, onNewSession }: Sid
       case 'complete': return <CheckCircle2 className="h-3.5 w-3.5 text-orion-success" />;
       case 'error': return <AlertCircle className="h-3.5 w-3.5 text-orion-error" />;
       case 'running': return <Loader2 className="h-3.5 w-3.5 text-orion-accent animate-spin" />;
+      case 'cancelled': return <AlertCircle className="h-3.5 w-3.5 text-amber-500" />;
       default: return <Clock className="h-3.5 w-3.5 text-orion-text-dim" />;
     }
   };
@@ -60,27 +61,26 @@ export function Sidebar({ currentSessionId, onSelectSession, onNewSession }: Sid
   };
 
   return (
-    <div className="h-full flex flex-col glass border-r border-orion-border/30">
+    <div className="h-full flex flex-col sidebar-glass border-r border-orion-border/50">
       {/* Header */}
-      <div className="p-5 pb-4">
-        <div className="flex items-center gap-3 mb-6">
+      <div className="p-4 pt-8 pb-3">
+        <div className="flex items-center gap-3 mb-5">
           <div className="relative">
-            <FlaskConical className="h-7 w-7 text-orion-accent" />
-            <div className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-orion-cyan" style={{ animation: 'orbit 3s linear infinite' }} />
+            <FlaskConical className="h-6 w-6 text-orion-accent" />
+            <div className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
           </div>
           <div>
-            <h1 className="text-lg font-bold gradient-text leading-none">ORION</h1>
-            <p className="text-[10px] text-orion-text-dim tracking-widest uppercase">Deep Research</p>
+            <h1 className="text-base font-black tracking-tighter text-orion-text leading-none">ORION</h1>
+            <p className="text-[9px] font-bold text-orion-text-dim tracking-widest uppercase mt-0.5">Deep Research</p>
           </div>
         </div>
 
         <button
           onClick={onNewSession}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl
-            bg-orion-accent text-white text-sm font-medium
-            hover:bg-orion-accent-light transition-all shadow-md active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5
+            bg-orion-accent text-white rounded-xl text-sm font-bold shadow-[0_4px_12px_rgba(79,70,229,0.2)] hover:bg-orion-accent-light hover:shadow-[0_6px_16px_rgba(79,70,229,0.3)] transition-all active:scale-[0.98]"
         >
-          <Plus className="h-4.5 w-4.5" />
+          <Plus className="h-4 w-4" />
           New Research
         </button>
       </div>
@@ -92,7 +92,7 @@ export function Sidebar({ currentSessionId, onSelectSession, onNewSession }: Sid
             <Loader2 className="h-5 w-5 text-orion-text-dim animate-spin" />
           </div>
         ) : sessions.length === 0 ? (
-          <div className="text-center py-8 px-4">
+          <div className="text-center py-12 px-4">
             <p className="text-sm text-orion-text-dim">No sessions yet</p>
             <p className="text-xs text-orion-text-dim mt-1">Start a new research to begin</p>
           </div>
@@ -102,17 +102,17 @@ export function Sidebar({ currentSessionId, onSelectSession, onNewSession }: Sid
               <div
                 key={session.session_id}
                 className={`
-                  w-full px-3 py-3 rounded-xl transition-all text-sm group
+                  w-full px-3 py-3 rounded-xl transition-all text-sm group relative overflow-hidden
                   ${currentSessionId === session.session_id
-                    ? 'bg-white shadow-sm text-orion-text font-medium'
-                    : 'hover:bg-white/50 text-orion-text-muted border border-transparent hover:border-orion-border/30'
+                    ? 'bg-gradient-to-r from-orion-accent/10 to-transparent shadow-sm text-orion-text font-semibold border border-orion-accent/20'
+                    : 'hover:bg-orion-surface-2/60 text-orion-text-muted border border-transparent hover:border-orion-border/50'
                   }
                 `}
               >
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-2 relative z-10">
                   {/* Active Pill Indicator */}
                 {currentSessionId === session.session_id && (
-                  <div className="w-1 self-stretch rounded-r-full bg-orion-accent" />
+                  <div className="absolute -left-3 top-0 bottom-0 w-1 rounded-r-full bg-gradient-to-b from-indigo-500 to-cyan-400 shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
                 )}
                   <button
                     onClick={() => onSelectSession(session.session_id)}

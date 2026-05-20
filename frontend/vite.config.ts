@@ -9,12 +9,14 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      '/research': 'http://localhost:8000',
-      '/upload': 'http://localhost:8000',
-      '/health': 'http://localhost:8000',
+      '/research': 'http://127.0.0.1:8000',
+      '/upload': 'http://127.0.0.1:8000',
+      '/health': 'http://127.0.0.1:8000',
+      '/resources': 'http://127.0.0.1:8000',
       '/ws': {
-        target: 'ws://localhost:8000',
+        target: 'ws://127.0.0.1:8000',
         ws: true,
+        changeOrigin: true,
       },
     },
   },

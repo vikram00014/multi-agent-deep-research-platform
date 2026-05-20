@@ -10,12 +10,44 @@ import logging
 from typing import Any
 from datetime import datetime
 import random
+import re
 
 import httpx
 
 from app.core.config import settings
 
 logger = logging.getLogger("orion.retrieval")
+
+
+def _author_string_from_parts(names: list[str], limit: int = 5) -> str:
+    cleaned = [str(name).strip() for name in names if str(name).strip()]
+    if not cleaned:
+        return "Unknown"
+    short = cleaned[:limit]
+    text = ", ".join(short)
+    if len(cleaned) > limit:
+        text += " et al."
+    return text
+
+
+def _strip_html_tags(text: str) -> str:
+    cleaned = re.sub(r"<[^>]+>", " ", str(text or ""))
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def _openalex_abstract(abstract_index: dict[str, list[int]] | None) -> str:
+    if not isinstance(abstract_index, dict) or not abstract_index:
+        return ""
+    slots: dict[int, str] = {}
+    for token, positions in abstract_index.items():
+        if not isinstance(positions, list):
+            continue
+        for pos in positions:
+            if isinstance(pos, int) and pos not in slots:
+                slots[pos] = token
+    if not slots:
+        return ""
+    return " ".join(slots[i] for i in sorted(slots))
 
 
 # ── Paper Schema ──────────────────────────────────────────────────────────
@@ -80,8 +112,7 @@ async def fetch_arxiv(query: str, max_results: int = 10) -> list[dict]:
                 ))
             return papers
 
-        loop = asyncio.get_event_loop()
-        results = await loop.run_in_executor(None, _search)
+        results = await asyncio.to_thread(_search)
         logger.info("ArXiv returned %d papers for '%s'", len(results), query)
         return results
 
@@ -157,6 +188,164 @@ async def fetch_semantic_scholar(query: str, max_results: int = 10) -> list[dict
 
     except Exception as e:
         logger.error("Semantic Scholar fetch failed: %s", e)
+        return []
+
+
+async def fetch_openalex(query: str, max_results: int = 10) -> list[dict]:
+    """Fetch papers from OpenAlex."""
+    url = "https://api.openalex.org/works"
+    params = {
+        "search": query,
+        "per-page": max_results,
+        "filter": "has_abstract:true",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0, headers={"User-Agent": "ORION/1.0"}) as client:
+            resp = await client.get(url, params=params)
+            if resp.status_code != 200:
+                logger.error("OpenAlex HTTP %s", resp.status_code)
+                return []
+
+            data = resp.json()
+            papers = []
+            for item in data.get("results", []):
+                abstract = _openalex_abstract(item.get("abstract_inverted_index"))
+                if not abstract:
+                    continue
+                authors = _author_string_from_parts([
+                    (authorship.get("author") or {}).get("display_name", "")
+                    for authorship in (item.get("authorships") or [])
+                ])
+                ids = item.get("ids") or {}
+                doi = str(ids.get("doi", "")).replace("https://doi.org/", "")
+                primary_location = item.get("primary_location") or {}
+                url_value = primary_location.get("landing_page_url") or primary_location.get("pdf_url") or item.get("id", "")
+
+                papers.append(_make_paper(
+                    title=item.get("title", ""),
+                    authors=authors,
+                    abstract=abstract,
+                    year=item.get("publication_year", ""),
+                    source="openalex",
+                    url=url_value,
+                    doi=doi,
+                    citation_count=item.get("cited_by_count", 0),
+                ))
+
+            logger.info("OpenAlex returned %d papers for '%s'", len(papers), query)
+            return papers
+    except Exception as e:
+        logger.error("OpenAlex fetch failed: %s", e)
+        return []
+
+
+async def fetch_crossref(query: str, max_results: int = 10) -> list[dict]:
+    """Fetch metadata-rich papers from Crossref."""
+    url = "https://api.crossref.org/works"
+    params = {
+        "query.bibliographic": query,
+        "rows": max_results,
+    }
+    headers = {
+        "User-Agent": "ORION/1.0 (mailto:orion@example.com)",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
+            resp = await client.get(url, params=params)
+            if resp.status_code != 200:
+                logger.error("Crossref HTTP %s", resp.status_code)
+                return []
+
+            message = (resp.json() or {}).get("message", {})
+            papers = []
+            for item in message.get("items", []):
+                abstract = _strip_html_tags(item.get("abstract", ""))
+                if not abstract:
+                    title_text = " ".join(item.get("title") or [])
+                    subtitle = " ".join(item.get("subtitle") or [])
+                    container = " ".join(item.get("container-title") or [])
+                    abstract = ". ".join(part for part in [title_text, subtitle, container] if part)
+                if len(abstract.strip()) < 40:
+                    continue
+
+                authors = _author_string_from_parts([
+                    " ".join(part for part in [a.get("given", ""), a.get("family", "")] if part)
+                    for a in (item.get("author") or [])
+                ])
+                year_parts = (
+                    (item.get("published-print") or {}).get("date-parts")
+                    or (item.get("published-online") or {}).get("date-parts")
+                    or []
+                )
+                year = year_parts[0][0] if year_parts and year_parts[0] else ""
+                title = " ".join(item.get("title") or []) or "Untitled"
+                doi = item.get("DOI", "")
+                url_value = item.get("URL", "")
+
+                papers.append(_make_paper(
+                    title=title,
+                    authors=authors,
+                    abstract=abstract,
+                    year=year,
+                    source="crossref",
+                    url=url_value,
+                    doi=doi,
+                    citation_count=int(item.get("is-referenced-by-count", 0) or 0),
+                ))
+
+            logger.info("Crossref returned %d papers for '%s'", len(papers), query)
+            return papers
+    except Exception as e:
+        logger.error("Crossref fetch failed: %s", e)
+        return []
+
+
+async def fetch_github_repositories(query: str, max_results: int = 5) -> list[dict]:
+    """Fetch notable GitHub repositories related to the topic."""
+    url = "https://api.github.com/search/repositories"
+    params = {
+        "q": query,
+        "sort": "stars",
+        "order": "desc",
+        "per_page": max_results,
+    }
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "ORION/1.0",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0, headers=headers) as client:
+            resp = await client.get(url, params=params)
+            if resp.status_code != 200:
+                logger.warning("GitHub repository search HTTP %s", resp.status_code)
+                return []
+
+            data = resp.json() or {}
+            repos = []
+            for item in data.get("items", []):
+                description = str(item.get("description", "") or "").strip()
+                if len(description) < 24:
+                    continue
+                owner = (item.get("owner") or {}).get("login", "GitHub")
+                created_year = str(item.get("created_at", "")).split("-", 1)[0]
+                repos.append(_make_paper(
+                    title=item.get("full_name", "") or item.get("name", "Repository"),
+                    authors=owner,
+                    abstract=description,
+                    year=created_year,
+                    source="github_repo",
+                    url=item.get("html_url", ""),
+                    citation_count=int(item.get("stargazers_count", 0) or 0),
+                    arxiv_id=item.get("node_id", ""),
+                ))
+
+            logger.info("GitHub returned %d repositories for '%s'", len(repos), query)
+            return repos
+    except Exception as e:
+        logger.error("GitHub repository fetch failed: %s", e)
         return []
 
 

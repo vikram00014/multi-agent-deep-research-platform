@@ -1,7 +1,0 @@
-[
-  {
-    "title": "Scaling Mechanistic Interpretability from Synthetic Tasks to Complex Compositional ICL",
-    "evidence": "Current mechanistic analyses of in-context learning (ICL) predominantly focus on simplified, synthetic tasks such as sequence completion (e.g., 'A B -> A B') or basic algorithmic problems.",
-    "proposed_direction": "None"
-  }
-]

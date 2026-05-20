@@ -96,6 +96,11 @@ class Settings(BaseSettings):
         """Full URL for Gemini streamGenerateContent endpoint."""
         return f"{self.vertex_base_url}/{self.vertex_model}:streamGenerateContent?key={self.vertex_api_key}"
 
+    @property
+    def imagen_generate_url(self) -> str:
+        """Full URL for Imagen 3 generation via Vertex AI."""
+        return f"{self.vertex_base_url}/imagen-3.0-generate-001:predict?key={self.vertex_api_key}"
+
 
 # Singleton instance
 settings = Settings()

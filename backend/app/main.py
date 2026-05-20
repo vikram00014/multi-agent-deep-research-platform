@@ -19,6 +19,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 from app.core.config import settings
 from app.core.llm_client import gemini_client
@@ -69,7 +71,12 @@ app = FastAPI(
 # ── CORS (allow React dev server) ────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -78,6 +85,11 @@ app.add_middleware(
 # ── Include REST Routers ─────────────────────────────────────────────────
 app.include_router(research_router)
 app.include_router(upload_router)
+
+# ── Static Files ─────────────────────────────────────────────────────────
+resources_path = Path(settings.session_store_path).parent / "resources"
+resources_path.mkdir(parents=True, exist_ok=True)
+app.mount("/resources", StaticFiles(directory=resources_path), name="resources")
 
 
 # ── WebSocket Endpoint ───────────────────────────────────────────────────
@@ -125,8 +137,11 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         logger.info("Client requested stop for session %s", session_id)
                         await websocket.send_json({
                             "type": "status",
-                            "message": "Stop requested (will complete current step)",
+                            "message": "Stop requested (cancelling task)",
                         })
+                        from app.api.routes.research import session_tasks
+                        if session_id in session_tasks and not session_tasks[session_id].done():
+                            session_tasks[session_id].cancel()
                 except Exception:
                     pass
 

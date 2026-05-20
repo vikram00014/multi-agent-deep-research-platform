@@ -38,6 +38,38 @@ class VertexGeminiClient:
         if self._client and not self._client.is_closed:
             await self._client.aclose()
 
+    # ── Image Generation Method ───────────────────────────────────────────
+
+    async def generate_image(self, prompt: str) -> str:
+        """
+        Generate an image using Vertex AI Imagen 3.
+        Returns the base64 encoded image string.
+        """
+        payload = {
+            "instances": [
+                {"prompt": prompt}
+            ],
+            "parameters": {
+                "sampleCount": 1,
+                "aspectRatio": "16:9",
+            }
+        }
+        
+        client = await self._get_client()
+        url = settings.imagen_generate_url
+        try:
+            resp = await client.post(url, json=payload)
+            if resp.status_code == 200:
+                data = resp.json()
+                predictions = data.get("predictions", [])
+                if predictions and "bytesBase64Encoded" in predictions[0]:
+                    return predictions[0]["bytesBase64Encoded"]
+            logger.error("Imagen API failed: HTTP %s - %s", resp.status_code, resp.text[:300])
+            return ""
+        except Exception as e:
+            logger.error("Imagen API exception: %s", e)
+            return ""
+
     # ── Core Generation Method ────────────────────────────────────────────
 
     async def generate_content(
@@ -226,17 +258,60 @@ class VertexGeminiClient:
 
     @staticmethod
     def _extract_text(response_data: dict) -> str:
-        """Extract text from the Gemini API response JSON."""
+        """Extract text from the Gemini API response JSON.
+
+        Handles multiple response structures:
+        - Standard text parts
+        - Thinking-mode responses where 'thought' parts precede text parts
+        - Responses where finishReason may block content
+        """
         try:
             candidates = response_data.get("candidates", [])
             if not candidates:
+                logger.debug("No candidates in API response")
                 return ""
 
-            parts = candidates[0].get("content", {}).get("parts", [])
-            text_parts = [p.get("text", "") for p in parts if "text" in p]
-            return "".join(text_parts).strip()
+            candidate = candidates[0]
 
-        except (KeyError, IndexError):
+            # Check for blocked / empty responses
+            finish_reason = candidate.get("finishReason", "")
+            if finish_reason == "SAFETY":
+                logger.warning("Response blocked by safety filter")
+                return ""
+
+            parts = candidate.get("content", {}).get("parts", [])
+            if not parts:
+                logger.debug("No parts in candidate content")
+                return ""
+
+            # Collect text from non-thought parts first
+            text_parts = []
+            thought_parts = []
+            for p in parts:
+                if p.get("thought"):
+                    # This is a thinking/reasoning part — skip for output
+                    thought_parts.append(p.get("text", ""))
+                    continue
+                text = p.get("text", "")
+                if text:
+                    text_parts.append(text)
+
+            result = "".join(text_parts).strip()
+
+            # If no text parts found but thought parts exist, the model
+            # consumed all tokens on thinking.  Log for diagnosis.
+            if not result and thought_parts:
+                logger.warning(
+                    "Response contained %d thought parts but no text output "
+                    "(thinking consumed all tokens). Thought preview: %s",
+                    len(thought_parts),
+                    thought_parts[0][:120] if thought_parts else "",
+                )
+
+            return result
+
+        except (KeyError, IndexError) as exc:
+            logger.debug("Error extracting text from response: %s", exc)
             return ""
 
 

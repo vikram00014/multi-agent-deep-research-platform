@@ -21,6 +21,10 @@ import json
 import logging
 import math
 import re
+import uuid
+import base64
+import aiofiles
+from pathlib import Path
 from collections import Counter
 from typing import Any
 
@@ -29,6 +33,9 @@ from app.core.config import settings
 from app.core.state import ResearchState
 from app.services.retrieval import (
     fetch_arxiv,
+    fetch_crossref,
+    fetch_github_repositories,
+    fetch_openalex,
     fetch_semantic_scholar,
     fetch_web_tavily,
     deduplicate_papers,
@@ -67,8 +74,14 @@ def _source_quality_score(source: str) -> float:
     source = (source or "").lower()
     if source == "semantic_scholar":
         return 0.95  # mostly peer-reviewed index
+    if source == "openalex":
+        return 0.93
+    if source == "crossref":
+        return 0.88
     if source == "arxiv":
         return 0.72  # strong but preprint-heavy
+    if source == "github_repo":
+        return 0.58
     if source == "web_tavily":
         return 0.45
     if source == "uploaded_pdf":
@@ -146,6 +159,11 @@ def _cluster_duplicates(papers: list[dict[str, Any]], threshold: float = 0.82) -
 def _extract_json_fragment(text: str) -> str:
     if not text:
         return ""
+    # Strip markdown code block wrappers first
+    stripped = re.sub(r"^```(?:json|JSON)?\s*\n?", "", text.strip())
+    stripped = re.sub(r"\n?```\s*$", "", stripped).strip()
+    if stripped != text.strip():
+        text = stripped
     start_candidates = [i for i in [text.find("["), text.find("{")] if i != -1]
     if not start_candidates:
         return text.strip()
@@ -162,6 +180,7 @@ def _parse_json_object(text: str) -> dict[str, Any]:
     """Best-effort parse for model output expected to be a JSON object."""
     if not text:
         return {}
+    # Try raw, then stripped markdown, then extracted fragment
     for candidate in (text, _extract_json_fragment(text)):
         try:
             parsed = json.loads(candidate)
@@ -169,7 +188,27 @@ def _parse_json_object(text: str) -> dict[str, Any]:
             continue
         if isinstance(parsed, dict):
             return parsed
+        # If the model returns an array, wrap it
+        if isinstance(parsed, list) and parsed:
+            if isinstance(parsed[0], dict):
+                return parsed[0]
     return {}
+
+
+def _parse_json_array(text: str) -> list[dict[str, Any]]:
+    """Best-effort parse for model output expected to be a JSON array."""
+    if not text:
+        return []
+    for candidate in (text, _extract_json_fragment(text)):
+        try:
+            parsed = json.loads(candidate)
+        except Exception:
+            continue
+        if isinstance(parsed, list):
+            return [item for item in parsed if isinstance(item, dict)]
+        if isinstance(parsed, dict):
+            return [parsed]
+    return []
 
 
 def _topic_anchor_terms(topic: str, limit: int = 8) -> list[str]:
@@ -254,11 +293,11 @@ def _citation_marker_map(bibliography: list[dict[str, Any]]) -> dict[str, int]:
         key = str(item.get("citation_key", "")).strip().lower()
         if not key:
             key = _citation_key(item.get("authors", ""), item.get("year", ""))
+        key = re.sub(r"[^a-z0-9]", "", key)
         if key and key not in mapping:
             mapping[key] = next_idx
             next_idx += 1
     return mapping
-
 
 def _strip_reference_tail(markdown: str) -> str:
     if not markdown:
@@ -267,7 +306,842 @@ def _strip_reference_tail(markdown: str) -> str:
     return re.sub(pattern, "", markdown).rstrip()
 
 
+def _sanitize_mermaid_syntax(markdown: str) -> str:
+    """
+    Performs regex-based fixes on Mermaid code blocks to prevent syntax errors.
+    """
+    if not markdown or "```mermaid" not in markdown:
+        return markdown
+
+    def _fix_block(match: re.Match) -> str:
+        content = match.group(1)
+        # 1. Strip icons (causes syntax errors in many versions)
+        content = re.sub(r"::icon\(.*?\)", "", content)
+        
+        # 2. Quoting labels in mindmaps that have special characters
+        if "mindmap" in content:
+            # Match unquoted text in mindmap nodes and wrap in ["..."]
+            # This is a heuristic that targets common LLM failures
+            content = re.sub(r"(\s+)([A-Za-z0-9_-]+)\(([^)]+)\)", r'\1\2["\3"]', content)
+            content = re.sub(r'(\s+)([A-Za-z0-9_-]+)\s+([^"\[\]\(\)\s][^"\[\]\(\)\n]*)', r'\1\2["\3"]', content)
+        
+        return f"```mermaid\n{content}\n```"
+
+    return re.sub(r"```mermaid\n(.*?)\n```", _fix_block, markdown, flags=re.DOTALL)
+
+
+def _strip_mermaid_blocks(markdown: str) -> str:
+    if not markdown:
+        return ""
+    return re.sub(r"\n?```mermaid\n.*?\n```\n?", "\n", markdown, flags=re.DOTALL)
+
+
+def _normalize_image_prompt(prompt: str, topic: str, max_len: int = 280) -> str:
+    cleaned = re.sub(r"\s+", " ", str(prompt or "")).strip().strip('"')
+    cleaned = re.sub(r"[\[\]{}<>`]", "", cleaned)
+    if not cleaned:
+        cleaned = f"Editorial scientific infographic about {topic}, clean labels, modern research style"
+    if len(cleaned) > max_len:
+        cleaned = cleaned[:max_len].rsplit(" ", 1)[0].strip()
+    return cleaned
+
+
+def _depth_budgets(depth: str) -> dict[str, int]:
+    key = str(depth or "standard").strip().lower()
+    if key == "quick":
+        return {"queries": 3, "results": 4, "max_total": 10, "summary_cap": 8}
+    if key == "deep":
+        return {"queries": 6, "results": 6, "max_total": 36, "summary_cap": 22}
+    return {"queries": 5, "results": 5, "max_total": 20, "summary_cap": 14}
+
+
+def _safe_mermaid_text(text: str, limit: int = 34) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9 /:+-]", " ", str(text or ""))
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    if not cleaned:
+        cleaned = "Untitled"
+    words = cleaned.split()
+    return " ".join(words[:limit])
+
+
+def _evidence_snapshot_table(
+    summaries: dict[str, dict[str, Any]],
+    citation_quality: dict[str, dict[str, Any]],
+    citation_verification: dict[str, dict[str, Any]],
+    limit: int = 8,
+) -> str:
+    if not summaries:
+        return "_No source evidence available._"
+    lines = [
+        "| Study | Year | Methodology | Evidence focus | Limitation | Confidence | Verified |",
+        "|---|---:|---|---|---|---:|---|",
+    ]
+    for i, (_pid, info) in enumerate(summaries.items(), start=1):
+        if i > limit:
+            break
+        method = _clean_nullable_text(info.get("methodology", "")) or "Benchmark / empirical analysis"
+        eval_signal = _clean_nullable_text(info.get("evaluation_signal", "")) or "Model capability and evidence synthesis"
+        limitation = _clean_nullable_text(info.get("limitation", "")) or "Not explicit"
+        confidence = citation_quality.get(_pid, {}).get("confidence", 0.5)
+        verified = "Yes" if citation_verification.get(_pid, {}).get("verified", False) else "No"
+        lines.append(
+            f"| {str(info.get('title', 'Untitled'))[:58]} | {str(info.get('year', ''))[:4]} | "
+            f"{method[:52]} | {eval_signal[:52]} | {limitation[:68]} | {confidence:.2f} | {verified} |"
+        )
+    return "\n\n".join(lines)
+
+
+def _source_mix_table(source_counts: dict[str, int], bibliography: list[dict[str, Any]]) -> str:
+    total = max(1, sum(source_counts.values()))
+    verified = sum(1 for b in bibliography if b.get("verified"))
+    lines = [
+        "| Source family | Count | Share |",
+        "|---|---:|---:|",
+    ]
+    for src, count in sorted(source_counts.items(), key=lambda x: x[1], reverse=True):
+        lines.append(f"| {src} | {count} | {round((count / total) * 100)}% |")
+    lines.append(f"| Verified citations | {verified} | {round((verified / max(1, len(bibliography))) * 100)}% |")
+    return "\n\n".join(lines)
+
+
+def _study_landscape_table(
+    summaries: dict[str, dict[str, Any]],
+    citation_quality: dict[str, dict[str, Any]],
+    citation_verification: dict[str, dict[str, Any]],
+    limit: int = 14,
+) -> str:
+    if not summaries:
+        return "_No study landscape available._"
+    lines = [
+        "| Study | Year | Methodology | Evaluation signal | Source | Confidence | Verified |",
+        "|---|---:|---|---|---|---:|---|",
+    ]
+    for idx, (_pid, info) in enumerate(summaries.items(), start=1):
+        if idx > limit:
+            break
+        lines.append(
+            f"| {str(info.get('title', 'Untitled'))[:56]} | {str(info.get('year', ''))[:4]} | "
+            f"{(_clean_nullable_text(info.get('methodology', '')) or 'Empirical study')[:44]} | "
+            f"{(_clean_nullable_text(info.get('evaluation_signal', '')) or 'Not explicit')[:48]} | "
+            f"{str(info.get('source', 'unknown'))[:18]} | "
+            f"{citation_quality.get(_pid, {}).get('confidence', 0.5):.2f} | "
+            f"{'Yes' if citation_verification.get(_pid, {}).get('verified', False) else 'No'} |"
+        )
+    return "\n\n".join(lines)
+
+
+def _citation_audit_table(bibliography: list[dict[str, Any]], limit: int = 18) -> str:
+    if not bibliography:
+        return "_No citation audit available._"
+    lines = [
+        "| Citation key | Source family | DOI / URL | Confidence | Verified |",
+        "|---|---|---|---:|---|",
+    ]
+    for item in bibliography[:limit]:
+        locator = item.get("doi") or item.get("url") or "Not provided"
+        locator = str(locator)
+        if len(locator) > 64:
+            locator = f"{locator[:61]}..."
+        lines.append(
+            f"| [@{item.get('citation_key', 'unknown')}] | {str(item.get('source', 'unknown'))[:20]} | "
+            f"{locator} | {float(item.get('confidence', 0.5) or 0.5):.2f} | "
+            f"{'Yes' if item.get('verified') else 'No'} |"
+        )
+    return "\n\n".join(lines)
+
+
+def _findings_brief(cross: dict[str, Any]) -> str:
+    if not cross:
+        return "_Cross-paper findings not available._"
+    blocks: list[str] = []
+    sections = [
+        ("Methodology patterns", cross.get("methodology_patterns", [])),
+        ("Comparative axes", cross.get("comparative_axes", [])),
+        ("Contradictions", cross.get("contradictions", [])),
+        ("Missing dimensions", cross.get("missing_dimensions", [])),
+        ("Weak evaluation signals", cross.get("weak_evaluation_signals", [])),
+    ]
+    for heading, items in sections:
+        cleaned = [str(item).strip() for item in (items or []) if str(item).strip()]
+        if not cleaned:
+            continue
+        blocks.append(f"#### {heading}\n" + "\n".join(f"- {item}" for item in cleaned[:6]))
+    return "\n\n".join(blocks) if blocks else "_Cross-paper findings were too sparse to summarize._"
+
+
+def _experiment_backlog_table(cross: dict[str, Any], gaps: list[dict[str, Any]], limit: int = 8) -> str:
+    experiments = [str(item).strip() for item in (cross.get("recommended_experiments", []) or []) if str(item).strip()]
+    rows = []
+    for idx, experiment in enumerate(experiments[:limit], start=1):
+        linked_gap = gaps[min(idx - 1, len(gaps) - 1)].get("title", "General evidence gap") if gaps else "General evidence gap"
+        rows.append(f"| {idx} | {experiment[:88]} | {str(linked_gap)[:58]} | High |")
+    if not rows:
+        for idx, gap in enumerate(gaps[:limit], start=1):
+            rows.append(
+                f"| {idx} | {str(gap.get('proposed_direction', 'Targeted validation study'))[:88]} | "
+                f"{str(gap.get('title', 'Evidence gap'))[:58]} | High |"
+            )
+    if not rows:
+        return "_No experiment backlog available._"
+    return "\n".join([
+        "| Priority | Proposed experiment | Primary gap addressed | Expected value |",
+        "|---:|---|---|---|",
+        *rows,
+    ])
+
+
+def _visual_landscape_mermaid(topic: str, summaries: dict[str, dict[str, Any]], gaps: list[dict[str, Any]]) -> str:
+    theme_terms: list[str] = []
+    for info in summaries.values():
+        for raw in re.findall(r"[A-Za-z]{4,}", f"{info.get('title', '')} {info.get('summary', '')}"):
+            token = raw.lower()
+            if token in {"study", "paper", "model", "results", "using", "based", "their", "these", "video", "text"}:
+                continue
+            if token not in theme_terms:
+                theme_terms.append(token)
+            if len(theme_terms) >= 6:
+                break
+        if len(theme_terms) >= 6:
+            break
+    gap_terms = [_safe_mermaid_text(g.get("title", ""), 6) for g in gaps[:3]]
+    method_terms = [_safe_mermaid_text(info.get("methodology", "") or info.get("title", ""), 5) for info in list(summaries.values())[:3]]
+    lines = [
+        "```mermaid",
+        "flowchart TD",
+        f'    topic["{_safe_mermaid_text(topic, 8)}"]',
+        '    topic --> themes["Core themes"]',
+        '    topic --> methods["Methods and benchmarks"]',
+        '    topic --> gaps["Open gaps"]',
+    ]
+    for idx, term in enumerate(theme_terms[:4], start=1):
+        lines.append(f'    themes --> th{idx}["{_safe_mermaid_text(term, 5)}"]')
+    for idx, term in enumerate(method_terms[:3], start=1):
+        lines.append(f'    methods --> m{idx}["{_safe_mermaid_text(term, 6)}"]')
+    for idx, term in enumerate(gap_terms, start=1):
+        lines.append(f'    gaps --> g{idx}["{_safe_mermaid_text(term, 7)}"]')
+    lines.append("```")
+    return "\n\n".join(lines)
+
+
+def _visual_workflow_mermaid(gaps: list[dict[str, Any]]) -> str:
+    gap_titles = [_safe_mermaid_text(g.get("title", ""), 6) for g in gaps[:3]]
+    lines = [
+        "```mermaid",
+        "flowchart LR",
+        '    A["Source collection"] --> B["Cross paper synthesis"]',
+        '    B --> C["Evidence comparison"]',
+        '    C --> D["Gap diagnosis"]',
+        '    D --> E["Prioritized experiments"]',
+    ]
+    for idx, gap in enumerate(gap_titles, start=1):
+        lines.append(f'    D --> G{idx}["{gap}"]')
+    lines.append("```")
+    return "\n\n".join(lines)
+
+
+def _visual_evidence_flow_mermaid(cross: dict[str, Any], gaps: list[dict[str, Any]]) -> str:
+    experiments = [str(item).strip() for item in (cross.get("recommended_experiments", []) or []) if str(item).strip()]
+    lines = [
+        "```mermaid",
+        "flowchart TD",
+        '    A["Multi-source retrieval"] --> B["Structured paper summaries"]',
+        '    B --> C["Cross-paper comparison"]',
+        '    C --> D["Gap synthesis"]',
+        '    D --> E["Experiment backlog"]',
+    ]
+    for idx, gap in enumerate(gaps[:3], start=1):
+        lines.append(f'    D --> G{idx}["{_safe_mermaid_text(gap.get("title", ""), 8)}"]')
+    for idx, exp in enumerate(experiments[:2], start=1):
+        lines.append(f'    E --> X{idx}["{_safe_mermaid_text(exp, 8)}"]')
+    lines.append("```")
+    return "\n\n".join(lines)
+
+
+def _orion_visual_appendix(
+    topic: str,
+    summaries: dict[str, dict[str, Any]],
+    gaps: list[dict[str, Any]],
+    citation_quality: dict[str, dict[str, Any]],
+    citation_verification: dict[str, dict[str, Any]],
+    source_counts: dict[str, int],
+    bibliography: list[dict[str, Any]],
+    cross: dict[str, Any],
+) -> dict[str, str]:
+    return {
+        "[ORION_STUDY_LANDSCAPE]": _study_landscape_table(summaries, citation_quality, citation_verification),
+        "[ORION_EVIDENCE_MATRIX]": _evidence_snapshot_table(summaries, citation_quality, citation_verification),
+        "[ORION_SOURCE_MATRIX]": _source_mix_table(source_counts, bibliography),
+        "[ORION_CITATION_AUDIT]": _citation_audit_table(bibliography),
+        "[ORION_FINDINGS_BRIEF]": _findings_brief(cross),
+        "[ORION_EXPERIMENT_BACKLOG]": _experiment_backlog_table(cross, gaps),
+        "[ORION_VISUAL_LANDSCAPE]": _visual_landscape_mermaid(topic, summaries, gaps),
+        "[ORION_VISUAL_WORKFLOW]": _visual_workflow_mermaid(gaps),
+        "[ORION_VISUAL_EVIDENCE_FLOW]": _visual_evidence_flow_mermaid(cross, gaps),
+    }
+
+
+def _replace_orion_visual_tokens(markdown: str, replacements: dict[str, str]) -> str:
+    text = str(markdown or "")
+    for token, value in replacements.items():
+        if token in text:
+            text = text.replace(token, value)
+    missing = [token for token in replacements if token not in markdown]
+    if missing:
+        extra = "\n\n".join(
+            f"### {token.replace('[ORION_', '').replace(']', '').replace('_', ' ').title()}\n{replacements[token]}"
+            for token in missing
+        )
+        text = f"{text.rstrip()}\n\n{extra}\n"
+    return text
+
+
+def _strip_visual_placeholder_labels(markdown: str) -> str:
+    """
+    Remove orphan visual scaffold labels that can remain after token replacement.
+    This is applied to Part B draft so visual placeholder headings do not leak
+    into the publication manuscript.
+    """
+    if not markdown:
+        return ""
+
+    labels = [
+        "Study Landscape",
+        "Evidence Matrix",
+        "Source Matrix",
+        "Citation Audit",
+        "Findings Brief",
+        "Experiment Backlog",
+        "Visual Landscape",
+        "Visual Workflow",
+        "Visual Evidence Flow",
+    ]
+    escaped = "|".join(re.escape(label) for label in labels)
+    pattern = rf"(?im)^\s{{0,3}}(?:[-*]\s+|#{{1,6}}\s+)?(?:{escaped})\s*:?\s*$"
+    cleaned = re.sub(pattern, "", markdown)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
+
+
+def _methodology_comparison_table(summaries: dict[str, dict[str, Any]], limit: int = 24) -> str:
+    if not summaries:
+        return "_No methodology comparison available._"
+    lines = [
+        "| Study | Year | Methodology | Object of study | Evaluation signal |",
+        "|---|---:|---|---|---|",
+    ]
+    for idx, (_pid, info) in enumerate(summaries.items(), start=1):
+        if idx > limit:
+            break
+        object_of_study = _clean_nullable_text(info.get("summary", ""))
+        lines.append(
+            f"| {str(info.get('title', 'Untitled'))[:54]} | {str(info.get('year', ''))[:4]} | "
+            f"{(_clean_nullable_text(info.get('methodology', '')) or 'Empirical study')[:42]} | "
+            f"{object_of_study[:70]} | "
+            f"{(_clean_nullable_text(info.get('evaluation_signal', '')) or 'Not explicit')[:60]} |"
+        )
+    return "\n\n".join(lines)
+
+
+def _metric_extraction_table(summaries: dict[str, dict[str, Any]], limit: int = 40) -> str:
+    rows = [
+        "| Study | Metric | Value | Baseline | Extraction confidence |",
+        "|---|---|---|---|---|",
+    ]
+    count = 0
+    for info in summaries.values():
+        title = str(info.get("title", "Untitled"))[:48]
+        for metric in info.get("key_metrics", []) or []:
+            rows.append(
+                f"| {title} | {str(metric.get('metric', ''))[:48]} | {str(metric.get('value', ''))[:32]} | "
+                f"{str(metric.get('baseline', ''))[:36]} | {str(metric.get('confidence', 'medium')).title()} |"
+            )
+            count += 1
+            if count >= limit:
+                return "\n".join(rows)
+    if count == 0:
+        rows.append("| No strong numeric metrics extracted | Abstract-level or qualitative evidence dominates this paper set | - | - | Low |")
+    return "\n".join(rows)
+
+
+def _gap_detail_table(gaps: list[dict[str, Any]], limit: int = 6) -> str:
+    if not gaps:
+        return "_No structured gaps available._"
+    lines = [
+        "| Gap | Why it matters | What is missing | Proposed direction |",
+        "|---|---|---|---|",
+    ]
+    for gap in gaps[:limit]:
+        lines.append(
+            f"| {str(gap.get('title', 'Untitled'))[:54]} | "
+            f"{_clean_nullable_text(gap.get('why_gap', gap.get('evidence', '')))[:96]} | "
+            f"{_clean_nullable_text(gap.get('what_missing', gap.get('evidence', '')))[:96]} | "
+            f"{_clean_nullable_text(gap.get('proposed_direction', ''))[:110]} |"
+        )
+    return "\n\n".join(lines)
+
+
+def _source_inventory_table(
+    summaries: dict[str, dict[str, Any]],
+    bibliography: list[dict[str, Any]],
+    limit: int = 32,
+) -> str:
+    if not bibliography:
+        return "_No source inventory available._"
+    by_pid = {str(pid): info for pid, info in summaries.items()}
+    lines = [
+        "| Citation key | Study | Year | Source | Methodology | URL / DOI present |",
+        "|---|---|---:|---|---|---|",
+    ]
+    for item in bibliography[:limit]:
+        pid = str(item.get("paper_id", ""))
+        info = by_pid.get(pid, {})
+        locator = "DOI" if item.get("doi") else "URL" if item.get("url") else "No"
+        lines.append(
+            f"| [@{item.get('citation_key', 'unknown')}] | {str(item.get('title', 'Untitled'))[:48]} | "
+            f"{str(item.get('year', ''))[:4]} | {str(item.get('source', 'unknown'))[:18]} | "
+            f"{(_clean_nullable_text(info.get('methodology', '')) or 'Empirical study')[:40]} | {locator} |"
+        )
+    return "\n\n".join(lines)
+
+
+def _evidence_notes_table(cross: dict[str, Any], limit: int = 20) -> str:
+    notes = cross.get("evidence_notes", []) if isinstance(cross, dict) else []
+    if not isinstance(notes, list) or not notes:
+        return "_No evidence-note inventory available._"
+    lines = [
+        "| Paper | Evidence note |",
+        "|---|---|",
+    ]
+    for entry in notes[:limit]:
+        if not isinstance(entry, dict):
+            continue
+        lines.append(
+            f"| {str(entry.get('paper_title', 'Untitled'))[:54]} | {str(entry.get('note', ''))[:140]} |"
+        )
+    return "\n\n".join(lines)
+
+
+def _duplicate_cluster_table(duplicate_clusters: list[dict[str, Any]], limit: int = 12) -> str:
+    if not duplicate_clusters:
+        return "_No duplicate clusters detected._"
+    lines = [
+        "| Canonical title | Cluster size | Sources |",
+        "|---|---:|---|",
+    ]
+    for cluster in duplicate_clusters[:limit]:
+        lines.append(
+            f"| {str(cluster.get('canonical_title', 'Untitled'))[:62]} | {int(cluster.get('size', 0) or 0)} | "
+            f"{', '.join(str(s) for s in (cluster.get('sources', []) or []))[:80]} |"
+        )
+    return "\n\n".join(lines)
+
+
+def _debate_snippet(entry: str, limit: int = 220) -> str:
+    cleaned = re.sub(r"^\[(PROPOSER|CRITIC)\]\s*", "", entry or "", flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    if len(cleaned) <= limit:
+        return cleaned
+    return f"{cleaned[:limit].rstrip()}..."
+
+
+def _debate_roundup_table(debate_log: list[str], limit: int = 10) -> str:
+    if not debate_log:
+        return "_Debate loop was not used in this session._"
+    rows = [
+        "| Round | Speaker | Extract |",
+        "|---:|---|---|",
+    ]
+    round_num = 0
+    for entry in debate_log:
+        if not isinstance(entry, str):
+            continue
+        speaker = "Critic" if entry.startswith("[CRITIC]") else "Proposer" if entry.startswith("[PROPOSER]") else "System"
+        if speaker == "Proposer":
+            round_num += 1
+        snippet = _debate_snippet(entry, limit=180)
+        rows.append(f"| {max(1, round_num)} | {speaker} | {snippet} |")
+        if len(rows) - 2 >= limit:
+            break
+    return "\n".join(rows)
+
+
+def _claim_confidence_rollup(claim_map: list[dict[str, Any]], bibliography: list[dict[str, Any]], limit: int = 24) -> str:
+    if not claim_map:
+        return "_No claim-to-evidence mapping available._"
+    pid_to_title = {str(b.get("paper_id", "")): str(b.get("title", "Untitled")) for b in bibliography}
+    grouped: dict[str, dict[str, Any]] = {}
+    for item in claim_map:
+        claim = str(item.get("claim", "")).strip()
+        if not claim:
+            continue
+        entry = grouped.setdefault(claim, {
+            "claim": claim,
+            "pids": set(),
+            "confidences": [],
+            "verified": 0,
+        })
+        pid = str(item.get("paper_id", "")).strip()
+        if pid:
+            entry["pids"].add(pid)
+        entry["confidences"].append(float(item.get("confidence", 0.5) or 0.5))
+        if bool(item.get("verified", False)):
+            entry["verified"] += 1
+    ranked = sorted(
+        grouped.values(),
+        key=lambda x: (len(x["pids"]), sum(x["confidences"]) / max(1, len(x["confidences"]))),
+        reverse=True,
+    )
+    lines = [
+        "| Claim | Evidence count | Verified supports | Avg confidence | Source anchors |",
+        "|---|---:|---:|---:|---|",
+    ]
+    for entry in ranked[:limit]:
+        pids = sorted(list(entry["pids"]))
+        anchors = ", ".join(pid_to_title.get(pid, pid)[:28] for pid in pids[:3])
+        avg_conf = sum(entry["confidences"]) / max(1, len(entry["confidences"]))
+        lines.append(
+            f"| {entry['claim'][:96]} | {len(pids)} | {entry['verified']} | {avg_conf:.2f} | {anchors or 'n/a'} |"
+        )
+    return "\n\n".join(lines)
+
+
+def _operational_takeaways_table(
+    cross: dict[str, Any],
+    gaps: list[dict[str, Any]],
+    source_counts: dict[str, int],
+) -> str:
+    strongest_gap = str(gaps[0].get("title", "Evidence validation")) if gaps else "Evidence validation"
+    source_summary = ", ".join(f"{src}:{count}" for src, count in sorted(source_counts.items(), key=lambda x: x[1], reverse=True)[:4]) or "No source summary"
+    experiment_hint = ""
+    recs = cross.get("recommended_experiments", []) if isinstance(cross, dict) else []
+    if isinstance(recs, list) and recs:
+        experiment_hint = str(recs[0])[:110]
+    lines = [
+        "| Stakeholder | What to do next | Why this matters |",
+        "|---|---|---|",
+        f"| Research leads | Prioritize studies that close `{strongest_gap[:58]}` and report explicit numeric outcomes. | Current evidence still mixes strong retrieval breadth with uneven validation depth. |",
+        f"| ML engineers | Move to claim -> evidence -> output generation with stronger citation verification gates. | The current source landscape (`{source_summary[:90]}`) is only useful if claims remain tethered to verified support. |",
+        f"| Product teams | Treat the recommended experiment backlog as the operational roadmap: {experiment_hint or 'translate top gaps into evaluable backlog items.'} | This makes the dossier actionable rather than just descriptive. |",
+    ]
+    return "\n\n".join(lines)
+
+
+def _confidence_band_breakdown(citation_quality: dict[str, dict[str, Any]]) -> dict[str, int]:
+    bands = {"high": 0, "medium": 0, "low": 0}
+    for entry in citation_quality.values():
+        score = float(entry.get("confidence", 0.0) or 0.0)
+        if score >= 0.8:
+            bands["high"] += 1
+        elif score >= 0.6:
+            bands["medium"] += 1
+        else:
+            bands["low"] += 1
+    return bands
+
+
+def _executive_snapshot_table(
+    topic: str,
+    summaries: dict[str, dict[str, Any]],
+    bibliography: list[dict[str, Any]],
+    gaps: list[dict[str, Any]],
+    claim_map: list[dict[str, Any]],
+    source_counts: dict[str, int],
+    citation_quality: dict[str, dict[str, Any]],
+    cross: dict[str, Any],
+) -> str:
+    total_sources = len(bibliography)
+    verified = sum(1 for b in bibliography if b.get("verified"))
+    verified_pct = round((verified / max(1, total_sources)) * 100)
+    bands = _confidence_band_breakdown(citation_quality)
+    contradiction_count = len(cross.get("contradictions", []) or []) if isinstance(cross, dict) else 0
+    missing_dims = len(cross.get("missing_dimensions", []) or []) if isinstance(cross, dict) else 0
+    avg_conf = 0.0
+    if bibliography:
+        avg_conf = sum(float(b.get("confidence", 0.0) or 0.0) for b in bibliography) / max(1, len(bibliography))
+
+    return "\n".join([
+        "| Snapshot Metric | Value | Why it matters |",
+        "|---|---:|---|",
+        f"| Topic focus | {topic[:64]} | Keeps all analysis anchored to the user question. |",
+        f"| Summarized studies | {len(summaries)} | Indicates breadth of evidence reviewed in synthesis. |",
+        f"| Total citations in dossier | {total_sources} | Shows the size of the supporting reference base. |",
+        f"| Verified citations | {verified} ({verified_pct}%) | Higher verified share means stronger traceability. |",
+        f"| Average citation confidence | {avg_conf:.2f} | Quick quality proxy for reliability of source grounding. |",
+        f"| Confidence bands (H/M/L) | {bands['high']}/{bands['medium']}/{bands['low']} | Reveals whether confidence is concentrated or weakly distributed. |",
+        f"| Source families used | {len(source_counts)} | Better source diversity reduces single-index bias. |",
+        f"| Claim-evidence links | {len(claim_map)} | Measures how much of the narrative is evidence-linked. |",
+        f"| Structured gaps extracted | {len(gaps)} | Represents actionable unresolved problem areas. |",
+        f"| Contradictions detected | {contradiction_count} | Flags disagreement areas needing deeper validation. |",
+        f"| Missing dimensions flagged | {missing_dims} | Highlights blind spots in current corpus coverage. |",
+    ])
+
+
+def _source_quality_diagnostics_table(
+    source_counts: dict[str, int],
+    bibliography: list[dict[str, Any]],
+) -> str:
+    if not source_counts:
+        return "_No source-quality diagnostics available._"
+
+    by_source: dict[str, list[dict[str, Any]]] = {}
+    for b in bibliography:
+        src = str(b.get("source", "unknown")).lower()
+        by_source.setdefault(src, []).append(b)
+
+    lines = [
+        "| Source | Papers | Verified | Avg confidence | Coverage risk |",
+        "|---|---:|---:|---:|---|",
+    ]
+    total = max(1, sum(source_counts.values()))
+    for src, count in sorted(source_counts.items(), key=lambda x: x[1], reverse=True):
+        rows = by_source.get(str(src).lower(), [])
+        verified = sum(1 for r in rows if r.get("verified"))
+        avg_conf = (sum(float(r.get("confidence", 0.0) or 0.0) for r in rows) / max(1, len(rows))) if rows else 0.0
+        share = count / total
+        if share >= 0.7:
+            risk = "High concentration in one source"
+        elif share >= 0.45:
+            risk = "Moderate concentration; diversify"
+        else:
+            risk = "Healthy distribution"
+        lines.append(f"| {src} | {count} | {verified} | {avg_conf:.2f} | {risk} |")
+    return "\n\n".join(lines)
+
+
+def _contradiction_watchlist_table(cross: dict[str, Any]) -> str:
+    contradictions = cross.get("contradictions", []) if isinstance(cross, dict) else []
+    weak_eval = cross.get("weak_evaluation_signals", []) if isinstance(cross, dict) else []
+    missing = cross.get("missing_dimensions", []) if isinstance(cross, dict) else []
+
+    rows: list[str] = []
+    for item in contradictions[:4]:
+        rows.append(f"| Contradiction | {str(item)[:130]} | Compare protocol, dataset split, and metric definition across studies. |")
+    for item in weak_eval[:4]:
+        rows.append(f"| Weak evaluation | {str(item)[:130]} | Add stronger baselines and uncertainty reporting before drawing conclusions. |")
+    for item in missing[:4]:
+        rows.append(f"| Missing dimension | {str(item)[:130]} | Expand retrieval and targeted experiments for this uncovered axis. |")
+
+    if not rows:
+        rows.append("| Sparse signal | No explicit contradictions extracted from cross-paper pass. | Treat current conclusions as provisional and improve retrieval specificity. |")
+
+    return "\n".join([
+        "| Signal type | Observation | Recommended response |",
+        "|---|---|---|",
+        *rows,
+    ])
+
+
+def _gap_rigor_matrix(gaps: list[dict[str, Any]], limit: int = 8) -> str:
+    if not gaps:
+        return "_No gap-rigor matrix available._"
+
+    def _label(score: int) -> str:
+        if score >= 2:
+            return "Strong"
+        if score == 1:
+            return "Moderate"
+        return "Weak"
+
+    lines = [
+        "| Gap | Evidence specificity | Actionability | Suggested validation metric |",
+        "|---|---|---|---|",
+    ]
+    for gap in gaps[:limit]:
+        evidence = str(gap.get("evidence", ""))
+        direction = str(gap.get("proposed_direction", ""))
+        ev_score = int(len(evidence) > 120) + int(any(tok in evidence.lower() for tok in ["dataset", "benchmark", "cross", "ablation", "baseline"]))
+        act_score = int(len(direction) > 90) + int(any(tok in direction.lower() for tok in ["benchmark", "protocol", "evaluate", "experiment", "metric", "baseline"]))
+        metric_hint = "Effect size + uncertainty"
+        if "generaliz" in evidence.lower() or "domain" in evidence.lower():
+            metric_hint = "Cross-dataset delta"
+        elif "annotation" in evidence.lower():
+            metric_hint = "Label-efficiency gain"
+        lines.append(f"| {str(gap.get('title', 'Gap'))[:60]} | {_label(ev_score)} | {_label(act_score)} | {metric_hint} |")
+    return "\n\n".join(lines)
+
+
+def _measurement_plan_table(gaps: list[dict[str, Any]], limit: int = 6) -> str:
+    if not gaps:
+        return "_No measurement plan available._"
+    lines = [
+        "| Priority | Gap | Proposed measurable outcome | Minimum success threshold |",
+        "|---:|---|---|---|",
+    ]
+    for idx, gap in enumerate(gaps[:limit], start=1):
+        title = str(gap.get("title", "Gap"))[:58]
+        evidence = str(gap.get("evidence", "")).lower()
+        if "domain" in evidence or "cross" in evidence:
+            outcome = "Generalization gap reduction"
+            threshold = ">=10% relative improvement across external datasets"
+        elif "annotation" in evidence or "label" in evidence:
+            outcome = "Annotation-efficiency improvement"
+            threshold = "Same performance with >=30% fewer labeled samples"
+        else:
+            outcome = "Robustness and reliability uplift"
+            threshold = "Improved mean metric with confidence interval reporting"
+        lines.append(f"| {idx} | {title} | {outcome} | {threshold} |")
+    return "\n\n".join(lines)
+
+
+def _clean_analysis_narrative(markdown: str, limit: int = 2000) -> str:
+    text = _strip_mermaid_blocks(markdown or "")
+    text = re.sub(r"!\[[^\]]*\]\([^)]+\)", "", text)
+    text = re.sub(r"\[ORION_[A-Z_]+\]", "", text)
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    if len(text) > limit:
+        text = text[:limit].rsplit("\n", 1)[0].strip()
+    return text
+
+
+def _has_meaningful_block(value: Any) -> bool:
+    text = str(value or "").strip()
+    if not text:
+        return False
+    return text not in {"_", "_._", "_No source inventory available._", "_No evidence-note inventory available._"}
+
+
+def _build_structured_dossier(
+    *,
+    topic: str,
+    raw_analysis: str,
+    summaries: dict[str, dict[str, Any]],
+    gaps: list[dict[str, Any]],
+    cross: dict[str, Any],
+    gap_critique: str,
+    citation_quality: dict[str, dict[str, Any]],
+    citation_verification: dict[str, dict[str, Any]],
+    source_counts: dict[str, int],
+    bibliography: list[dict[str, Any]],
+    claim_map: list[dict[str, Any]],
+    debate_log: list[str],
+    duplicate_clusters: list[dict[str, Any]],
+    visual_replacements: dict[str, str],
+) -> str:
+    narrative = _clean_analysis_narrative(raw_analysis)
+    evidence_matrix = visual_replacements.get("[ORION_EVIDENCE_MATRIX]", "")
+    study_landscape = visual_replacements.get("[ORION_STUDY_LANDSCAPE]", "")
+    source_matrix = visual_replacements.get("[ORION_SOURCE_MATRIX]", "")
+    citation_audit = visual_replacements.get("[ORION_CITATION_AUDIT]", "")
+    experiment_backlog = visual_replacements.get("[ORION_EXPERIMENT_BACKLOG]", "")
+    visual_landscape = visual_replacements.get("[ORION_VISUAL_LANDSCAPE]", "")
+    visual_evidence_flow = visual_replacements.get("[ORION_VISUAL_EVIDENCE_FLOW]", "")
+    visual_workflow = visual_replacements.get("[ORION_VISUAL_WORKFLOW]", "")
+    evidence_notes = _evidence_notes_table(cross)
+    source_inventory = _source_inventory_table(summaries, bibliography)
+    methodology_table = _methodology_comparison_table(summaries)
+    metrics_table = _metric_extraction_table(summaries)
+    claim_rollup = _claim_confidence_rollup(claim_map, bibliography)
+    gap_table = _gap_detail_table(gaps)
+    duplicate_table = _duplicate_cluster_table(duplicate_clusters)
+    findings_brief = _findings_brief(cross)
+    takeaways_table = _operational_takeaways_table(cross, gaps, source_counts)
+    debate_table = _debate_roundup_table(debate_log)
+    executive_snapshot = _executive_snapshot_table(
+        topic=topic,
+        summaries=summaries,
+        bibliography=bibliography,
+        gaps=gaps,
+        claim_map=claim_map,
+        source_counts=source_counts,
+        citation_quality=citation_quality,
+        cross=cross,
+    )
+    source_quality_diag = _source_quality_diagnostics_table(source_counts, bibliography)
+    contradiction_watchlist = _contradiction_watchlist_table(cross)
+    gap_rigor_matrix = _gap_rigor_matrix(gaps)
+    measurement_plan = _measurement_plan_table(gaps)
+    parts = [
+        "### A0. Executive Insight Snapshot",
+        "This snapshot gives a fast, decision-ready read of evidence breadth, confidence distribution, verification depth, and unresolved risk signals before detailed interpretation.",
+        "",
+        executive_snapshot,
+        "",
+        "### A1. Cross-Paper Methodology Analysis",
+        f"This dossier restructures the evidence base for **{topic}** into a comparison-first briefing. The goal is to expose as much of the session evidence as possible in a disciplined format: methods, metrics, citation strength, debate feedback, duplicates, and claim-level support before any high-level interpretation is trusted.",
+        "",
+        methodology_table,
+        "",
+        "#### Quantitative Signal Extraction",
+        metrics_table,
+        "",
+        "#### Complete Source Inventory",
+        source_inventory,
+        "",
+        "#### Source-Quality Diagnostics",
+        source_quality_diag,
+        "",
+        "### A2. Contradictions and Agreement Map",
+        "The strongest cross-paper signals are summarized below so the reader can quickly see where the literature aligns, where it fragments, and where evidence still remains thin.",
+        "",
+        findings_brief,
+        "",
+        "#### Contradiction and Risk Watchlist",
+        contradiction_watchlist,
+        "",
+    ]
+    if _has_meaningful_block(evidence_matrix):
+        parts.extend(["#### Evidence Snapshot", evidence_matrix, ""])
+    if _has_meaningful_block(claim_rollup):
+        parts.extend(["#### Claim Confidence Rollup", claim_rollup, ""])
+    if _has_meaningful_block(evidence_notes):
+        parts.extend(["#### Evidence Notes by Paper", evidence_notes, ""])
+    parts.extend([
+        "### A3. Detailed Gap Analysis",
+        gap_table,
+        "",
+    ])
+    if _has_meaningful_block(gap_rigor_matrix):
+        parts.extend(["#### Gap Rigor Matrix", gap_rigor_matrix, ""])
+    if gap_critique:
+        parts.extend([
+            "#### Gap Reviewer Notes",
+            gap_critique,
+            "",
+        ])
+    parts.extend([
+        "### A4. Conceptual Architecture & Visual Summaries",
+        "The following visuals and audit tables turn the synthesis into a glass-box view of how evidence moves from retrieval to claims, and where quality still weakens.",
+        "",
+    ])
+    if _has_meaningful_block(study_landscape):
+        parts.extend(["#### Study Landscape", study_landscape, ""])
+    if _has_meaningful_block(source_matrix):
+        parts.extend(["#### Source Matrix", source_matrix, ""])
+    if _has_meaningful_block(citation_audit):
+        parts.extend(["#### Citation Audit", citation_audit, ""])
+    if _has_meaningful_block(duplicate_table):
+        parts.extend(["#### Duplicate Tracking", duplicate_table, ""])
+    if _has_meaningful_block(visual_landscape):
+        parts.extend(["#### Visual Landscape", visual_landscape, ""])
+    if _has_meaningful_block(visual_evidence_flow):
+        parts.extend(["#### Visual Evidence Flow", visual_evidence_flow, ""])
+    if _has_meaningful_block(visual_workflow):
+        parts.extend(["#### Visual Workflow", visual_workflow, ""])
+    parts.extend([
+        "### A5. Research Agenda and Prioritized Experiments",
+        experiment_backlog,
+        "",
+    ])
+    if _has_meaningful_block(measurement_plan):
+        parts.extend(["#### Measurement and Validation Plan", measurement_plan, ""])
+    if _has_meaningful_block(debate_table):
+        parts.extend(["#### Debate Trace", debate_table, ""])
+    parts.extend([
+        "### A6. Operational Takeaways and Platform Implications",
+        takeaways_table,
+        "",
+    ])
+    if narrative:
+        parts.extend([
+            "#### Analyst Narrative Notes",
+            narrative,
+            "",
+        ])
+    return "\n".join(part for part in parts if part is not None).strip() + "\n"
+
 def _render_references_section(paper_format: str, bibliography: list[dict[str, Any]]) -> str:
+    fmt = (paper_format or "ACADEMIC").upper()
+
     fmt = (paper_format or "ACADEMIC").upper()
     if not bibliography:
         return ""
@@ -284,7 +1158,7 @@ def _render_references_section(paper_format: str, bibliography: list[dict[str, A
             if doi:
                 tail = f"{tail} DOI: {doi}".strip()
             lines.append(f"[{i}] {authors}, \"{title},\" {year}.{(' ' + tail) if tail else ''}")
-        return "\n".join(lines)
+        return "\n\n".join(lines)
 
     if fmt == "APA":
         lines = ["## References"]
@@ -300,7 +1174,7 @@ def _render_references_section(paper_format: str, bibliography: list[dict[str, A
                 lines.append(f"{authors} ({year}). {title}. {url}")
             else:
                 lines.append(f"{authors} ({year}). {title}.")
-        return "\n".join(lines)
+        return "\n\n".join(lines)
 
     if fmt == "MLA":
         lines = ["## Works Cited"]
@@ -313,7 +1187,7 @@ def _render_references_section(paper_format: str, bibliography: list[dict[str, A
             if url:
                 line = f"{line} {url}"
             lines.append(line)
-        return "\n".join(lines)
+        return "\n\n".join(lines)
 
     lines = ["## References"]
     for b in bibliography:
@@ -322,7 +1196,7 @@ def _render_references_section(paper_format: str, bibliography: list[dict[str, A
             f"[@{key}] {b.get('authors', 'Unknown')}. \"{b.get('title', 'Untitled')}\". "
             f"{b.get('year', 'n.d.')}. {b.get('url', '')}".strip()
         )
-    return "\n".join(lines)
+    return "\n\n".join(lines)
 
 
 def _normalize_citations_for_format(markdown: str, paper_format: str, bibliography: list[dict[str, Any]]) -> str:
@@ -450,6 +1324,32 @@ def _extract_limitation_signal(text: str) -> str:
     return ""
 
 
+def _normalize_metric_items(raw: Any) -> list[dict[str, str]]:
+    if not isinstance(raw, list):
+        return []
+    items: list[dict[str, str]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        metric = _clean_nullable_text(item.get("metric", ""))
+        value = _clean_nullable_text(item.get("value", ""))
+        baseline = _clean_nullable_text(item.get("baseline", ""))
+        confidence = _clean_nullable_text(item.get("confidence", "")).lower()
+        if not metric or not value:
+            continue
+        if confidence not in {"high", "medium", "low"}:
+            confidence = "medium"
+        items.append({
+            "metric": metric[:120],
+            "value": value[:120],
+            "baseline": baseline[:120],
+            "confidence": confidence,
+        })
+        if len(items) >= 6:
+            break
+    return items
+
+
 def _derive_gaps_from_paper_evidence(
     topic: str,
     summaries: dict[str, dict[str, Any]],
@@ -458,38 +1358,64 @@ def _derive_gaps_from_paper_evidence(
 ) -> list[dict[str, str]]:
     candidates: list[dict[str, str]] = []
     source_counts = source_counts or {}
-
-    # Topic-agnostic quality blind spots that almost always matter for real studies.
-    candidates.extend([
-        {
-            "title": "Limited external validity across city contexts",
-            "evidence": "Retrieved studies are unevenly distributed across regions and urban forms, limiting generalization.",
-            "proposed_direction": "Evaluate methods across multiple climate zones, city morphologies, and socioeconomic contexts with a unified protocol.",
-        },
-        {
-            "title": "Insufficient causal evaluation of mitigation impact",
-            "evidence": "Many studies report associations or case outcomes without strong causal identification and uncertainty quantification.",
-            "proposed_direction": "Use quasi-experimental/causal designs with counterfactual baselines and confidence intervals for intervention effects.",
-        },
-        {
-            "title": "Weak longitudinal validation of proposed strategies",
-            "evidence": "Evidence is often short-horizon, making durability and seasonal robustness of mitigation uncertain.",
-            "proposed_direction": "Run longitudinal monitoring with seasonal and extreme-event stress tests to validate sustained performance.",
-        },
-    ])
-
     limitation_signals: list[tuple[str, str]] = []
     corpus_text_parts: list[str] = []
+    methodology_labels: list[str] = []
+    evaluation_labels: list[str] = []
+    benchmark_like = 0
+    application_like = 0
+    explicit_results_mentions = 0
     for info in summaries.values():
         title = str(info.get("title", "")).strip()
         summary = str(info.get("summary", "")).strip()
         limitation = _clean_nullable_text(info.get("limitation", ""))
+        methodology = _clean_nullable_text(info.get("methodology", ""))
+        evaluation_signal = _clean_nullable_text(info.get("evaluation_signal", ""))
         body = f"{title}. {summary}".strip()
         if body:
             corpus_text_parts.append(body.lower())
         signal = limitation or _extract_limitation_signal(body)
         if signal:
             limitation_signals.append((title, signal))
+        if methodology:
+            methodology_labels.append(methodology.lower())
+            if any(token in methodology.lower() for token in ["benchmark", "dataset", "framework"]):
+                benchmark_like += 1
+            if any(token in methodology.lower() for token in ["experiment", "quasi", "deployment", "empirical", "case"]):
+                application_like += 1
+        if evaluation_signal:
+            evaluation_labels.append(evaluation_signal.lower())
+        text_blob = f"{summary} {evaluation_signal}".lower()
+        if any(token in text_blob for token in ["effect size", "confidence interval", "accuracy", "f1", "score", "auc", "bleu", "rouge"]):
+            explicit_results_mentions += 1
+
+    if benchmark_like and application_like:
+        candidates.append({
+            "title": "Disconnected benchmark and deployment evidence streams",
+            "evidence": "Retrieved studies split between benchmark/framework work and application/deployment studies, with little sign of shared evaluation protocols or direct transfer checks.",
+            "proposed_direction": "Run integrated studies that apply benchmark-style metrics inside real deployment or user-facing experiments, then compare outcomes across both settings.",
+        })
+
+    if methodology_labels and len(set(methodology_labels)) >= 3:
+        candidates.append({
+            "title": "No common comparison protocol across methodological clusters",
+            "evidence": "The corpus mixes multiple study designs and methodology labels, making it hard to compare findings on a common evidence scale.",
+            "proposed_direction": "Define a unified reporting template covering data regime, baseline choice, evaluation metric, failure mode reporting, and reproducibility metadata.",
+        })
+
+    if evaluation_labels and len(set(evaluation_labels)) >= 4:
+        candidates.append({
+            "title": "Fragmented evaluation signals across the literature",
+            "evidence": "Studies appear to optimize or validate different outcome signals, which weakens cross-paper comparability and hides tradeoffs between utility, quality, and robustness.",
+            "proposed_direction": "Build multi-axis evaluation suites that jointly report quality, robustness, efficiency, and downstream utility for the same systems.",
+        })
+
+    if summaries and explicit_results_mentions < max(2, len(summaries) // 4):
+        candidates.append({
+            "title": "Weak quantitative reporting in retrieved evidence",
+            "evidence": "Many summaries expose claims and study setups but not enough concrete numeric outcomes, effect sizes, or uncertainty estimates for strong synthesis.",
+            "proposed_direction": "Prioritize papers with explicit metrics and require structured extraction of effect sizes, confidence intervals, and baseline deltas in follow-up reviews.",
+        })
 
     for title, signal in limitation_signals:
         gap_title = _fallback_gap_title(topic, signal, len(candidates) + 1)
@@ -515,9 +1441,9 @@ def _derive_gaps_from_paper_evidence(
         top_share = (source_counts.get(top_source, 0) / total_sources) if total_sources else 0.0
         if top_share >= 0.7:
             candidates.append({
-                "title": "Source diversity imbalance in retrieved evidence",
-                "evidence": f"{top_source} contributes {top_share:.0%} of retrieved sources, increasing risk of coverage bias.",
-                "proposed_direction": "Enforce source-balancing constraints and compare conclusions across independent source families.",
+                "title": f"Evidence concentration in {top_source}",
+                "evidence": f"{top_source} contributes {top_share:.0%} of retrieved sources, so conclusions may still be too dependent on one discovery channel.",
+                "proposed_direction": "Expand retrieval into independent indexes, repositories, and web evidence, then test whether the main conclusions remain stable under source rebalancing.",
             })
 
     # Sanitize + de-duplicate and enforce minimum count.
@@ -716,12 +1642,16 @@ async def retrieval_node(state: ResearchState, config: dict) -> dict:
     Fetch papers from multiple sources in parallel.
     Also queries ChromaDB if uploaded paper IDs exist.
     """
-    max_queries = max(1, settings.max_search_queries)
-    max_results = max(1, settings.max_source_results_per_query)
-    queries = state.get("search_queries", [state["topic"]])[:max_queries]
     constraints = state.get("planner_constraints", {})
+    depth = constraints.get("depth", "standard")
+    budgets = _depth_budgets(str(depth))
+    max_queries = max(max(1, settings.max_search_queries), budgets["queries"])
+    max_results = max(max(1, settings.max_source_results_per_query), budgets["results"])
+    max_total = budgets["max_total"]
+    queries = state.get("search_queries", [state["topic"]])[:max_queries]
     include_sources = set(constraints.get("include_sources", []) or [])
     exclude_sources = set(constraints.get("exclude_sources", []) or [])
+    year_from = constraints.get("year_from")
     uploaded_ids = state.get("uploaded_paper_ids", [])
 
     await _send_status(config, "Searching academic databases...", data={"node": "retrieval"})
@@ -735,10 +1665,16 @@ async def retrieval_node(state: ResearchState, config: dict) -> dict:
             tasks.append(fetch_arxiv(query, max_results=max_results))
         if "semantic_scholar" not in exclude_sources and (not include_sources or "semantic_scholar" in include_sources):
             tasks.append(fetch_semantic_scholar(query, max_results=max_results))
+        if "openalex" not in exclude_sources and (not include_sources or "openalex" in include_sources):
+            tasks.append(fetch_openalex(query, max_results=max_results))
+        if "crossref" not in exclude_sources and (not include_sources or "crossref" in include_sources):
+            tasks.append(fetch_crossref(query, max_results=max_results))
 
     # Add Tavily search for the main topic
     if "web_tavily" not in exclude_sources and (not include_sources or "web_tavily" in include_sources):
         tasks.append(fetch_web_tavily(state["topic"], settings.tavily_api_key, max_results=max_results))
+    if "github_repo" not in exclude_sources and (not include_sources or "github_repo" in include_sources):
+        tasks.append(fetch_github_repositories(state["topic"], max_results=max(3, min(6, max_results))))
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -748,6 +1684,16 @@ async def retrieval_node(state: ResearchState, config: dict) -> dict:
             continue
         if isinstance(result, list):
             all_papers.extend(result)
+
+    if year_from:
+        try:
+            cutoff = int(year_from)
+            all_papers = [
+                p for p in all_papers
+                if not str(p.get("year", "")).strip() or int(str(p.get("year", "0")) or 0) >= cutoff
+            ]
+        except Exception:
+            pass
 
     # Topic-aware reranking/filtering to reduce drift and prioritize relevance.
     topic_tokens = _normalize_tokens(state.get("topic", ""))
@@ -761,18 +1707,24 @@ async def retrieval_node(state: ResearchState, config: dict) -> dict:
         source = str(paper.get("source", "")).lower()
         if source == "web_tavily" and term_hits < max(1, min(2, len(critical_terms))):
             score -= 2.0
+        if source == "github_repo" and term_hits < max(1, min(2, len(critical_terms))):
+            score -= 2.2
         if source == "arxiv" and term_hits == 0:
             score -= 1.2
         if source == "semantic_scholar":
             score += 0.4
+        if source == "openalex":
+            score += 0.35
+        if source == "crossref":
+            score += 0.2
         scored.append((score, paper))
     scored.sort(key=lambda x: x[0], reverse=True)
 
     filtered = [p for s, p in scored if s >= 2.5]
     if filtered:
-        all_papers = filtered[: max(10, max_results * max_queries * 2)]
+        all_papers = filtered[: max_total]
     else:
-        all_papers = [p for _, p in scored[: max(8, max_results * max_queries)]]
+        all_papers = [p for _, p in scored[: max(8, max_total)]]
 
     # Send paper_found events
     for paper in all_papers[:5]:  # Send first 5 as previews
@@ -815,16 +1767,22 @@ async def retrieval_node(state: ResearchState, config: dict) -> dict:
             reverse=True,
         )
     ordered: list[dict[str, Any]] = []
-    # Prefer stronger academic sources first.
-    source_priority = ["semantic_scholar", "arxiv", "web_tavily"]
-    max_total = max(10, max_results * max_queries * 2)
-    per_source_cap = max(2, max_total // 2)
-    for src in source_priority:
-        for p in grouped.get(src, [])[:per_source_cap]:
-            ordered.append(p)
+    source_priority = ["semantic_scholar", "openalex", "crossref", "arxiv", "github_repo", "web_tavily"]
+    remaining_by_source: dict[str, list[dict[str, Any]]] = {
+        src: list(grouped.get(src, []))
+        for src in source_priority
+    }
+    while len(ordered) < max_total:
+        added_in_pass = False
+        for src in source_priority:
+            bucket = remaining_by_source.get(src, [])
+            if not bucket:
+                continue
+            ordered.append(bucket.pop(0))
+            added_in_pass = True
             if len(ordered) >= max_total:
                 break
-        if len(ordered) >= max_total:
+        if not added_in_pass:
             break
     if len(ordered) < max_total:
         seen_ids = {str(p.get("paper_id", "")) for p in ordered}
@@ -883,17 +1841,27 @@ Abstract: {abstract}
 Provide:
 1. A 3-sentence summary of the key contributions.
 2. The main limitation or future work direction mentioned or implied.
+3. A short methodology label such as benchmark, survey, experiment, framework, dataset, or empirical study.
+4. A short evaluation signal describing what the paper actually measures, compares, or validates.
+5. A list of up to 4 concrete quantitative metrics or result statements if present.
 
-Output as JSON: {{"summary": "...", "limitation": "..."}}"""
+For each metric item, use:
+{{"metric": "...", "value": "...", "baseline": "...", "confidence": "high|medium|low"}}
+
+Output as JSON: {{"summary": "...", "limitation": "...", "methodology": "...", "evaluation_signal": "...", "key_metrics": [{{...}}]}}"""
 
 
 async def summarizer_node(state: ResearchState, config: dict) -> dict:
     """Summarize the top papers and extract their limitations."""
     papers = state.get("retrieved_papers", [])
 
-    # Sort by citation count, take top 15
+    depth = state.get("planner_constraints", {}).get("depth", "standard")
+    budgets = _depth_budgets(str(depth))
+    summary_cap = budgets["summary_cap"]
+
+    # Sort by citation count, take top papers according to depth budget
     sorted_papers = sorted(papers, key=lambda p: p.get("citation_count", 0), reverse=True)
-    top_papers = sorted_papers[:15]
+    top_papers = sorted_papers[:summary_cap]
 
     if not top_papers:
         await _send_status(config, "No papers to summarize.")
@@ -903,90 +1871,98 @@ async def summarizer_node(state: ResearchState, config: dict) -> dict:
     summaries = {}
     citation_quality: dict[str, dict[str, Any]] = {}
     citation_verification: dict[str, dict[str, Any]] = {}
+    concurrency = 6 if depth == "deep" else 4
+    semaphore = asyncio.Semaphore(concurrency)
 
-    for i, paper in enumerate(top_papers):
-        await _send_status(
-            config,
-            f"Summarizing paper {i + 1} of {len(top_papers)}: {paper['title'][:60]}...",
-        )
-
-        prompt = SUMMARIZER_PROMPT.format(
-            title=paper["title"],
-            authors=paper["authors"],
-            abstract=paper["abstract"][:2000],
-        )
-
-        try:
-            response = await gemini_client.generate_content(
-                prompt=prompt,
-                response_mime_type="application/json",
-                temperature=0.3,
-                max_output_tokens=512,
-                enable_thinking=False,
+    async def _summarize_single(i: int, paper: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+        async with semaphore:
+            await _send_status(
+                config,
+                f"Summarizing paper {i + 1} of {len(top_papers)}: {paper['title'][:60]}...",
             )
-            data = _parse_json_object(response)
-            if not data:
-                raise json.JSONDecodeError("Invalid summarizer JSON", response, 0)
-            summaries[paper["paper_id"]] = {
-                "title": paper["title"],
-                "authors": paper["authors"],
-                "year": paper["year"],
-                "summary": data.get("summary", ""),
+
+            prompt = SUMMARIZER_PROMPT.format(
+                title=paper["title"],
+                authors=paper["authors"],
+                abstract=paper["abstract"][:2400],
+            )
+
+            try:
+                response = await gemini_client.generate_content(
+                    prompt=prompt,
+                    response_mime_type="application/json",
+                    temperature=0.25,
+                    max_output_tokens=640,
+                    enable_thinking=False,
+                )
+                data = _parse_json_object(response)
+                if not data:
+                    raise json.JSONDecodeError("Invalid summarizer JSON", response, 0)
+                summary = {
+                    "title": paper["title"],
+                    "authors": paper["authors"],
+                    "year": paper["year"],
+                    "summary": data.get("summary", ""),
                 "limitation": data.get("limitation", ""),
+                "methodology": data.get("methodology", ""),
+                "evaluation_signal": data.get("evaluation_signal", ""),
+                "key_metrics": _normalize_metric_items(data.get("key_metrics", [])),
                 "url": paper.get("url", ""),
                 "doi": paper.get("doi", ""),
                 "citation_count": paper.get("citation_count", 0),
+                "source": paper.get("source", ""),
             }
-            citation_quality[paper["paper_id"]] = {
-                "source_quality": _source_quality_score(paper.get("source", "")),
-                "confidence": _confidence_score(
-                    paper.get("citation_count", 0),
-                    paper.get("abstract", ""),
-                    paper.get("source", ""),
-                ),
-            }
+                quality = {
+                    "source_quality": _source_quality_score(paper.get("source", "")),
+                    "confidence": _confidence_score(
+                        paper.get("citation_count", 0),
+                        paper.get("abstract", ""),
+                        paper.get("source", ""),
+                    ),
+                }
+            except Exception as e:
+                logger.error("Failed to summarize paper '%s': %s", paper["title"][:60], e)
+                summary = {
+                    "title": paper["title"],
+                    "authors": paper["authors"],
+                    "year": paper["year"],
+                    "summary": paper["abstract"][:400],
+                    "limitation": "Not available",
+                    "methodology": "Empirical study",
+                    "evaluation_signal": "Abstract-level evidence only",
+                    "key_metrics": [],
+                    "url": paper.get("url", ""),
+                    "doi": paper.get("doi", ""),
+                    "citation_count": paper.get("citation_count", 0),
+                    "source": paper.get("source", ""),
+                }
+                quality = {
+                    "source_quality": _source_quality_score(paper.get("source", "")),
+                    "confidence": 0.4,
+                }
+
             has_doi = bool(paper.get("doi"))
             has_year = bool(str(paper.get("year", "")).strip())
             title_ok = len((paper.get("title") or "").strip()) > 10
             source = str(paper.get("source", "")).lower()
-            reliable_source = source in {"semantic_scholar", "arxiv"}
+            reliable_source = source in {"semantic_scholar", "arxiv", "openalex", "crossref"}
             has_url = bool(str(paper.get("url", "")).strip())
-            citation_verification[paper["paper_id"]] = {
+            verification = {
                 "title_ok": title_ok,
                 "year_ok": has_year,
                 "doi_ok": has_doi,
                 "verified": bool(title_ok and has_year and ((has_doi and reliable_source) or (reliable_source and has_url))),
             }
-        except Exception as e:
-            logger.error("Failed to summarize paper '%s': %s", paper["title"][:60], e)
-            summaries[paper["paper_id"]] = {
-                "title": paper["title"],
-                "authors": paper["authors"],
-                "year": paper["year"],
-                "summary": paper["abstract"][:300],
-                "limitation": "Not available",
-                "url": paper.get("url", ""),
-                "doi": paper.get("doi", ""),
-                "citation_count": paper.get("citation_count", 0),
-            }
-            citation_quality[paper["paper_id"]] = {
-                "source_quality": _source_quality_score(paper.get("source", "")),
-                "confidence": 0.4,
-            }
-            citation_verification[paper["paper_id"]] = {
-                "title_ok": len((paper.get("title") or "").strip()) > 10,
-                "year_ok": bool(str(paper.get("year", "")).strip()),
-                "doi_ok": bool(paper.get("doi")),
-                "verified": bool(
-                    len((paper.get("title") or "").strip()) > 10
-                    and bool(str(paper.get("year", "")).strip())
-                    and str(paper.get("source", "")).lower() in {"semantic_scholar", "arxiv"}
-                    and bool(str(paper.get("url", "")).strip())
-                ),
-            }
+            return summary, quality, verification
 
-        # Small delay to avoid rate limiting
-        await asyncio.sleep(0.5)
+    summarized = await asyncio.gather(*[
+        _summarize_single(i, paper) for i, paper in enumerate(top_papers)
+    ])
+
+    for paper, (summary, quality, verification) in zip(top_papers, summarized):
+        summaries[paper["paper_id"]] = summary
+        citation_quality[paper["paper_id"]] = quality
+        citation_verification[paper["paper_id"]] = verification
 
     # Include vector store results in summaries
     vector_results = state.get("vector_results", [])
@@ -1000,6 +1976,8 @@ async def summarizer_node(state: ResearchState, config: dict) -> dict:
                 "year": "",
                 "summary": chunk["text"][:500],
                 "limitation": "",
+                "methodology": "Uploaded document evidence",
+                "evaluation_signal": "Document-grounded excerpt",
                 "url": "",
                 "doi": "",
                 "citation_count": 0,
@@ -1040,7 +2018,14 @@ Available paper summaries:
 
 {previous_critique}
 
-Write a well-structured literature review with thematic sections. Each section should synthesize findings from multiple papers."""
+Write a well-structured literature review with thematic sections.
+
+Requirements:
+- Synthesize across studies rather than listing them.
+- Explicitly compare methodologies, evaluation setups, and findings.
+- Call out agreements, contradictions, and evidence-quality limitations.
+- Include concrete benchmark, dataset, or metric information whenever available.
+- End with a short synthesis paragraph that sets up cross-paper analysis and research gaps."""
 
 
 async def proposer_node(state: ResearchState, config: dict) -> dict:
@@ -1162,6 +2147,8 @@ Return ONLY JSON object with keys:
 - missing_dimensions: string[]
 - weak_evaluation_signals: string[]
 - evidence_notes: [{{ "paper_title": string, "note": string }}]
+- comparative_axes: string[]
+- recommended_experiments: string[]
 
 Focus on:
 1) Methodology comparison
@@ -1169,6 +2156,7 @@ Focus on:
 3) Missing data/evaluation
 4) External validity/real-world assumptions
 5) Underexplored dimensions
+6) What a stronger next experiment should look like
 
 Paper summaries:
 {summaries}
@@ -1206,6 +2194,8 @@ async def cross_paper_analyzer_node(state: ResearchState, config: dict) -> dict:
                 "missing_dimensions": ["Insufficient summaries for cross-paper analysis."],
                 "weak_evaluation_signals": [],
                 "evidence_notes": [],
+                "comparative_axes": [],
+                "recommended_experiments": [],
             }
         }
 
@@ -1229,6 +2219,8 @@ async def cross_paper_analyzer_node(state: ResearchState, config: dict) -> dict:
         "missing_dimensions": parsed.get("missing_dimensions", []) if isinstance(parsed, dict) else [],
         "weak_evaluation_signals": parsed.get("weak_evaluation_signals", []) if isinstance(parsed, dict) else [],
         "evidence_notes": parsed.get("evidence_notes", []) if isinstance(parsed, dict) else [],
+        "comparative_axes": parsed.get("comparative_axes", []) if isinstance(parsed, dict) else [],
+        "recommended_experiments": parsed.get("recommended_experiments", []) if isinstance(parsed, dict) else [],
     }
 
     await _send_status(config, "Cross-paper analysis complete", data={"node": "cross_paper"})
@@ -1419,15 +2411,17 @@ async def gap_analysis_node(state: ResearchState, config: dict) -> dict:
     candidates: list[dict[str, Any]] = []
     for attempt in range(2):
         try:
-            candidate = response if attempt == 0 else _extract_json_fragment(response)
-            gaps_data = json.loads(candidate)
-            if isinstance(gaps_data, dict):
-                candidates = gaps_data.get("gaps", [])
-            elif isinstance(gaps_data, list):
-                candidates = gaps_data
+            # Use robust parsing that handles markdown-wrapped JSON
+            raw_candidates = _parse_json_array(response if attempt == 0 else _extract_json_fragment(response))
+            if raw_candidates:
+                candidates = _normalize_gap_candidates(raw_candidates)
             else:
-                candidates = []
-            candidates = _normalize_gap_candidates(candidates)
+                # Try dict wrapper: {"gaps": [...]}
+                data_obj = _parse_json_object(response if attempt == 0 else _extract_json_fragment(response))
+                if data_obj and isinstance(data_obj.get("gaps"), list):
+                    candidates = _normalize_gap_candidates(data_obj["gaps"])
+                else:
+                    raise json.JSONDecodeError("No valid gap array found", response[:100], 0)
             parsed_ok = True
             break
         except json.JSONDecodeError:
@@ -1480,8 +2474,8 @@ async def gap_analysis_node(state: ResearchState, config: dict) -> dict:
         )
         derived_candidates = [{
             "title": g.get("title", ""),
-            "why_gap": g.get("evidence", ""),
-            "what_missing": g.get("evidence", ""),
+            "why_gap": f"Current literature shows: {g.get('evidence', '')[:150]}...",
+            "what_missing": "Explicit validation and detailed metrics for this aspect.",
             "how_to_fix": g.get("proposed_direction", ""),
             "evidence": g.get("evidence", ""),
             "supports": [],
@@ -1508,8 +2502,8 @@ async def gap_analysis_node(state: ResearchState, config: dict) -> dict:
         )
         candidates = [{
             "title": g.get("title", ""),
-            "why_gap": g.get("evidence", ""),
-            "what_missing": g.get("evidence", ""),
+            "why_gap": f"Current literature shows: {g.get('evidence', '')[:150]}...",
+            "what_missing": "Explicit validation and detailed metrics for this aspect.",
             "how_to_fix": g.get("proposed_direction", ""),
             "evidence": g.get("evidence", ""),
             "supports": [],
@@ -1538,6 +2532,11 @@ async def gap_analysis_node(state: ResearchState, config: dict) -> dict:
         approved = []
     if not approved:
         approved = candidates
+        if gap_critique:
+            gap_critique = (
+                "Initial gap proposals were too generic for publication use, so the final gap set below was regenerated "
+                "from paper-specific limitations, cross-paper patterns, and source coverage evidence."
+            )
 
     gaps = _candidates_to_final_gaps(approved)
 
@@ -1610,19 +2609,24 @@ Use the following inputs to construct the paper:
 
 Output must contain TWO distinct parts, in this exact order and headings:
 
-## PART A - Research Analysis Dossier
+## PART A - Research Analysis Dossier (Highly Visual Explanation)
+Make this section a highly immersive, solid visual explanation of the research.
 1. **A1. Cross-Paper Methodology Analysis**
 2. **A2. Contradictions and Agreement Map**
 3. **A3. Detailed Gap Analysis** (for each gap include why_gap, what_missing, evidence, supports/fails)
-4. **A4. Research Agenda and Prioritized Experiments**
+4. **A4. Conceptual Architecture & Visual Summaries** (Place your architectural images and diagrams here)
+5. **A5. Research Agenda and Prioritized Experiments**
+6. **A6. Operational Takeaways and Platform Implications**
 
 ## PART B - Final Draft Paper (Publication Style)
+This section MUST BE STRICTLY TEXTUAL. Do NOT include any images, diagrams, or Mermaid code in Part B.
 1. **Abstract** – 150-200 words.
 2. **1. Introduction**
 3. **2. Literature Review**
-4. **3. Research Gaps and Future Directions**
-5. **4. Conclusion**
-6. **References**
+4. **3. Comparative Analysis and Discussion**
+5. **4. Research Gaps and Future Directions**
+6. **5. Conclusion**
+7. **References**
 
 Style enforcement:
 - If paper_format is IEEE, use numbered references [1], [2], ... and IEEE-style reference list.
@@ -1631,14 +2635,35 @@ Style enforcement:
 - If paper_format is MLA, use MLA in-text citation and Works Cited style.
 - If paper_format is ACADEMIC, use [@AuthorYear] style.
 
+Visual requirements (STRICTLY CONFINED TO PART A):
+- Use Markdown tables heavily to compare studies, metrics, methodologies, or evidence quality in Part A.
+- Do NOT write raw Mermaid code yourself.
+- Instead, place these exact tokens where visuals should appear in Part A:
+  - `[ORION_STUDY_LANDSCAPE]`
+  - `[ORION_EVIDENCE_MATRIX]`
+  - `[ORION_SOURCE_MATRIX]`
+  - `[ORION_CITATION_AUDIT]`
+  - `[ORION_FINDINGS_BRIEF]`
+  - `[ORION_EXPERIMENT_BACKLOG]`
+  - `[ORION_VISUAL_LANDSCAPE]`
+  - `[ORION_VISUAL_WORKFLOW]`
+  - `[ORION_VISUAL_EVIDENCE_FLOW]`
+- Generate 1-2 image placeholders using this exact format: `[IMAGE_PROMPT: "A detailed description of the visualization"]`.
+- Keep image prompts concise, concrete, and diagram-oriented.
+- ABSOLUTELY NO `[IMAGE_PROMPT]`, Mermaid code, or ORION visual tokens are allowed in Part B.
+
 Quality requirements:
 - Do not include placeholder author text.
 - Every major section must cite concrete sources from the provided citation list.
+- Maximize useful detail in Part A with explicit comparisons, evidence caveats, methodological tradeoffs, and concrete metrics wherever the source summaries permit.
+- Prefer specific study-to-study synthesis over generic field-level statements.
+- Include practical interpretation for researchers, engineers, and product teams.
 - Keep claims faithful to evidence and avoid unsupported speculation.
 - Ensure references and in-text citations are consistent.
+- Include comparative insights, methodological tradeoffs, evidence-quality commentary, and practical implications for researchers/builders.
 - Do NOT include preface text like "As an expert academic writer...".
 
-Write in formal academic tone. Make the paper publication-ready."""
+Write in formal academic tone. Make Part B publication-ready and purely textual."""
 
 
 def _split_analysis_and_final_draft(markdown: str) -> tuple[str, str]:
@@ -1670,6 +2695,8 @@ async def paper_architect_node(state: ResearchState, config: dict) -> dict:
     cross = state.get("cross_paper_analysis", {})
     gap_critique = _clean_nullable_text(state.get("gap_critique", ""))
     paper_format = str(state.get("paper_format", "academic")).strip().upper()
+    citation_quality = state.get("citation_quality", {})
+    citation_verification = state.get("citation_verification", {})
 
     await _send_status(config, "Assembling final paper...", data={"node": "paper_architect"})
 
@@ -1690,12 +2717,14 @@ async def paper_architect_node(state: ResearchState, config: dict) -> dict:
             gaps_text += f"**Fails to Address:** {', '.join(str(s) for s in fails[:4])}\n"
         gaps_text += f"**Proposed Direction:** {gap.get('proposed_direction', 'N/A')}\n"
 
-    cross_text = json.dumps(cross, ensure_ascii=False, indent=2)[:3500]
+    cross_text = (
+        _findings_brief(cross)
+        + "\n\nStructured cross-paper JSON:\n"
+        + json.dumps(cross, ensure_ascii=False, indent=2)
+    )[:5000]
 
     # Format citation info
     citation_text = ""
-    citation_quality = state.get("citation_quality", {})
-    citation_verification = state.get("citation_verification", {})
     citation_index = 1
     for pid, info in summaries.items():
         if info.get("title"):
@@ -1704,7 +2733,10 @@ async def paper_architect_node(state: ResearchState, config: dict) -> dict:
             verified = citation_verification.get(pid, {}).get("verified", False)
             cite_key = _citation_key(info.get("authors", ""), year)
             citation_text += (
-                f"- [{citation_index}] [@{cite_key}] {info['authors']}. \"{info['title']}.\" {info.get('url', '')} "
+                f"- [{citation_index}] [@{cite_key}] {info['authors']}. \"{info['title']}.\" "
+                f"year={year}; source={info.get('source', '')}; methodology={info.get('methodology', '')}; "
+                f"evaluation_signal={info.get('evaluation_signal', '')}; limitation={info.get('limitation', '')}; "
+                f"summary={info.get('summary', '')} {info.get('url', '')} "
                 f"(confidence={quality}, verified={verified})"
             )
             if info.get("doi"):
@@ -1757,13 +2789,65 @@ async def paper_architect_node(state: ResearchState, config: dict) -> dict:
         max_output_tokens=8192,
         enable_thinking=True,
     )
+    
+    # Process IMAGE_PROMPTs
+    session_id = state.get("session_id", "default")
+    resource_dir = Path(settings.session_store_path).parent / "resources" / re.sub(r"[^a-zA-Z0-9_-]", "", session_id)
+    resource_dir.mkdir(parents=True, exist_ok=True)
+    
+    async def _replace_image_prompt(match: re.Match) -> str:
+        raw_prompt = match.group(1)
+        img_prompt = _normalize_image_prompt(raw_prompt, topic)
+        await _send_status(config, f"Generating image for: {img_prompt[:30]}...", data={"node": "paper_architect"})
+        img_base64 = await gemini_client.generate_image(img_prompt)
+        if not img_base64:
+            fallback_prompt = _normalize_image_prompt(
+                f"Scientific editorial infographic about {topic}. {img_prompt}",
+                topic,
+                max_len=180,
+            )
+            img_base64 = await gemini_client.generate_image(fallback_prompt)
+        if img_base64:
+            img_filename = f"img_{uuid.uuid4().hex[:8]}.png"
+            img_path = resource_dir / img_filename
+            try:
+                img_data = base64.b64decode(img_base64)
+                async with aiofiles.open(img_path, "wb") as f:
+                    await f.write(img_data)
+                return f"![Generated Image](/resources/{session_id}/{img_filename})\n*Figure: {img_prompt}*"
+            except Exception as e:
+                logger.error("Failed to save image: %s", e)
+        return f"> Figure concept: {img_prompt}"
+
+    # Find all image prompts and replace them asynchronously
+    prompts = list(re.finditer(r"\[IMAGE_PROMPT:\s*\"?(.*?)\"?\]", paper))
+    if prompts:
+        offset = 0
+        new_paper = ""
+        for match in prompts:
+            new_paper += paper[offset:match.start()]
+            replacement = await _replace_image_prompt(match)
+            new_paper += replacement
+            offset = match.end()
+        new_paper += paper[offset:]
+        paper = new_paper
+    
+    paper = _strip_mermaid_blocks(paper)
     analysis_markdown, draft_markdown = _split_analysis_and_final_draft(paper)
 
     # Build bibliography + deterministic citation keys
     bibliography = []
+    seen_keys = set()
     for pid, info in summaries.items():
         if info.get("title"):
-            cite_key = _citation_key(info.get("authors", ""), info.get("year", ""))
+            base_key = _citation_key(info.get("authors", ""), info.get("year", ""))
+            cite_key = base_key
+            counter = 1
+            while cite_key in seen_keys:
+                counter += 1
+                cite_key = f"{base_key}_{counter}"
+            seen_keys.add(cite_key)
+            
             bibliography.append({
                 "paper_id": pid,
                 "citation_key": cite_key,
@@ -1772,6 +2856,7 @@ async def paper_architect_node(state: ResearchState, config: dict) -> dict:
                 "year": info.get("year", ""),
                 "url": info.get("url", ""),
                 "doi": info.get("doi", ""),
+                "source": info.get("source", ""),
                 "source_quality": citation_quality.get(pid, {}).get("source_quality", 0.5),
                 "confidence": citation_quality.get(pid, {}).get("confidence", 0.5),
                 "verified": citation_verification.get(pid, {}).get("verified", False),
@@ -1784,6 +2869,22 @@ async def paper_architect_node(state: ResearchState, config: dict) -> dict:
             str(b.get("title", "")).lower(),
         )
     )
+
+    visual_replacements = _orion_visual_appendix(
+        topic=topic,
+        summaries=summaries,
+        gaps=gaps,
+        citation_quality=citation_quality,
+        citation_verification=citation_verification,
+        source_counts=state.get("source_counts", {}),
+        bibliography=bibliography,
+        cross=cross,
+    )
+    analysis_markdown = _replace_orion_visual_tokens(analysis_markdown, visual_replacements)
+    analysis_markdown = _sanitize_mermaid_syntax(analysis_markdown)
+    draft_markdown = _replace_orion_visual_tokens(draft_markdown, {token: "" for token in visual_replacements})
+    draft_markdown = _strip_mermaid_blocks(draft_markdown)
+    draft_markdown = _strip_visual_placeholder_labels(draft_markdown)
 
     normalized_paper = _normalize_citations_for_format(draft_markdown or paper, paper_format, bibliography)
     normalized_paper = _strip_reference_tail(normalized_paper)
@@ -1808,12 +2909,31 @@ async def paper_architect_node(state: ResearchState, config: dict) -> dict:
                 "verified": b.get("verified", False),
             })
 
+    analysis_markdown = _build_structured_dossier(
+        topic=topic,
+        raw_analysis=analysis_markdown,
+        summaries=summaries,
+        gaps=gaps,
+        cross=cross,
+        gap_critique=gap_critique,
+        citation_quality=citation_quality,
+        citation_verification=citation_verification,
+        source_counts=state.get("source_counts", {}),
+        bibliography=bibliography,
+        claim_map=claim_map,
+        debate_log=state.get("debate_log", []),
+        duplicate_clusters=state.get("duplicate_clusters", []),
+        visual_replacements=visual_replacements,
+    )
+    analysis_markdown = _sanitize_mermaid_syntax(analysis_markdown)
+
     format_compliance = _format_compliance_summary(normalized_paper, paper_format)
 
     debate_rounds = max(0, sum(1 for d in state.get("debate_log", []) if isinstance(d, str) and d.startswith("[CRITIC]")))
     verified_count = sum(1 for v in citation_verification.values() if v.get("verified"))
 
-    await _send_status(config, "Paper complete!", "complete", {
+    await _send_status(config, "Paper assembled; saving session artifacts...", "status", {
+        "node": "paper_architect",
         "paper_length": len(normalized_paper),
         "num_references": len(bibliography),
         "num_gaps": len(gaps),
@@ -1845,15 +2965,12 @@ async def paper_architect_node(state: ResearchState, config: dict) -> dict:
 def debate_should_continue(state: ResearchState) -> str:
     """
     Decide whether the debate loop should continue.
-    Max 2 iterations (1 draft + 1 revision after critique).
+    If max_debate_rounds is 0, debate is skipped.
     """
     debate_log = state.get("debate_log", [])
     critic_rounds = sum(1 for msg in debate_log if msg.startswith("[CRITIC]"))
     max_rounds = int(state.get("max_debate_rounds", settings.max_debate_rounds))
-    if max_rounds < 1:
-        max_rounds = 1
-    if max_rounds > 5:
-        max_rounds = 5
+    max_rounds = max(0, min(5, max_rounds))
 
     if critic_rounds >= max_rounds:
             # Proceed to cross-paper reasoning stage before gap generation

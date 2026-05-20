@@ -6,14 +6,14 @@ ORION is a multi-agent deep-research platform that takes a topic, gathers eviden
 
 It combines:
 - **Backend:** FastAPI + LangGraph orchestration + Vertex Gemini + ChromaDB
-- **Frontend:** React + Vite UI with live pipeline feed and session history
-- **Persistence:** JSON session store + per-session artifact files + vector DB for uploaded PDFs
+- **Frontend:** React + Vite UI with Premium Elegance V3 glassmorphism, live pipeline feed, and session history
+- **Persistence:** JSON session store + LangGraph SQLite Checkpointer + per-session artifact files + vector DB for uploaded PDFs
 
 ---
 
 ## 2. Number of agents and what each agent does
 
-ORION uses **7 graph nodes (agents/stages)** in the LangGraph pipeline:
+ORION uses **8 graph nodes (agents/stages)** in the LangGraph pipeline:
 
 1. **Planner (`planner_node`)**
    - Creates 3–5 focused search queries and a research plan.
@@ -40,11 +40,15 @@ ORION uses **7 graph nodes (agents/stages)** in the LangGraph pipeline:
    - Reviews proposer draft for unsupported claims and imbalance.
    - Sends critique back into debate loop.
 
-6. **Gap Analysis (`gap_analysis_node`)**
+6. **Cross-Paper Analyzer (`cross_paper_analyzer_node`)**
+   - Synthesizes findings across multiple papers after debate concludes.
+   - Generates structured cross-paper analysis (e.g. source mix, methodologies, visual landscape mermaids).
+
+7. **Gap Analysis (`gap_analysis_node`)**
    - Produces structured research gaps (`title`, `evidence`, `proposed_direction`).
    - Includes JSON repair retry, synthesis fallback, minimum-gap enforcement, and gap quality cleanup.
 
-7. **Paper Architect (`paper_architect_node`)**
+8. **Paper Architect (`paper_architect_node`)**
    - Builds final publication-style markdown paper.
    - Applies deterministic citation normalization by selected format.
    - Builds bibliography, claim-evidence links, and format compliance scoring.
@@ -55,11 +59,11 @@ ORION uses **7 graph nodes (agents/stages)** in the LangGraph pipeline:
 
 Defined in `backend/app/core/graph.py`:
 
-`planner -> retrieval -> summarizer -> proposer <-> critic (loop) -> gap_analysis -> paper_architect -> END`
+`planner -> retrieval -> summarizer -> proposer <-> critic (loop) -> cross_paper -> gap_analysis -> paper_architect -> END`
 
 Debate loop logic (`debate_should_continue`):
 - Runs critic rounds until `max_debate_rounds` is reached (clamped 1..5).
-- Then exits to gap analysis.
+- Then exits to cross-paper analysis.
 
 ---
 
@@ -94,6 +98,8 @@ Main APIs live in `backend/app/api/routes/research.py`.
 - `GET /research/{id}/paper`
 - `GET /research/{id}/timeline`
 - `GET /research/sessions/list`
+- `GET /research/{id}/chat` – Deep RAG research chat history
+- `POST /research/{id}/chat` – Chat with session context (Vector store grounded)
 
 ### Export/resources
 - `GET /research/{id}/export`
@@ -200,6 +206,10 @@ Supporting components:
 - `Sidebar.tsx` – session list, status, select/delete
 - `ResearchFeed.tsx` – progress + event cards
 - `PaperViewer.tsx` – final paper and trust signals
+- `ResearchChatFloating.tsx` – floating interface for Deep RAG queries over session context
+- `VisualInsights.tsx` – component for rendering visual insights
+- `Mermaid.tsx` – component for rendering Mermaid diagrams
+- `PdfUpload.tsx` – component for handling PDF uploads
 - `useWebSocket.ts` – WS lifecycle, reconnect control, timeline preload
 - `api.ts` – frontend API client
 
@@ -297,6 +307,10 @@ It is especially practical for:
 - `frontend/src/components/Sidebar.tsx` – session navigation
 - `frontend/src/components/ResearchFeed.tsx` – live pipeline feed
 - `frontend/src/components/PaperViewer.tsx` – final paper and quality signals
+- `frontend/src/components/ResearchChatFloating.tsx` – floating Deep RAG chat
+- `frontend/src/components/VisualInsights.tsx` – visual insights/charts rendering
+- `frontend/src/components/Mermaid.tsx` – mermaid diagrams renderer
+- `frontend/src/components/PdfUpload.tsx` – PDF upload component
 - `frontend/src/types.ts` – frontend types/contracts
 
 ---

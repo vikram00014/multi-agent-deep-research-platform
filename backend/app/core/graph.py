@@ -10,6 +10,7 @@ Pipeline flow:
 import logging
 
 from langgraph.graph import StateGraph, END
+from typing import Any
 
 from app.core.state import ResearchState
 from app.core.agents import (
@@ -27,7 +28,7 @@ from app.core.agents import (
 logger = logging.getLogger("orion.graph")
 
 
-def build_research_graph() -> StateGraph:
+def build_research_graph(checkpointer: Any = None) -> Any:
     """
     Build and compile the ORION research graph.
 
@@ -76,9 +77,9 @@ def build_research_graph() -> StateGraph:
     logger.info("Research graph built successfully")
 
     # Compile and return
-    compiled = graph.compile()
+    compiled = graph.compile(checkpointer=checkpointer)
     return compiled
 
 
-# Singleton compiled graph
+# Default uncheckpointed graph for backward compat if needed
 research_graph = build_research_graph()

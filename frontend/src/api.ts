@@ -1,9 +1,10 @@
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000';
+export const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '');
 
 /**
  * API client for ORION backend.
  */
 export const api = {
+  getBaseUrl: () => API_BASE,
   /**
    * Start a new research session.
    */
@@ -95,6 +96,10 @@ export const api = {
     const resp = await fetch(`${API_BASE}/research/${sessionId}/export`);
     if (!resp.ok) throw new Error(`Failed to export bundle: ${resp.statusText}`);
     return resp.json();
+  },
+
+  paperPdfDownloadUrl(sessionId: string) {
+    return `${API_BASE}/research/${sessionId}/paper.pdf`;
   },
 
   async listSessionResources(sessionId: string) {

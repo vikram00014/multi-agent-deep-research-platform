@@ -67,7 +67,7 @@ export function ResearchChatFloating({ sessionId }: ResearchChatFloatingProps) {
   return (
     <>
       {open ? (
-        <div className="fixed bottom-6 right-6 z-[120] w-[360px] max-w-[calc(100vw-24px)] h-[520px] rounded-2xl border border-orion-border/60 bg-white/95 shadow-2xl backdrop-blur-md flex flex-col">
+        <div className="fixed bottom-6 right-6 z-[120] w-[360px] max-w-[calc(100vw-24px)] h-[520px] rounded-2xl border border-orion-border/60 bg-orion-surface shadow-2xl backdrop-blur-md flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 border-b border-orion-border/40">
             <div>
               <p className="text-sm font-semibold text-orion-text-muted">Research Discussion</p>
@@ -86,7 +86,7 @@ export function ResearchChatFloating({ sessionId }: ResearchChatFloatingProps) {
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2 bg-orion-surface/30">
             {messages.length === 0 && !loading ? (
-              <div className="text-xs text-orion-text-dim border border-orion-border/40 rounded-xl bg-white px-3 py-2">
+              <div className="text-xs text-orion-text-dim border border-orion-border/40 rounded-xl bg-orion-surface-2 px-3 py-2">
                 Ask anything about this research run: quality, contradictions, gaps, methods, or how to improve the paper.
               </div>
             ) : null}
@@ -96,14 +96,14 @@ export function ResearchChatFloating({ sessionId }: ResearchChatFloatingProps) {
                 className={`max-w-[90%] rounded-xl px-3 py-2 text-sm whitespace-pre-wrap ${
                   m.role === 'user'
                     ? 'ml-auto bg-orion-accent text-white'
-                    : 'mr-auto bg-white border border-orion-border/40 text-orion-text-muted'
+                    : 'mr-auto bg-orion-surface-2 border border-orion-border/40 text-orion-text-muted'
                 }`}
               >
                 {m.content}
               </div>
             ))}
             {loading ? (
-              <div className="mr-auto inline-flex items-center gap-2 text-xs text-orion-text-dim bg-white border border-orion-border/40 rounded-lg px-3 py-2">
+              <div className="mr-auto inline-flex items-center gap-2 text-xs text-orion-text-dim bg-orion-surface-2 border border-orion-border/40 rounded-lg px-3 py-2">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 Thinking...
               </div>
@@ -120,7 +120,7 @@ export function ResearchChatFloating({ sessionId }: ResearchChatFloatingProps) {
                   if (e.key === 'Enter') send();
                 }}
                 placeholder={placeholder}
-                className="flex-1 rounded-lg border border-orion-border/50 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orion-accent/20"
+                className="flex-1 rounded-lg border border-orion-border/50 bg-orion-surface-2 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orion-accent/20"
                 disabled={!sessionId || loading}
               />
               <button
@@ -136,13 +136,15 @@ export function ResearchChatFloating({ sessionId }: ResearchChatFloatingProps) {
         </div>
       ) : null}
 
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-6 right-6 z-[110] h-14 w-14 rounded-full bg-orion-accent text-white shadow-lg shadow-orion-accent/30 hover:bg-orion-accent-light transition-all active:scale-[0.98] inline-flex items-center justify-center"
-        aria-label="Open research discussion chat"
-      >
-        <MessageCircle className="h-6 w-6" />
-      </button>
+      {!open && (
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="fixed bottom-6 right-6 z-[110] h-14 w-14 rounded-full bg-orion-accent text-white shadow-lg shadow-orion-accent/30 hover:bg-orion-accent-light transition-all active:scale-[0.98] inline-flex items-center justify-center"
+          aria-label="Open research discussion chat"
+        >
+          <MessageCircle className="h-6 w-6" />
+        </button>
+      )}
     </>
   );
 }

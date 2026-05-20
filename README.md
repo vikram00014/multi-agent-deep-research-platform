@@ -21,9 +21,10 @@ ORION is a production-oriented research assistant that runs a full multi-stage p
   - retrieval depth/source filters/year constraints
 - **Persistent sessions**:
   - saved session state in `backend/orion_sessions.json`
+  - LangGraph SQLite Checkpointer for graph state persistence
   - per-session resource files under `backend/resources/<session_id>/`
 - **Session operations**:
-  - cancel / retry / resume / delete
+  - cancel (with active task termination) / retry / resume / delete
   - timeline replay
   - export bundle download
 
@@ -36,7 +37,7 @@ Frontend (React + Vite)
   - Final Paper
   - Analytics
   - Resources
-  - Floating Research Discussion Chat
+  - Floating Research Discussion Chat (Deep RAG enabled with vector store grounding)
 
 Backend (FastAPI + LangGraph)
   planner -> retrieval -> summarizer -> proposer <-> critic -> gap_analysis -> paper_architect

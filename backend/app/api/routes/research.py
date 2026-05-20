@@ -18,21 +18,24 @@ GET  /research/sessions/list      – List all sessions
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 import logging
 import re
+import shutil
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, WebSocket
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
 from app.core.config import settings
 from app.core.graph import research_graph
 from app.core.llm_client import gemini_client
+from app.services.pdf_export import generate_research_pdf
 
 logger = logging.getLogger("orion.api.research")
 
@@ -104,10 +107,42 @@ def _session_resource_dir(session_id: str) -> Path:
     return (RESOURCES_ROOT / safe).resolve()
 
 
+def _remove_session_resources(session_id: str) -> None:
+    target = _session_resource_dir(session_id)
+    root = RESOURCES_ROOT.resolve()
+    if target.exists() and str(target).startswith(str(root)):
+        shutil.rmtree(target, ignore_errors=True)
+
+
 def _validate_resource_name(name: str) -> str:
     if not name or ".." in name or "/" in name or "\\" in name:
         raise HTTPException(status_code=400, detail="Invalid resource file name")
     return name
+
+
+def _pdf_output_path(session_id: str) -> Path:
+    return _session_resource_dir(session_id) / "orion_report.pdf"
+
+
+def _ensure_pdf_generated(session_id: str, session: dict[str, Any]) -> Path:
+    result = session.get("result", {}) or {}
+    analysis = str(result.get("research_analysis", "") or "")
+    final_draft = str(result.get("final_draft", result.get("final_paper", "")) or "")
+    if not final_draft and not analysis:
+        raise HTTPException(status_code=404, detail="No paper content available for PDF export")
+
+    out_dir = _session_resource_dir(session_id)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = _pdf_output_path(session_id)
+    generate_research_pdf(
+        topic=session.get("topic", "ORION Research Report"),
+        session_id=session_id,
+        analysis_markdown=analysis,
+        final_markdown=final_draft,
+        out_path=out_path,
+        resource_dir=out_dir,
+    )
+    return out_path
 
 
 def _sanitize_session_for_store(session: dict[str, Any]) -> dict[str, Any]:
@@ -422,8 +457,14 @@ async def run_research_pipeline(
 
         config = {"configurable": {"thread_id": session_id, "ws_callback": ws_callback}}
 
+        from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+        from app.core.graph import build_research_graph
+        
         await _emit_node_status(session_id, "planner", f"Starting research on: {topic}")
-        final_state = await research_graph.ainvoke(initial_state, config=config)
+        
+        async with AsyncSqliteSaver.from_conn_string(settings.sqlite_checkpoint_path) as checkpointer:
+            graph = build_research_graph(checkpointer=checkpointer)
+            final_state = await graph.ainvoke(initial_state, config=config)
 
         debate_log = final_state.get("debate_log", [])
         proposer_entries = [d for d in debate_log if isinstance(d, str) and d.startswith("[PROPOSER]")]
@@ -534,9 +575,7 @@ async def run_research_pipeline(
             "data": {"node": "error"},
         })
     finally:
-        task = session_tasks.get(session_id)
-        if task and task.done():
-            session_tasks.pop(session_id, None)
+        session_tasks.pop(session_id, None)
 
 
 @router.on_event("startup")
@@ -550,8 +589,13 @@ async def start_research(request: StartResearchRequest) -> StartResearchResponse
         raise HTTPException(status_code=400, detail="Topic cannot be empty")
 
     session_id = str(uuid.uuid4())
+    requested_rounds = (
+        int(request.max_debate_rounds)
+        if request.max_debate_rounds is not None
+        else int(settings.max_debate_rounds)
+    )
     controls = {
-        "max_debate_rounds": max(1, min(5, int(request.max_debate_rounds or settings.max_debate_rounds))),
+        "max_debate_rounds": max(0, min(5, requested_rounds)),
         "strict_mode": bool(request.strict_mode) if request.strict_mode is not None else bool(settings.strict_synthesis_mode),
         "paper_format": (request.paper_format or "academic").strip().lower(),
         "depth": request.depth or "standard",
@@ -645,6 +689,7 @@ async def delete_session(session_id: str) -> SessionActionResponse:
     active_sessions.pop(session_id, None)
     session_tasks.pop(session_id, None)
     ws_connections.pop(session_id, None)
+    await asyncio.to_thread(_remove_session_resources, session_id)
     await _persist_all_sessions()
     return SessionActionResponse(session_id=session_id, status="deleted", message="Session deleted")
 
@@ -727,7 +772,8 @@ def _research_chat_context(session: dict[str, Any]) -> str:
         "topic": session.get("topic", ""),
         "status": session.get("status", "unknown"),
         "paper_ready": bool(result.get("final_paper")),
-        "literature_review": str(result.get("literature_review", ""))[:2500],
+        "literature_review": str(result.get("literature_review", ""))[:5000],
+        "analysis": str(result.get("research_analysis", ""))[:5000],
         "cross_paper_analysis": result.get("cross_paper_analysis", {}),
         "gaps": result.get("gaps", []),
         "source_counts": result.get("source_counts", {}),
@@ -767,14 +813,25 @@ async def chat_with_research(session_id: str, request: ResearchChatRequest) -> R
         if str(m.get("content", "")).strip()
     )
 
+    rag_context = ""
+    uploaded_ids = session.get("uploaded_paper_ids", [])
+    if uploaded_ids:
+        from app.services.vector_store import vector_store
+        chunks = vector_store.query(user_message, n_results=10, file_ids=uploaded_ids)
+        if chunks:
+            rag_context = "Relevant excerpts from uploaded documents:\n"
+            for c in chunks:
+                rag_context += f"- {c['text']}\n"
+
     system_prompt = (
         "You are ORION Research Discussion Assistant. You answer questions about the selected research session. "
-        "Stay grounded in the provided session context. Be concrete and analytical. "
+        "Stay grounded in the provided session context and the relevant RAG document excerpts. Be concrete and analytical. "
         "If information is missing in session context, clearly say it is not available yet."
     )
     user_prompt = (
         "Session context:\n"
         f"{_research_chat_context(session)}\n\n"
+        f"{rag_context}\n\n"
         "Recent conversation:\n"
         f"{conversation_text}\n\n"
         "User question:\n"
@@ -833,6 +890,24 @@ async def export_session_bundle(session_id: str) -> dict[str, Any]:
     return _build_export_bundle(session_id, session)
 
 
+@router.get("/{session_id}/paper.pdf")
+async def download_paper_pdf(session_id: str) -> FileResponse:
+    session = active_sessions.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.get("status") != "complete":
+        raise HTTPException(status_code=400, detail=f"Session is {session.get('status')}, paper not ready")
+
+    out_path = await asyncio.to_thread(_ensure_pdf_generated, session_id, session)
+    session["resource_files"] = _save_session_resources(session_id, session)
+    await _persist_all_sessions_debounced(f"{session_id}-pdf", delay=0.1)
+    return FileResponse(
+        path=str(out_path),
+        filename=f"orion-report-{session_id[:8]}.pdf",
+        media_type="application/pdf",
+    )
+
+
 @router.get("/{session_id}/resources/list")
 async def list_session_resources(session_id: str) -> dict[str, Any]:
     session = active_sessions.get(session_id)
@@ -857,6 +932,68 @@ async def download_session_resource(session_id: str, file_name: str) -> FileResp
         raise HTTPException(status_code=404, detail="Resource file not found")
     return FileResponse(path=str(target), filename=target.name, media_type="application/octet-stream")
 
+@router.get("/{session_id}/slides", response_class=HTMLResponse)
+async def get_presentation_slides(session_id: str) -> str:
+    session = active_sessions.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    paper_md = session.get("result", {}).get("final_paper", "")
+    if not paper_md:
+        raise HTTPException(status_code=404, detail="Final paper not generated yet")
+    
+    # Simple split to create slides. We split by major headings.
+    import re
+    sections = re.split(r'\n(?=#{1,2} )', paper_md)
+    slides_html = ""
+    for sec in sections:
+        sec_clean = sec.strip()
+        if not sec_clean:
+            continue
+        safe_markdown = sec_clean.replace("</script", "<\\/script")
+        slides_html += f"""
+        <section data-markdown>
+            <script type="text/template">
+{safe_markdown}
+            </script>
+        </section>"""
+
+    topic = html.escape(session.get("topic", "Research Presentation"))
+    
+    reveal_html = f"""<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>{topic} - ORION Presentation</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reset.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/theme/black.css" id="theme">
+        <style>
+            .reveal h1, .reveal h2, .reveal h3 {{ text-transform: none; }}
+            .reveal pre {{ width: 100%; box-shadow: none; font-size: 0.55em; }}
+            .reveal blockquote {{ width: 100%; font-size: 0.8em; border-left: 4px solid #38bdf8; background: rgba(56,189,248,0.1); padding: 1em; }}
+            .reveal ul, .reveal ol {{ font-size: 0.8em; line-height: 1.5; }}
+            .reveal p {{ font-size: 0.8em; line-height: 1.5; text-align: left; }}
+        </style>
+    </head>
+    <body>
+        <div class="reveal">
+            <div class="slides">
+                {slides_html}
+            </div>
+        </div>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/markdown/markdown.js"></script>
+        <script>
+            Reveal.initialize({{
+                hash: true,
+                slideNumber: 'c/t',
+                plugins: [ RevealMarkdown ]
+            }});
+        </script>
+    </body>
+</html>"""
+    return reveal_html
 
 @router.get("/sessions/list")
 async def list_sessions() -> dict[str, list[dict[str, Any]]]:
@@ -867,6 +1004,7 @@ async def list_sessions() -> dict[str, list[dict[str, Any]]]:
             "topic": data.get("topic", ""),
             "status": data.get("status", "unknown"),
             "current_step": data.get("current_step", "unknown"),
+            "created_at": data.get("started_at", ""),
             "updated_at": data.get("updated_at", ""),
             "token_estimate": data.get("metrics", {}).get("token_estimate", 0),
             "cost_estimate_usd": data.get("metrics", {}).get("cost_estimate_usd", 0),

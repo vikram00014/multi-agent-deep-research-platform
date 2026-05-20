@@ -12,3 +12,9 @@ dist/
 logs/
 *.log
 *.local
+
+# ORION runtime stores and generated session artifacts
+backend/orion_sessions.json
+backend/orion_checkpoints.db
+backend/chroma_data/
+backend/resources/
