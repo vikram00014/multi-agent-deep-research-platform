@@ -400,12 +400,17 @@ def deduplicate_papers(papers: list[dict]) -> list[dict]:
 
     for paper in papers:
         # Create a normalized key from title
-        key = paper["title"].lower().strip()[:80]
+        key = str(paper.get("title", "")).lower().strip()[:80]
         doi = paper.get("doi", "")
 
         # If we have a DOI, prefer that as the key
         if doi:
             key = doi
+
+        if not key:
+            # No title and no DOI -> can't dedup meaningfully, keep as-is.
+            seen[id(paper)] = paper
+            continue
 
         if key in seen:
             # Keep the one with higher citation count

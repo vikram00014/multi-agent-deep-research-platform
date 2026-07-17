@@ -188,10 +188,15 @@ def _parse_json_object(text: str) -> dict[str, Any]:
             continue
         if isinstance(parsed, dict):
             return parsed
-        # If the model returns an array, wrap it
+        # If the model returns an array of objects, merge them into one dict
+        # (later keys win) instead of silently dropping all but the first.
         if isinstance(parsed, list) and parsed:
-            if isinstance(parsed[0], dict):
-                return parsed[0]
+            dict_items = [item for item in parsed if isinstance(item, dict)]
+            if dict_items:
+                merged: dict[str, Any] = {}
+                for item in dict_items:
+                    merged.update(item)
+                return merged
     return {}
 
 
@@ -1141,8 +1146,6 @@ def _build_structured_dossier(
 
 def _render_references_section(paper_format: str, bibliography: list[dict[str, Any]]) -> str:
     fmt = (paper_format or "ACADEMIC").upper()
-
-    fmt = (paper_format or "ACADEMIC").upper()
     if not bibliography:
         return ""
 
@@ -1688,12 +1691,18 @@ async def retrieval_node(state: ResearchState, config: dict) -> dict:
     if year_from:
         try:
             cutoff = int(year_from)
-            all_papers = [
-                p for p in all_papers
-                if not str(p.get("year", "")).strip() or int(str(p.get("year", "0")) or 0) >= cutoff
-            ]
-        except Exception:
-            pass
+        except (TypeError, ValueError):
+            cutoff = None
+        if cutoff is not None:
+            def _passes_year(p: dict[str, Any]) -> bool:
+                raw = str(p.get("year", "")).strip()
+                if not raw:
+                    return True  # keep papers with unknown year
+                match = re.search(r"\d{4}", raw)
+                if not match:
+                    return True  # unparseable year -> don't drop
+                return int(match.group()) >= cutoff
+            all_papers = [p for p in all_papers if _passes_year(p)]
 
     # Topic-aware reranking/filtering to reduce drift and prioritize relevance.
     topic_tokens = _normalize_tokens(state.get("topic", ""))
@@ -1733,11 +1742,11 @@ async def retrieval_node(state: ResearchState, config: dict) -> dict:
             paper.get("abstract", ""),
             paper.get("source", ""),
         )
-        await _send_status(config, f"Found: {paper['title'][:80]}...", "paper_found", {
-            "title": paper["title"],
-            "authors": paper["authors"],
-            "source": paper["source"],
-            "year": paper["year"],
+        await _send_status(config, f"Found: {str(paper.get('title', 'Untitled'))[:80]}...", "paper_found", {
+            "title": paper.get("title", "Untitled"),
+            "authors": paper.get("authors", "Unknown"),
+            "source": paper.get("source", "unknown"),
+            "year": paper.get("year", ""),
             "confidence": confidence,
             "node": "retrieval",
         })
@@ -1816,7 +1825,9 @@ async def retrieval_node(state: ResearchState, config: dict) -> dict:
     if uploaded_ids:
         await _send_status(config, "Searching uploaded PDFs...")
         for query in queries[:3]:
-            chunks = vector_store.query(query, n_results=5, file_ids=uploaded_ids)
+            chunks = await asyncio.to_thread(
+                vector_store.query, query, n_results=5, file_ids=uploaded_ids
+            )
             vector_results.extend(chunks)
 
     return {
@@ -1876,15 +1887,19 @@ async def summarizer_node(state: ResearchState, config: dict) -> dict:
 
     async def _summarize_single(i: int, paper: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         async with semaphore:
+            title = str(paper.get("title", "") or "Untitled")
+            authors = str(paper.get("authors", "") or "Unknown")
+            abstract = str(paper.get("abstract", "") or "")
+            year = paper.get("year", "")
             await _send_status(
                 config,
-                f"Summarizing paper {i + 1} of {len(top_papers)}: {paper['title'][:60]}...",
+                f"Summarizing paper {i + 1} of {len(top_papers)}: {title[:60]}...",
             )
 
             prompt = SUMMARIZER_PROMPT.format(
-                title=paper["title"],
-                authors=paper["authors"],
-                abstract=paper["abstract"][:2400],
+                title=title,
+                authors=authors,
+                abstract=abstract[:2400],
             )
 
             try:
@@ -1892,16 +1907,16 @@ async def summarizer_node(state: ResearchState, config: dict) -> dict:
                     prompt=prompt,
                     response_mime_type="application/json",
                     temperature=0.25,
-                    max_output_tokens=640,
+                    max_output_tokens=1100,
                     enable_thinking=False,
                 )
                 data = _parse_json_object(response)
                 if not data:
                     raise json.JSONDecodeError("Invalid summarizer JSON", response, 0)
                 summary = {
-                    "title": paper["title"],
-                    "authors": paper["authors"],
-                    "year": paper["year"],
+                    "title": title,
+                    "authors": authors,
+                    "year": year,
                     "summary": data.get("summary", ""),
                 "limitation": data.get("limitation", ""),
                 "methodology": data.get("methodology", ""),
@@ -1921,12 +1936,12 @@ async def summarizer_node(state: ResearchState, config: dict) -> dict:
                     ),
                 }
             except Exception as e:
-                logger.error("Failed to summarize paper '%s': %s", paper["title"][:60], e)
+                logger.error("Failed to summarize paper '%s': %s", title[:60], e)
                 summary = {
-                    "title": paper["title"],
-                    "authors": paper["authors"],
-                    "year": paper["year"],
-                    "summary": paper["abstract"][:400],
+                    "title": title,
+                    "authors": authors,
+                    "year": year,
+                    "summary": abstract[:400],
                     "limitation": "Not available",
                     "methodology": "Empirical study",
                     "evaluation_signal": "Abstract-level evidence only",
@@ -1957,12 +1972,23 @@ async def summarizer_node(state: ResearchState, config: dict) -> dict:
 
     summarized = await asyncio.gather(*[
         _summarize_single(i, paper) for i, paper in enumerate(top_papers)
-    ])
+    ], return_exceptions=True)
 
-    for paper, (summary, quality, verification) in zip(top_papers, summarized):
-        summaries[paper["paper_id"]] = summary
-        citation_quality[paper["paper_id"]] = quality
-        citation_verification[paper["paper_id"]] = verification
+    for paper, outcome in zip(top_papers, summarized):
+        if isinstance(outcome, Exception):
+            logger.error(
+                "Summarizer task crashed for paper '%s': %s",
+                str(paper.get("title", ""))[:60],
+                outcome,
+            )
+            continue
+        summary, quality, verification = outcome
+        paper_id = paper.get("paper_id") or paper.get("doi") or paper.get("arxiv_id")
+        if not paper_id:
+            paper_id = f"paper_{abs(hash(str(paper.get('title', ''))))}"
+        summaries[paper_id] = summary
+        citation_quality[paper_id] = quality
+        citation_verification[paper_id] = verification
 
     # Include vector store results in summaries
     vector_results = state.get("vector_results", [])
@@ -2065,7 +2091,7 @@ async def proposer_node(state: ResearchState, config: dict) -> dict:
     draft = await gemini_client.generate_content(
         prompt=prompt,
         temperature=0.4,
-        max_output_tokens=4096,
+        max_output_tokens=6144,
         enable_thinking=True,
     )
 
@@ -2119,12 +2145,24 @@ async def critic_node(state: ResearchState, config: dict) -> dict:
         abstracts=abstracts_text[:6000],
     )
 
-    critique = await gemini_client.generate_content(
-        prompt=prompt,
-        temperature=0.3,
-        max_output_tokens=2048,
-        enable_thinking=True,
-    )
+    try:
+        critique = await gemini_client.generate_content(
+            prompt=prompt,
+            temperature=0.3,
+            max_output_tokens=2048,
+            enable_thinking=True,
+        )
+    except Exception as e:
+        logger.error("Critic node LLM call failed, skipping critique: %s", e)
+        await _send_status(
+            config,
+            "Peer review unavailable this round, continuing",
+            data={"node": "critic"},
+        )
+        return {
+            "debate_log": ["[CRITIC] (peer review unavailable — LLM error)"],
+            "status_message": "Peer review skipped (LLM error)",
+        }
 
     await _send_status(config, "Peer review complete, sending feedback to proposer", data={"node": "critic"})
 
@@ -2203,13 +2241,17 @@ async def cross_paper_analyzer_node(state: ResearchState, config: dict) -> dict:
         topic=topic,
         summaries=_build_cross_paper_summary_text(summaries),
     )
-    response = await gemini_client.generate_content(
-        prompt=prompt,
-        response_mime_type="application/json",
-        temperature=0.2,
-        max_output_tokens=2048,
-        enable_thinking=False,
-    )
+    try:
+        response = await gemini_client.generate_content(
+            prompt=prompt,
+            response_mime_type="application/json",
+            temperature=0.2,
+            max_output_tokens=2048,
+            enable_thinking=False,
+        )
+    except Exception as e:
+        logger.error("Cross-paper analysis LLM call failed, using empty analysis: %s", e)
+        response = ""
 
     parsed = _parse_json_object(response)
 
@@ -2620,13 +2662,25 @@ Make this section a highly immersive, solid visual explanation of the research.
 
 ## PART B - Final Draft Paper (Publication Style)
 This section MUST BE STRICTLY TEXTUAL. Do NOT include any images, diagrams, or Mermaid code in Part B.
-1. **Abstract** – 150-200 words.
-2. **1. Introduction**
-3. **2. Literature Review**
-4. **3. Comparative Analysis and Discussion**
-5. **4. Research Gaps and Future Directions**
-6. **5. Conclusion**
-7. **References**
+Write a COMPLETE, publication-ready research paper. It must read like a real peer-reviewed article,
+not an outline or a summary. Target 2500-4000 words in Part B. Use the following structure:
+
+1. **Title** – a specific, informative paper title (not the raw topic string).
+2. **Abstract** – 180-250 words: context, problem, what this review/synthesis does, key findings, and implications.
+3. **Keywords** – 4-6 comma-separated keywords.
+4. **1. Introduction** – 3-5 paragraphs: motivation, why the problem matters, scope, the central questions this paper addresses, and an explicit "contributions of this paper" paragraph.
+5. **2. Background and Related Work** – organize by theme; synthesize across studies; compare methodologies and evaluation setups; cite concrete sources.
+6. **3. Comparative Analysis and Discussion** – critically compare approaches, datasets, metrics, and results; discuss agreements, contradictions, and evidence-quality caveats. Reference at least one comparison in prose (the visual tables live in Part A).
+7. **4. Research Gaps and Future Directions** – turn each identified gap into a substantive paragraph explaining the gap, why it persists, and a concrete, testable research direction.
+8. **5. Threats to Validity / Limitations** – of this synthesis itself (coverage, source quality, recency).
+9. **6. Conclusion** – 2-3 paragraphs restating findings and their significance.
+10. **References** – every in-text citation must appear here and vice versa.
+
+Depth requirements for Part B:
+- Every body section must be multiple full paragraphs of connected prose — no bullet-only sections, no one-line sections.
+- Ground specific claims in specific sources with in-text citations; include concrete datasets, benchmarks, and metrics wherever the summaries provide them.
+- Maintain a logical narrative: each section should set up the next.
+- Do not fabricate authors, venues, results, or numbers not present in the provided inputs.
 
 Style enforcement:
 - If paper_format is IEEE, use numbered references [1], [2], ... and IEEE-style reference list.
@@ -2684,6 +2738,95 @@ def _split_analysis_and_final_draft(markdown: str) -> tuple[str, str]:
         return analysis, paper
     # Fallback: if separator is missing, treat whole text as paper for compatibility.
     return "", text
+
+
+FINAL_PAPER_PROMPT = """You are an expert academic writer. Write a COMPLETE, publication-ready research paper in Markdown on the topic: "{topic}".
+Citation/style format: "{paper_format}".
+
+This is a standalone academic paper. It must read like a real peer-reviewed article — full connected prose,
+not an outline, not bullet points, not a summary. Target 2500-4000 words.
+
+Base the paper strictly on these inputs (do NOT invent authors, venues, numbers, or results not present here):
+
+## Literature Review (peer-reviewed synthesis):
+{literature_review}
+
+## Cross-Paper Analysis:
+{cross_paper_analysis}
+
+## Identified Research Gaps:
+{gaps_section}
+
+## Sources available for citation:
+{citation_info}
+
+Required structure (use these exact section headings):
+# <a specific, informative paper title — not the raw topic string>
+
+**Abstract** — 180-250 words: context, problem, what this paper synthesizes, key findings, implications.
+
+**Keywords** — 4-6 comma-separated keywords.
+
+## 1. Introduction
+3-5 paragraphs: motivation, why it matters, scope, the questions addressed, and an explicit "Contributions" paragraph.
+
+## 2. Background and Related Work
+Organize by theme. Synthesize across studies; compare methodologies and evaluation setups; cite concrete sources.
+
+## 3. Comparative Analysis and Discussion
+Critically compare approaches, datasets, metrics, and results; discuss agreements, contradictions, and evidence-quality caveats.
+
+## 4. Research Gaps and Future Directions
+Turn each identified gap into a substantive paragraph: the gap, why it persists, and a concrete, testable direction.
+
+## 5. Limitations
+Threats to validity of this synthesis itself (coverage, source quality, recency).
+
+## 6. Conclusion
+2-3 paragraphs restating findings and significance.
+
+## References
+Every in-text citation must appear here, and every reference must be cited in text.
+
+Rules:
+- Every body section must be multiple full paragraphs of connected academic prose. No bullet-only sections, no one-line sections.
+- Ground specific claims in specific sources with in-text citations in the required style.
+- IEEE/ACM: numbered [1], [2] in-text and a numbered reference list. APA: (Author, Year). MLA: parenthetical + Works Cited. ACADEMIC: [@AuthorYear].
+- STRICTLY TEXTUAL: no images, no Mermaid, no tables, no ORION tokens, no IMAGE_PROMPT tokens.
+- Do NOT include any preface like "As an expert academic writer" or "Here is the paper". Start directly with the title."""
+
+
+async def _generate_final_paper(
+    topic: str,
+    paper_format: str,
+    literature_review: str,
+    cross_text: str,
+    gaps_text: str,
+    citation_text: str,
+) -> str:
+    """Generate the publication-style paper as a dedicated call with its own full budget.
+
+    Isolating this from the visual Part A dossier guarantees the real paper always
+    receives the entire output budget instead of being starved by large visual tables.
+    """
+    prompt = FINAL_PAPER_PROMPT.format(
+        topic=topic,
+        paper_format=paper_format,
+        literature_review=literature_review[:8000],
+        cross_paper_analysis=cross_text[:4000],
+        gaps_section=gaps_text[:3000],
+        citation_info=citation_text[:5000],
+    )
+    try:
+        return await gemini_client.generate_content(
+            prompt=prompt,
+            temperature=0.4,
+            max_output_tokens=16384,
+            enable_thinking=True,
+        )
+    except Exception as e:
+        logger.error("Dedicated final-paper generation failed: %s", e)
+        return ""
 
 
 async def paper_architect_node(state: ResearchState, config: dict) -> dict:
@@ -2786,7 +2929,7 @@ async def paper_architect_node(state: ResearchState, config: dict) -> dict:
     paper = await gemini_client.generate_content(
         prompt=prompt,
         temperature=0.4,
-        max_output_tokens=8192,
+        max_output_tokens=16384,
         enable_thinking=True,
     )
     
@@ -2834,6 +2977,43 @@ async def paper_architect_node(state: ResearchState, config: dict) -> dict:
     
     paper = _strip_mermaid_blocks(paper)
     analysis_markdown, draft_markdown = _split_analysis_and_final_draft(paper)
+
+    # The combined prompt frequently exhausts its budget on the visual Part A
+    # dossier and never emits a real Part B paper (missing Introduction/Conclusion,
+    # or PART A content leaking into the draft). Detect that and generate the
+    # publication-style paper with a dedicated, full-budget call so the user always
+    # gets a complete academic paper with proper sections.
+    def _looks_like_real_paper(text: str) -> bool:
+        low = str(text or "").lower()
+        if len(low.split()) < 500:
+            return False
+        if "part a" in low or "orion_" in low:
+            return False  # Part A content leaked into the draft
+        has_intro = "introduction" in low
+        has_close = "conclusion" in low
+        has_body = "related work" in low or "discussion" in low or "background" in low
+        return has_intro and has_close and has_body
+
+    if not _looks_like_real_paper(draft_markdown):
+        await _send_status(
+            config,
+            "Composing full publication-style paper...",
+            data={"node": "paper_architect"},
+        )
+        dedicated = await _generate_final_paper(
+            topic=topic,
+            paper_format=paper_format,
+            literature_review=lit_review,
+            cross_text=cross_text,
+            gaps_text=gaps_text,
+            citation_text=citation_text + style_addendum,
+        )
+        dedicated = _strip_mermaid_blocks(dedicated).strip()
+        if _looks_like_real_paper(dedicated) or len(dedicated.split()) > len(str(draft_markdown or "").split()):
+            # Keep the combined output (rich Part A) as the analysis dossier source.
+            if not analysis_markdown:
+                analysis_markdown = paper
+            draft_markdown = dedicated
 
     # Build bibliography + deterministic citation keys
     bibliography = []

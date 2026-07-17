@@ -24,7 +24,7 @@ from pathlib import Path
 
 from app.core.config import settings
 from app.core.llm_client import gemini_client
-from app.api.routes.research import router as research_router, ws_connections
+from app.api.routes.research import router as research_router, ws_connections, _startup_load_sessions
 from app.api.routes.upload import router as upload_router
 
 # ── Logging Setup ─────────────────────────────────────────────────────────
@@ -51,6 +51,13 @@ async def lifespan(app: FastAPI):
         logger.info("✓ Vertex AI API key is valid")
     else:
         logger.warning("✗ Vertex AI API key validation failed – LLM calls may fail")
+
+    # Load persisted sessions from disk (moved here from a router startup hook,
+    # which does not fire reliably when the app uses a lifespan handler).
+    try:
+        await _startup_load_sessions()
+    except Exception as e:
+        logger.error("Failed to load persisted sessions on startup: %s", e)
 
     yield
 

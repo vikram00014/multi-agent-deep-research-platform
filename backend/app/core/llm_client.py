@@ -28,10 +28,14 @@ class VertexGeminiClient:
     def __init__(self):
         self._url = settings.generate_content_url
         self._client: Optional[httpx.AsyncClient] = None
+        self._client_lock = asyncio.Lock()
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=httpx.Timeout(120.0))
+            async with self._client_lock:
+                # Re-check inside the lock in case another coroutine created it.
+                if self._client is None or self._client.is_closed:
+                    self._client = httpx.AsyncClient(timeout=httpx.Timeout(120.0))
         return self._client
 
     async def close(self):
@@ -106,12 +110,19 @@ class VertexGeminiClient:
             },
         }
 
-        # Some models/endpoints reject explicit thinking_budget=0.
-        # Only include thinkingConfig when thinking is intentionally enabled.
         if enable_thinking:
             payload["generationConfig"]["thinkingConfig"] = {
                 "includeThoughts": False,
                 "thinkingBudget": 2048,
+            }
+        else:
+            # gemini-2.5-* are thinking models: OMITTING thinkingConfig leaves
+            # dynamic thinking ON, which silently eats a small maxOutputTokens
+            # budget and returns empty text (notably for JSON). Pin the budget to
+            # 0 to guarantee the whole budget goes to the actual response.
+            payload["generationConfig"]["thinkingConfig"] = {
+                "includeThoughts": False,
+                "thinkingBudget": 0,
             }
 
         return await self._send_with_retry(payload)
@@ -149,6 +160,13 @@ class VertexGeminiClient:
             payload["generationConfig"]["thinkingConfig"] = {
                 "includeThoughts": False,
                 "thinkingBudget": 2048,
+            }
+        else:
+            # See note in generate_content: pin thinkingBudget to 0 so the model
+            # does not silently consume the output budget on hidden reasoning.
+            payload["generationConfig"]["thinkingConfig"] = {
+                "includeThoughts": False,
+                "thinkingBudget": 0,
             }
 
         return await self._send_with_retry(payload)
@@ -212,12 +230,14 @@ class VertexGeminiClient:
                 resp = await client.post(self._url, json=payload)
 
                 if resp.status_code == 429 or resp.status_code >= 500:
-                    wait = 2 ** attempt
-                    logger.warning(
-                        "Gemini API %s – retrying in %ds (attempt %d/%d)",
-                        resp.status_code, wait, attempt + 1, max_retries,
-                    )
-                    await asyncio.sleep(wait)
+                    last_error = f"HTTP {resp.status_code}"
+                    if attempt < max_retries - 1:
+                        wait = 2 ** attempt
+                        logger.warning(
+                            "Gemini API %s – retrying in %ds (attempt %d/%d)",
+                            resp.status_code, wait, attempt + 1, max_retries,
+                        )
+                        await asyncio.sleep(wait)
                     continue
 
                 if resp.status_code != 200:

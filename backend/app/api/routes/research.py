@@ -578,8 +578,8 @@ async def run_research_pipeline(
         session_tasks.pop(session_id, None)
 
 
-@router.on_event("startup")
 async def _startup_load_sessions() -> None:
+    """Load persisted sessions from disk. Invoked from the app lifespan handler."""
     await _load_sessions_from_disk()
 
 
