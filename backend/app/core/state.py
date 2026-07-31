@@ -83,6 +83,3 @@ class ResearchState(TypedDict, total=False):
 
     # ── Session ───────────────────────────────────────────────────────────
     session_id: str
-
-    # ── Human-in-the-loop (future) ────────────────────────────────────────
-    human_feedback: Optional[str]

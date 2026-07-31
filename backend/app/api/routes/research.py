@@ -26,32 +26,63 @@ import shutil
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, WebSocket
 from fastapi.responses import FileResponse, HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
+from app.core.agents import _debate_snippet
 from app.core.config import settings
-from app.core.graph import research_graph
-from app.core.llm_client import gemini_client
+from app.core.llm_client import llm_client
 from app.services.pdf_export import generate_research_pdf
 
 logger = logging.getLogger("orion.api.research")
 
 router = APIRouter(prefix="/research", tags=["research"])
 
+ALLOWED_PAPER_FORMATS = {"academic", "ieee", "apa", "acm", "mla"}
+ALLOWED_DEPTHS = {"quick", "standard", "deep"}
+ALLOWED_SOURCES = {"arxiv", "semantic_scholar", "openalex", "crossref", "github_repo", "web_tavily"}
+SAFE_SESSION_ID_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
+
 
 class StartResearchRequest(BaseModel):
-    topic: str
-    uploaded_paper_ids: list[str] = []
-    max_debate_rounds: int | None = None
+    topic: str = Field(min_length=1, max_length=500)
+    uploaded_paper_ids: list[str] = Field(default_factory=list)
+    max_debate_rounds: int | None = Field(default=None, ge=0, le=5)
     strict_mode: bool | None = None
-    paper_format: str | None = "academic"
-    depth: str | None = "standard"  # quick|standard|deep
-    year_from: int | None = None
+    paper_format: Literal["academic", "ieee", "apa", "acm", "mla"] | None = "academic"
+    depth: Literal["quick", "standard", "deep"] | None = "standard"
+    year_from: int | None = Field(default=None, ge=1900, le=2100)
     include_sources: list[str] | None = None
     exclude_sources: list[str] | None = None
+
+    @field_validator("topic")
+    @classmethod
+    def _clean_topic(cls, value: str) -> str:
+        topic = value.strip()
+        if not topic:
+            raise ValueError("Topic cannot be empty")
+        return topic
+
+    @field_validator("uploaded_paper_ids")
+    @classmethod
+    def _validate_uploaded_ids(cls, value: list[str]) -> list[str]:
+        bad = [item for item in value if not SAFE_SESSION_ID_RE.fullmatch(item)]
+        if bad:
+            raise ValueError("Uploaded paper ids may only contain letters, numbers, underscores, and hyphens")
+        return value
+
+    @field_validator("include_sources", "exclude_sources")
+    @classmethod
+    def _validate_sources(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return value
+        unknown = sorted({source for source in value if source not in ALLOWED_SOURCES})
+        if unknown:
+            raise ValueError(f"Unknown sources: {', '.join(unknown)}")
+        return value
 
 
 class StartResearchResponse(BaseModel):
@@ -102,15 +133,21 @@ def _ensure_store_parent() -> None:
     RESOURCES_ROOT.mkdir(parents=True, exist_ok=True)
 
 
+def _safe_session_segment(session_id: str) -> str:
+    if not session_id or not SAFE_SESSION_ID_RE.fullmatch(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session id")
+    return session_id
+
+
 def _session_resource_dir(session_id: str) -> Path:
-    safe = re.sub(r"[^a-zA-Z0-9_-]", "", session_id)
+    safe = _safe_session_segment(session_id)
     return (RESOURCES_ROOT / safe).resolve()
 
 
 def _remove_session_resources(session_id: str) -> None:
     target = _session_resource_dir(session_id)
     root = RESOURCES_ROOT.resolve()
-    if target.exists() and str(target).startswith(str(root)):
+    if target.exists() and target.is_relative_to(root) and target != root:
         shutil.rmtree(target, ignore_errors=True)
 
 
@@ -120,8 +157,18 @@ def _validate_resource_name(name: str) -> str:
     return name
 
 
+def _resource_download_url(session_id: str, filename: str) -> str:
+    return f"/research/{session_id}/resources/download/{filename}"
+
+
+def _rewrite_resource_links(session_id: str, markdown: str) -> str:
+    safe_session = re.escape(_safe_session_segment(session_id))
+    pattern = re.compile(rf"\]\(/resources/{safe_session}/([a-zA-Z0-9_.-]+)\)")
+    return pattern.sub(lambda m: f"]({_resource_download_url(session_id, m.group(1))})", markdown)
+
+
 def _pdf_output_path(session_id: str) -> Path:
-    return _session_resource_dir(session_id) / "orion_report.pdf"
+    return _session_resource_dir(session_id) / "delve_paper.pdf"
 
 
 def _ensure_pdf_generated(session_id: str, session: dict[str, Any]) -> Path:
@@ -135,7 +182,7 @@ def _ensure_pdf_generated(session_id: str, session: dict[str, Any]) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = _pdf_output_path(session_id)
     generate_research_pdf(
-        topic=session.get("topic", "ORION Research Report"),
+        topic=session.get("topic", "Research Paper"),
         session_id=session_id,
         analysis_markdown=analysis,
         final_markdown=final_draft,
@@ -224,8 +271,23 @@ async def _persist_all_sessions_debounced(key: str, delay: float = 0.8) -> None:
             await _persist_all_sessions()
         except asyncio.CancelledError:
             return
+        finally:
+            if _pending_persist_tasks.get(key) is asyncio.current_task():
+                _pending_persist_tasks.pop(key, None)
 
     _pending_persist_tasks[key] = asyncio.create_task(_job())
+
+
+async def flush_pending_persists() -> None:
+    """Cancel debounced writes and force one final flush. Called on shutdown."""
+    for task in list(_pending_persist_tasks.values()):
+        if not task.done():
+            task.cancel()
+    _pending_persist_tasks.clear()
+    try:
+        await _persist_all_sessions()
+    except Exception as e:
+        logger.error("Final session flush failed: %s", e)
 
 
 async def _load_sessions_from_disk() -> None:
@@ -338,9 +400,9 @@ def _session_elapsed_seconds(session: dict[str, Any]) -> int:
 
 def _build_export_bundle(session_id: str, session: dict[str, Any]) -> dict[str, Any]:
     result = session.get("result", {})
-    paper = result.get("final_paper", "")
-    analysis = result.get("research_analysis", "")
-    final_draft = result.get("final_draft", paper)
+    paper = _rewrite_resource_links(session_id, str(result.get("final_paper", "") or ""))
+    analysis = _rewrite_resource_links(session_id, str(result.get("research_analysis", "") or ""))
+    final_draft = _rewrite_resource_links(session_id, str(result.get("final_draft", paper) or ""))
     bibliography = result.get("bibliography", [])
     evidence = {
         "citation_quality": result.get("citation_quality", {}),
@@ -405,14 +467,6 @@ def _save_session_resources(session_id: str, session: dict[str, Any]) -> list[di
             "updated_at": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(),
         })
     return resources
-
-
-def _debate_snippet(entry: str, limit: int = 220) -> str:
-    cleaned = re.sub(r"^\[(PROPOSER|CRITIC)\]\s*", "", entry or "", flags=re.IGNORECASE).strip()
-    cleaned = re.sub(r"\s+", " ", cleaned)
-    if len(cleaned) <= limit:
-        return cleaned
-    return f"{cleaned[:limit].rstrip()}..."
 
 
 async def run_research_pipeline(
@@ -506,7 +560,7 @@ async def run_research_pipeline(
                 "error_count": 0,
             },
         })
-        session["resource_files"] = _save_session_resources(session_id, session)
+        session["resource_files"] = await asyncio.to_thread(_save_session_resources, session_id, session)
 
         for idx, _entry in enumerate(proposer_entries, start=1):
             await broadcast_to_session(session_id, {
@@ -548,11 +602,12 @@ async def run_research_pipeline(
         })
 
     except asyncio.CancelledError:
-        session = active_sessions.get(session_id, {})
-        session["status"] = "cancelled"
-        session["current_step"] = "cancelled"
-        session["updated_at"] = datetime.now(timezone.utc).isoformat()
-        session["finished_at"] = datetime.now(timezone.utc).isoformat()
+        session = active_sessions.get(session_id)
+        if session:
+            session["status"] = "cancelled"
+            session["current_step"] = "cancelled"
+            session["updated_at"] = datetime.now(timezone.utc).isoformat()
+            session["finished_at"] = datetime.now(timezone.utc).isoformat()
         await broadcast_to_session(session_id, {
             "type": "status",
             "message": "Research cancelled by user.",
@@ -561,14 +616,15 @@ async def run_research_pipeline(
         raise
     except Exception as e:
         logger.error("Research pipeline failed for session %s: %s", session_id, e, exc_info=True)
-        session = active_sessions[session_id]
-        session["status"] = "error"
-        session["current_step"] = "error"
-        session["updated_at"] = datetime.now(timezone.utc).isoformat()
-        session["finished_at"] = datetime.now(timezone.utc).isoformat()
-        session["error"] = str(e)
-        metrics = session.setdefault("metrics", {})
-        metrics["error_count"] = int(metrics.get("error_count", 0)) + 1
+        session = active_sessions.get(session_id)
+        if session:
+            session["status"] = "error"
+            session["current_step"] = "error"
+            session["updated_at"] = datetime.now(timezone.utc).isoformat()
+            session["finished_at"] = datetime.now(timezone.utc).isoformat()
+            session["error"] = str(e)
+            metrics = session.setdefault("metrics", {})
+            metrics["error_count"] = int(metrics.get("error_count", 0)) + 1
         await broadcast_to_session(session_id, {
             "type": "error",
             "message": f"Research failed: {str(e)[:200]}",
@@ -742,11 +798,17 @@ async def get_paper(session_id: str) -> dict[str, Any]:
     if session.get("status") != "complete":
         raise HTTPException(status_code=400, detail=f"Session is {session.get('status')}, paper not ready")
     result = session.get("result", {})
+    final_paper = _rewrite_resource_links(session_id, str(result.get("final_paper", "") or ""))
+    final_draft = _rewrite_resource_links(
+        session_id,
+        str(result.get("final_draft", result.get("final_paper", "")) or ""),
+    )
+    analysis = _rewrite_resource_links(session_id, str(result.get("research_analysis", "") or ""))
     return {
         "session_id": session_id,
-        "paper": result.get("final_paper", ""),
-        "analysis": result.get("research_analysis", ""),
-        "final_draft": result.get("final_draft", result.get("final_paper", "")),
+        "paper": final_paper,
+        "analysis": analysis,
+        "final_draft": final_draft,
         "gaps": result.get("gaps", []),
         "bibliography": result.get("bibliography", []),
         "debate_log": result.get("debate_log", []),
@@ -817,7 +879,7 @@ async def chat_with_research(session_id: str, request: ResearchChatRequest) -> R
     uploaded_ids = session.get("uploaded_paper_ids", [])
     if uploaded_ids:
         from app.services.vector_store import vector_store
-        chunks = vector_store.query(user_message, n_results=10, file_ids=uploaded_ids)
+        chunks = await asyncio.to_thread(vector_store.query, user_message, 10, uploaded_ids)
         if chunks:
             rag_context = "Relevant excerpts from uploaded documents:\n"
             for c in chunks:
@@ -839,7 +901,7 @@ async def chat_with_research(session_id: str, request: ResearchChatRequest) -> R
         "Respond with a practical, concise answer focused on this research."
     )
 
-    answer = await gemini_client.generate_with_system(
+    answer = await llm_client.generate_with_system(
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         temperature=0.3,
@@ -899,11 +961,11 @@ async def download_paper_pdf(session_id: str) -> FileResponse:
         raise HTTPException(status_code=400, detail=f"Session is {session.get('status')}, paper not ready")
 
     out_path = await asyncio.to_thread(_ensure_pdf_generated, session_id, session)
-    session["resource_files"] = _save_session_resources(session_id, session)
+    session["resource_files"] = await asyncio.to_thread(_save_session_resources, session_id, session)
     await _persist_all_sessions_debounced(f"{session_id}-pdf", delay=0.1)
     return FileResponse(
         path=str(out_path),
-        filename=f"orion-report-{session_id[:8]}.pdf",
+        filename=f"delve-paper-{session_id[:8]}.pdf",
         media_type="application/pdf",
     )
 
@@ -914,7 +976,7 @@ async def list_session_resources(session_id: str) -> dict[str, Any]:
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     if session.get("status") == "complete" and not session.get("resource_files"):
-        session["resource_files"] = _save_session_resources(session_id, session)
+        session["resource_files"] = await asyncio.to_thread(_save_session_resources, session_id, session)
         await _persist_all_sessions_debounced(session_id, delay=0.1)
     return {"session_id": session_id, "resources": session.get("resource_files", [])}
 
@@ -925,8 +987,9 @@ async def download_session_resource(session_id: str, file_name: str) -> FileResp
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     safe_name = _validate_resource_name(file_name)
-    target = (_session_resource_dir(session_id) / safe_name).resolve()
-    if not str(target).startswith(str(_session_resource_dir(session_id))):
+    base = _session_resource_dir(session_id)
+    target = (base / safe_name).resolve()
+    if not target.is_relative_to(base):
         raise HTTPException(status_code=400, detail="Invalid file path")
     if not target.exists() or not target.is_file():
         raise HTTPException(status_code=404, detail="Resource file not found")
@@ -937,7 +1000,7 @@ async def get_presentation_slides(session_id: str) -> str:
     session = active_sessions.get(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    paper_md = session.get("result", {}).get("final_paper", "")
+    paper_md = _rewrite_resource_links(session_id, str(session.get("result", {}).get("final_paper", "") or ""))
     if not paper_md:
         raise HTTPException(status_code=404, detail="Final paper not generated yet")
     

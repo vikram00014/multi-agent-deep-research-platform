@@ -79,7 +79,3 @@ def build_research_graph(checkpointer: Any = None) -> Any:
     # Compile and return
     compiled = graph.compile(checkpointer=checkpointer)
     return compiled
-
-
-# Default uncheckpointed graph for backward compat if needed
-research_graph = build_research_graph()

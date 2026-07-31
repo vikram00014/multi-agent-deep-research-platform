@@ -103,14 +103,6 @@ class VectorStoreService:
 
         return output
 
-    def has_document(self, file_id: str) -> bool:
-        """Check if chunks for a file_id already exist."""
-        results = self._collection.get(
-            where={"file_id": file_id},
-            limit=1,
-        )
-        return len(results.get("ids", [])) > 0
-
 
 # Singleton
 vector_store = VectorStoreService()

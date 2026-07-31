@@ -247,8 +247,9 @@ async def fetch_crossref(query: str, max_results: int = 10) -> list[dict]:
         "query.bibliographic": query,
         "rows": max_results,
     }
+    contact = (settings.crossref_contact_email or "").strip()
     headers = {
-        "User-Agent": "ORION/1.0 (mailto:orion@example.com)",
+        "User-Agent": f"ORION/1.0 (mailto:{contact})" if contact else "ORION/1.0",
     }
 
     try:

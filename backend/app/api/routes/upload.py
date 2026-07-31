@@ -16,6 +16,8 @@ from app.services.vector_store import vector_store
 logger = logging.getLogger("orion.api.upload")
 
 router = APIRouter(prefix="/upload", tags=["upload"])
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+READ_CHUNK_BYTES = 1024 * 1024
 
 
 class UploadResponse(BaseModel):
@@ -37,20 +39,26 @@ async def upload_pdf(file: UploadFile = File(...)):
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are accepted")
 
-    # Validate file size (max 50MB)
-    contents = await file.read()
-    if len(contents) > 50 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large (max 50MB)")
+    contents = bytearray()
+    while True:
+        chunk = await file.read(READ_CHUNK_BYTES)
+        if not chunk:
+            break
+        if len(contents) + len(chunk) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=400, detail="File too large (max 50MB)")
+        contents.extend(chunk)
 
     if len(contents) == 0:
         raise HTTPException(status_code=400, detail="File is empty")
+    if not bytes(contents[:5]).startswith(b"%PDF-"):
+        raise HTTPException(status_code=400, detail="File does not look like a PDF")
 
     # Generate file ID
     file_id = str(uuid.uuid4())
 
     try:
         # Extract text from PDF
-        text = extract_text_from_pdf(contents)
+        text = extract_text_from_pdf(bytes(contents))
 
         if not text.strip():
             raise HTTPException(status_code=400, detail="Could not extract text from PDF")

@@ -17,6 +17,7 @@ Nodes:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import math
@@ -28,7 +29,7 @@ from pathlib import Path
 from collections import Counter
 from typing import Any
 
-from app.core.llm_client import gemini_client
+from app.core.llm_client import llm_client
 from app.core.config import settings
 from app.core.state import ResearchState
 from app.services.retrieval import (
@@ -237,8 +238,9 @@ def _topic_anchor_terms(topic: str, limit: int = 8) -> list[str]:
 def _critical_topic_terms(topic: str, limit: int = 6) -> list[str]:
     anchors = _topic_anchor_terms(topic, limit=20)
     generic = {
-        "urban", "city", "cities", "smart", "study", "research", "analysis", "approach",
-        "strategies", "causes", "impacts", "effects", "evaluation", "system", "models",
+        "study", "research", "analysis", "approach", "strategies", "causes",
+        "impacts", "effects", "evaluation", "system", "systems", "models",
+        "methods", "techniques", "review", "survey", "framework", "frameworks",
     }
     critical = [a for a in anchors if a not in generic]
     return critical[:limit]
@@ -254,14 +256,8 @@ def _paper_relevance_score(paper: dict[str, Any], topic_tokens: set[str], query_
     title_tokens = {t for t in re.findall(r"[a-z0-9]+", str(paper.get("title", "")).lower()) if len(t) > 2}
     title_overlap = len(title_tokens & topic_tokens)
     base = (2.2 * title_overlap) + (1.3 * t_overlap) + (0.5 * q_overlap)
-    title_l = str(paper.get("title", "")).lower()
-    abstract_l = str(paper.get("abstract", "")).lower()
-    penalty_terms = {
-        "gene regulatory network", "gene regulatory networks", "primer",
-        "biology", "biological", "drug discovery in plants",
-    }
-    if any(term in title_l or term in abstract_l for term in penalty_terms):
-        base -= 3.0
+    if not title_overlap and topic_tokens:
+        base -= 1.5
     return base
 
 
@@ -742,7 +738,7 @@ def _duplicate_cluster_table(duplicate_clusters: list[dict[str, Any]], limit: in
 
 
 def _debate_snippet(entry: str, limit: int = 220) -> str:
-    cleaned = re.sub(r"^\[(PROPOSER|CRITIC)\]\s*", "", entry or "", flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r"^\[(PROPOSER|CRITIC|CRITIC-FAILED)\]\s*", "", entry or "", flags=re.IGNORECASE).strip()
     cleaned = re.sub(r"\s+", " ", cleaned)
     if len(cleaned) <= limit:
         return cleaned
@@ -760,7 +756,7 @@ def _debate_roundup_table(debate_log: list[str], limit: int = 10) -> str:
     for entry in debate_log:
         if not isinstance(entry, str):
             continue
-        speaker = "Critic" if entry.startswith("[CRITIC]") else "Proposer" if entry.startswith("[PROPOSER]") else "System"
+        speaker = "Critic" if entry.startswith(("[CRITIC]", "[CRITIC-FAILED]")) else "Proposer" if entry.startswith("[PROPOSER]") else "System"
         if speaker == "Proposer":
             round_num += 1
         snippet = _debate_snippet(entry, limit=180)
@@ -1524,8 +1520,10 @@ def _format_compliance_summary(markdown: str, paper_format: str) -> dict[str, An
 PLANNER_PROMPT = """You are a senior research strategist. Given the topic: "{topic}", generate a list of 3-5 specific search queries suitable for academic databases (arXiv, Semantic Scholar) and a short research plan covering key angles to investigate.
 
 Strict constraints for each query:
-1) Must include at least one quoted phrase.
-2) Must include at least one narrowing term from this set: recent, benchmark, evaluation, ablation, transformer, mechanistic, legal, law, jurisprudence.
+1) Must include at least one quoted phrase drawn from the topic's own terminology.
+2) Must add at least one narrowing angle — a method, an evaluation criterion, an
+   application setting, a time frame, or a sub-problem — expressed in the topic's own
+   vocabulary rather than a generic keyword.
 3) Avoid generic one/two-word queries and avoid purely broad topic terms.
 4) Keep each query under 18 words.
 5) Prioritize lexical overlap with the user topic; avoid adjacent but different fields.
@@ -1539,7 +1537,7 @@ async def planner_node(state: ResearchState, config: dict) -> dict:
     await _send_status(config, f"Planning research strategy for: {topic}")
 
     prompt = PLANNER_PROMPT.format(topic=topic)
-    response = await gemini_client.generate_content(
+    response = await llm_client.generate_content(
         prompt=prompt,
         response_mime_type="application/json",
         temperature=0.3,
@@ -1903,7 +1901,7 @@ async def summarizer_node(state: ResearchState, config: dict) -> dict:
             )
 
             try:
-                response = await gemini_client.generate_content(
+                response = await llm_client.generate_content(
                     prompt=prompt,
                     response_mime_type="application/json",
                     temperature=0.25,
@@ -1985,7 +1983,10 @@ async def summarizer_node(state: ResearchState, config: dict) -> dict:
         summary, quality, verification = outcome
         paper_id = paper.get("paper_id") or paper.get("doi") or paper.get("arxiv_id")
         if not paper_id:
-            paper_id = f"paper_{abs(hash(str(paper.get('title', ''))))}"
+            title_digest = hashlib.sha1(
+                str(paper.get("title", "")).encode("utf-8")
+            ).hexdigest()[:16]
+            paper_id = f"paper_{title_digest}"
         summaries[paper_id] = summary
         citation_quality[paper_id] = quality
         citation_verification[paper_id] = verification
@@ -2088,7 +2089,7 @@ async def proposer_node(state: ResearchState, config: dict) -> dict:
         previous_critique=critique_text + strict_guard,
     )
 
-    draft = await gemini_client.generate_content(
+    draft = await llm_client.generate_content(
         prompt=prompt,
         temperature=0.4,
         max_output_tokens=6144,
@@ -2146,7 +2147,7 @@ async def critic_node(state: ResearchState, config: dict) -> dict:
     )
 
     try:
-        critique = await gemini_client.generate_content(
+        critique = await llm_client.generate_content(
             prompt=prompt,
             temperature=0.3,
             max_output_tokens=2048,
@@ -2160,7 +2161,7 @@ async def critic_node(state: ResearchState, config: dict) -> dict:
             data={"node": "critic"},
         )
         return {
-            "debate_log": ["[CRITIC] (peer review unavailable — LLM error)"],
+            "debate_log": ["[CRITIC-FAILED] (peer review unavailable — LLM error)"],
             "status_message": "Peer review skipped (LLM error)",
         }
 
@@ -2242,7 +2243,7 @@ async def cross_paper_analyzer_node(state: ResearchState, config: dict) -> dict:
         summaries=_build_cross_paper_summary_text(summaries),
     )
     try:
-        response = await gemini_client.generate_content(
+        response = await llm_client.generate_content(
             prompt=prompt,
             response_mime_type="application/json",
             temperature=0.2,
@@ -2272,14 +2273,6 @@ async def cross_paper_analyzer_node(state: ResearchState, config: dict) -> dict:
 # ══════════════════════════════════════════════════════════════════════════
 # NODE 5B: GAP ANALYSIS
 # ══════════════════════════════════════════════════════════════════════════
-
-GAP_ANALYSIS_PROMPT = """Based on the following limitations extracted from recent papers on "{topic}", identify 3-5 concrete research gaps. For each gap, provide a title, evidence from the literature, and a proposed research direction.
-
-Limitations:
-{limitations_list}
-
-Output as JSON array of objects with keys: "title", "evidence", "proposed_direction".
-Do not output null/None for any field. Always provide actionable proposed_direction text."""
 
 GAP_GENERATOR_PROMPT = """You are a research scientist discovering REAL research gaps.
 Topic: "{topic}"
@@ -2325,29 +2318,6 @@ Topic: {topic}
 Candidate gaps:
 {candidate_gaps}
 """
-
-
-def _normalize_gaps(raw: Any) -> list[dict[str, str]]:
-    normalized: list[dict[str, str]] = []
-    if not isinstance(raw, list):
-        return normalized
-    for item in raw:
-        if not isinstance(item, dict):
-            continue
-        title = str(item.get("title", "")).strip()
-        evidence = _clean_nullable_text(item.get("evidence", ""))
-        proposed = _clean_nullable_text(item.get("proposed_direction", ""))
-        if not title:
-            continue
-        low_title = title.lower()
-        if "unable to parse" in low_title or "manual review needed" in low_title:
-            continue
-        normalized.append({
-            "title": title[:180],
-            "evidence": evidence[:900] or "Evidence needs more explicit validation in current literature.",
-            "proposed_direction": proposed[:900] or "Run targeted comparative studies with explicit evaluation criteria and failure reporting.",
-        })
-    return normalized
 
 
 def _normalize_gap_candidates(raw: Any) -> list[dict[str, Any]]:
@@ -2441,7 +2411,7 @@ async def gap_analysis_node(state: ResearchState, config: dict) -> dict:
         + "\n".join(limitations[:20])
     )
 
-    response = await gemini_client.generate_content(
+    response = await llm_client.generate_content(
         prompt=prompt,
         response_mime_type="application/json",
         temperature=0.3,
@@ -2473,7 +2443,7 @@ async def gap_analysis_node(state: ResearchState, config: dict) -> dict:
                     "objects containing keys title, why_gap, what_missing, how_to_fix, evidence, supports, fails. No markdown.\n\n"
                     f"{response[:4000]}"
                 )
-                response = await gemini_client.generate_content(
+                response = await llm_client.generate_content(
                     prompt=repair_prompt,
                     response_mime_type="application/json",
                     temperature=0.0,
@@ -2487,7 +2457,7 @@ async def gap_analysis_node(state: ResearchState, config: dict) -> dict:
             "Return ONLY JSON array with title, why_gap, what_missing, how_to_fix, evidence, supports, fails. No markdown.\n\n"
             f"Topic: {topic}\nLimitations:\n{chr(10).join(limitations[:12])}"
         )
-        synth_resp = await gemini_client.generate_content(
+        synth_resp = await llm_client.generate_content(
             prompt=synth_prompt,
             response_mime_type="application/json",
             temperature=0.2,
@@ -2557,7 +2527,7 @@ async def gap_analysis_node(state: ResearchState, config: dict) -> dict:
         topic=topic,
         candidate_gaps=json.dumps(candidates[:8], ensure_ascii=False, indent=2),
     )
-    critic_resp = await gemini_client.generate_content(
+    critic_resp = await llm_client.generate_content(
         prompt=critic_prompt,
         response_mime_type="application/json",
         temperature=0.2,
@@ -2702,8 +2672,6 @@ Visual requirements (STRICTLY CONFINED TO PART A):
   - `[ORION_VISUAL_LANDSCAPE]`
   - `[ORION_VISUAL_WORKFLOW]`
   - `[ORION_VISUAL_EVIDENCE_FLOW]`
-- Generate 1-2 image placeholders using this exact format: `[IMAGE_PROMPT: "A detailed description of the visualization"]`.
-- Keep image prompts concise, concrete, and diagram-oriented.
 - ABSOLUTELY NO `[IMAGE_PROMPT]`, Mermaid code, or ORION visual tokens are allowed in Part B.
 
 Quality requirements:
@@ -2818,7 +2786,7 @@ async def _generate_final_paper(
         citation_info=citation_text[:5000],
     )
     try:
-        return await gemini_client.generate_content(
+        return await llm_client.generate_content(
             prompt=prompt,
             temperature=0.4,
             max_output_tokens=16384,
@@ -2926,7 +2894,7 @@ async def paper_architect_node(state: ResearchState, config: dict) -> dict:
         citation_info=(citation_text + style_addendum)[:5000],
     )
 
-    paper = await gemini_client.generate_content(
+    paper = await llm_client.generate_content(
         prompt=prompt,
         temperature=0.4,
         max_output_tokens=16384,
@@ -2935,21 +2903,22 @@ async def paper_architect_node(state: ResearchState, config: dict) -> dict:
     
     # Process IMAGE_PROMPTs
     session_id = state.get("session_id", "default")
-    resource_dir = Path(settings.session_store_path).parent / "resources" / re.sub(r"[^a-zA-Z0-9_-]", "", session_id)
+    safe_session_id = session_id if re.fullmatch(r"[a-zA-Z0-9_-]+", session_id) else uuid.uuid4().hex
+    resource_dir = Path(settings.session_store_path).parent / "resources" / safe_session_id
     resource_dir.mkdir(parents=True, exist_ok=True)
     
     async def _replace_image_prompt(match: re.Match) -> str:
         raw_prompt = match.group(1)
         img_prompt = _normalize_image_prompt(raw_prompt, topic)
         await _send_status(config, f"Generating image for: {img_prompt[:30]}...", data={"node": "paper_architect"})
-        img_base64 = await gemini_client.generate_image(img_prompt)
+        img_base64 = await llm_client.generate_image(img_prompt)
         if not img_base64:
             fallback_prompt = _normalize_image_prompt(
                 f"Scientific editorial infographic about {topic}. {img_prompt}",
                 topic,
                 max_len=180,
             )
-            img_base64 = await gemini_client.generate_image(fallback_prompt)
+            img_base64 = await llm_client.generate_image(fallback_prompt)
         if img_base64:
             img_filename = f"img_{uuid.uuid4().hex[:8]}.png"
             img_path = resource_dir / img_filename
@@ -2957,7 +2926,7 @@ async def paper_architect_node(state: ResearchState, config: dict) -> dict:
                 img_data = base64.b64decode(img_base64)
                 async with aiofiles.open(img_path, "wb") as f:
                     await f.write(img_data)
-                return f"![Generated Image](/resources/{session_id}/{img_filename})\n*Figure: {img_prompt}*"
+                return f"![Generated Image](/research/{safe_session_id}/resources/download/{img_filename})\n*Figure: {img_prompt}*"
             except Exception as e:
                 logger.error("Failed to save image: %s", e)
         return f"> Figure concept: {img_prompt}"
@@ -3149,11 +3118,12 @@ def debate_should_continue(state: ResearchState) -> str:
     """
     debate_log = state.get("debate_log", [])
     critic_rounds = sum(1 for msg in debate_log if msg.startswith("[CRITIC]"))
+    failed_rounds = sum(1 for msg in debate_log if msg.startswith("[CRITIC-FAILED]"))
     max_rounds = int(state.get("max_debate_rounds", settings.max_debate_rounds))
     max_rounds = max(0, min(5, max_rounds))
 
-    if critic_rounds >= max_rounds:
-            # Proceed to cross-paper reasoning stage before gap generation
-            return "gap_analysis"
-    else:
-        return "critic"
+    # Failed critic rounds do not count toward the budget, but they still bound
+    # total attempts so a sustained LLM outage cannot loop forever.
+    if critic_rounds >= max_rounds or failed_rounds >= max_rounds:
+        return "gap_analysis"
+    return "critic"
