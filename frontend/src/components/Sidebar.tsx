@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, FlaskConical, Loader2, CheckCircle2, AlertCircle, Clock, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { api } from '../api';
 import type { Session } from '../types';
 
@@ -9,15 +9,46 @@ interface SidebarProps {
   onNewSession: () => void;
 }
 
+function statusDot(status: string) {
+  if (status === 'complete') return 'bg-ok';
+  if (status === 'error') return 'bg-err';
+  if (status === 'cancelled') return 'bg-warn';
+  if (status === 'running') return 'bg-accent';
+  return 'bg-ink-mute';
+}
+
+function relativeTime(value?: string) {
+  if (!value) return 'no time';
+  const time = new Date(value).getTime();
+  if (Number.isNaN(time)) return 'no time';
+  const seconds = Math.max(0, Math.floor((Date.now() - time) / 1000));
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function formatStep(step?: string) {
+  if (!step) return 'idle';
+  return step.replaceAll('_', ' ');
+}
+
 export function Sidebar({ currentSessionId, onSelectSession, onNewSession }: SidebarProps) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchSessions = () => {
     api.listSessions()
-      .then(data => setSessions(data.sessions || []))
-      .catch(() => {})
+      .then((data) => {
+        setSessions(data.sessions || []);
+        setError(null);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : 'Could not load sessions'))
       .finally(() => setLoading(false));
   };
 
@@ -27,134 +58,94 @@ export function Sidebar({ currentSessionId, onSelectSession, onNewSession }: Sid
     return () => clearInterval(interval);
   }, []);
 
-  const formatStep = (step?: string) => {
-    if (!step) return '';
-    return step
-      .replaceAll('_', ' ')
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'complete': return <CheckCircle2 className="h-3.5 w-3.5 text-orion-success" />;
-      case 'error': return <AlertCircle className="h-3.5 w-3.5 text-orion-error" />;
-      case 'running': return <Loader2 className="h-3.5 w-3.5 text-orion-accent animate-spin" />;
-      case 'cancelled': return <AlertCircle className="h-3.5 w-3.5 text-amber-500" />;
-      default: return <Clock className="h-3.5 w-3.5 text-orion-text-dim" />;
-    }
-  };
-
   const handleDelete = async (sessionId: string) => {
     setDeletingId(sessionId);
+    setError(null);
     try {
       await api.deleteSession(sessionId);
       if (currentSessionId === sessionId) {
         onNewSession();
-      } else {
-        fetchSessions();
       }
-    } catch {
-      // no-op
+      fetchSessions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete failed');
     } finally {
       setDeletingId(null);
     }
   };
 
   return (
-    <div className="h-full flex flex-col sidebar-glass border-r border-orion-border/50">
-      {/* Header */}
-      <div className="p-4 pt-8 pb-3">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="relative">
-            <FlaskConical className="h-6 w-6 text-orion-accent" />
-            <div className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
-          </div>
-          <div>
-            <h1 className="text-base font-black tracking-tighter text-orion-text leading-none">ORION</h1>
-            <p className="text-[9px] font-bold text-orion-text-dim tracking-widest uppercase mt-0.5">Deep Research</p>
-          </div>
+    <div className="flex h-full flex-col border-r border-line bg-surface">
+      <div className="border-b border-line px-5 py-5">
+        <div className="mb-5">
+          <div className="text-lg font-semibold leading-none text-ink">Delve</div>
+          <div className="mono-kicker mt-1">ORION research</div>
         </div>
-
-        <button
-          onClick={onNewSession}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5
-            bg-orion-accent text-white rounded-xl text-sm font-bold shadow-[0_4px_12px_rgba(79,70,229,0.2)] hover:bg-orion-accent-light hover:shadow-[0_6px_16px_rgba(79,70,229,0.3)] transition-all active:scale-[0.98]"
-        >
+        <button type="button" onClick={onNewSession} className="control-button control-button-primary w-full">
           <Plus className="h-4 w-4" />
-          New Research
+          New research
         </button>
       </div>
 
-      {/* Sessions List */}
-      <div className="flex-1 overflow-y-auto p-2">
+      {error ? (
+        <div className="border-b border-err/40 bg-err/10 px-4 py-3 text-xs text-err">
+          {error}
+        </div>
+      ) : null}
+
+      <div className="flex-1 overflow-y-auto py-2">
         {loading && sessions.length === 0 ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-5 w-5 text-orion-text-dim animate-spin" />
-          </div>
+          <div className="px-5 py-8 text-sm text-ink-mute">Loading sessions...</div>
         ) : sessions.length === 0 ? (
-          <div className="text-center py-12 px-4">
-            <p className="text-sm text-orion-text-dim">No sessions yet</p>
-            <p className="text-xs text-orion-text-dim mt-1">Start a new research to begin</p>
+          <div className="px-5 py-8">
+            <p className="text-sm text-ink-soft">No sessions yet</p>
+            <p className="mt-1 text-xs text-ink-mute">Start a topic to build the first paper.</p>
           </div>
         ) : (
-          <div className="space-y-1.5 px-1">
-            {sessions.map(session => (
-              <div
-                key={session.session_id}
-                className={`
-                  w-full px-3 py-3 rounded-xl transition-all text-sm group relative overflow-hidden
-                  ${currentSessionId === session.session_id
-                    ? 'bg-gradient-to-r from-orion-accent/10 to-transparent shadow-sm text-orion-text font-semibold border border-orion-accent/20'
-                    : 'hover:bg-orion-surface-2/60 text-orion-text-muted border border-transparent hover:border-orion-border/50'
-                  }
-                `}
-              >
-                <div className="flex items-start gap-2 relative z-10">
-                  {/* Active Pill Indicator */}
-                {currentSessionId === session.session_id && (
-                  <div className="absolute -left-3 top-0 bottom-0 w-1 rounded-r-full bg-gradient-to-b from-indigo-500 to-cyan-400 shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
-                )}
+          <div className="space-y-0.5">
+            {sessions.map((session) => {
+              const selected = currentSessionId === session.session_id;
+              return (
+                <div
+                  key={session.session_id}
+                  className={`group flex items-start gap-2 border-l-2 px-3 py-3 transition-colors ${
+                    selected
+                      ? 'border-accent bg-raised'
+                      : 'border-transparent hover:bg-raised'
+                  }`}
+                >
                   <button
+                    type="button"
                     onClick={() => onSelectSession(session.session_id)}
-                    className="flex-1 text-left min-w-0"
+                    className="min-w-0 flex-1 text-left"
                   >
-                  <div className="flex items-center gap-2.5">
-                    {getStatusIcon(session.status)}
-                    <span className="truncate block tracking-tight">{session.topic}</span>
-                  </div>
-                  <span className="text-[10px] text-orion-text-dim ml-6 block truncate font-mono mt-0.5 opacity-70">
-                    {session.session_id.slice(0, 8)}
-                  </span>
-                  {session.current_step && (
-                    <span className="text-[10px] text-orion-accent-light ml-6 block truncate mt-0.5">
-                      {formatStep(session.current_step)}
-                    </span>
-                  )}
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${statusDot(session.status)}`} />
+                      <span className="truncate text-sm font-medium text-ink">{session.topic}</span>
+                    </div>
+                    <div className="ml-4 mt-1 flex items-center gap-2 text-[11px] text-ink-mute">
+                      <span className="font-mono uppercase tracking-[0.12em]">{session.session_id.slice(0, 8)}</span>
+                      <span aria-hidden="true">/</span>
+                      <span>{relativeTime(session.updated_at)}</span>
+                    </div>
+                    <div className="ml-4 mt-1 truncate text-[11px] text-ink-mute">{formatStep(session.current_step)}</div>
                   </button>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(session.session_id);
-                    }}
+                    type="button"
+                    onClick={() => handleDelete(session.session_id)}
                     disabled={session.status === 'running' || deletingId === session.session_id}
-                    className="shrink-0 mt-0.5 p-1.5 rounded-md text-orion-text-dim hover:text-orion-error hover:bg-orion-error/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                    title={session.status === 'running' ? 'Cannot delete running session' : 'Delete session'}
+                    className="rounded-card border border-transparent p-1.5 text-ink-mute opacity-0 transition-opacity hover:border-line hover:text-err disabled:opacity-30 group-hover:opacity-100"
+                    aria-label={`Delete session ${session.topic}`}
+                    title={session.status === 'running' ? 'Cannot delete a running session' : 'Delete session'}
                   >
-                    {deletingId === session.session_id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3.5 w-3.5" />
-                    )}
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
-
-      {/* Footer spacer */}
-      <div className="p-2" />
     </div>
   );
 }

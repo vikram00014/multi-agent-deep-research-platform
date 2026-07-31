@@ -6,13 +6,6 @@ export interface WSMessage {
   data?: Record<string, unknown>;
 }
 
-export interface PaperFound {
-  title: string;
-  authors: string;
-  source: string;
-  year: string;
-}
-
 export interface ResearchGap {
   title: string;
   evidence: string;
@@ -29,7 +22,6 @@ export interface FeedItem {
   type: WSMessage['type'];
   message: string;
   data?: Record<string, unknown>;
-  icon: 'search' | 'paper' | 'brain' | 'debate' | 'gap' | 'file' | 'check' | 'error' | 'connect';
   node?: string;
 }
 
@@ -100,15 +92,4 @@ export interface SessionDetail {
     size_bytes: number;
     updated_at: string;
   }>;
-}
-
-export interface StartResearchResponse {
-  session_id: string;
-  message: string;
-}
-
-export interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: string;
 }

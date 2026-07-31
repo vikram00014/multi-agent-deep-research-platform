@@ -1,5 +1,5 @@
-import { useState, useRef, type DragEvent, type ChangeEvent } from 'react';
-import { Upload, FileText, X, Loader2, CheckCircle2 } from 'lucide-react';
+import { useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from 'react';
+import { Check, FileText, Upload, X } from 'lucide-react';
 import { api } from '../api';
 import type { UploadResponse } from '../types';
 
@@ -20,33 +20,35 @@ export function PdfUpload({ onFilesChange }: PdfUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const publishDoneIds = (nextFiles: UploadedFile[]) => {
+    onFilesChange(nextFiles.filter((file) => file.status === 'done').map((file) => file.file_id));
+  };
+
   const handleUpload = async (file: File) => {
     const placeholder: UploadedFile = {
-      file_id: `temp-${Date.now()}`,
+      file_id: `temp-${Date.now()}-${file.name}`,
       filename: file.name,
       chunks_stored: 0,
       status: 'uploading',
     };
-    setFiles(prev => [...prev, placeholder]);
+    setFiles((current) => [...current, placeholder]);
 
     try {
       const result: UploadResponse = await api.uploadPdf(file);
-      setFiles(prev => {
-        const updated = prev.map(f =>
-          f.file_id === placeholder.file_id
-            ? { ...result, status: 'done' as const }
-            : f
+      setFiles((current) => {
+        const updated = current.map((item) =>
+          item.file_id === placeholder.file_id ? { ...result, status: 'done' as const } : item,
         );
-        onFilesChange(updated.filter(f => f.status === 'done').map(f => f.file_id));
+        publishDoneIds(updated);
         return updated;
       });
     } catch (err) {
-      setFiles(prev =>
-        prev.map(f =>
-          f.file_id === placeholder.file_id
-            ? { ...f, status: 'error' as const, error: (err as Error).message }
-            : f
-        )
+      setFiles((current) =>
+        current.map((item) =>
+          item.file_id === placeholder.file_id
+            ? { ...item, status: 'error' as const, error: err instanceof Error ? err.message : 'Upload failed' }
+            : item,
+        ),
       );
     }
   };
@@ -54,85 +56,93 @@ export function PdfUpload({ onFilesChange }: PdfUploadProps) {
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList) return;
     Array.from(fileList)
-      .filter(f => f.type === 'application/pdf')
-      .forEach(handleUpload);
+      .filter((file) => file.name.toLowerCase().endsWith('.pdf'))
+      .forEach((file) => {
+        void handleUpload(file);
+      });
   };
 
-  const handleDrop = (e: DragEvent) => {
-    e.preventDefault();
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
     setIsDragging(false);
-    handleFiles(e.dataTransfer.files);
+    handleFiles(event.dataTransfer.files);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      inputRef.current?.click();
+    }
   };
 
   const removeFile = (fileId: string) => {
-    setFiles(prev => {
-      const updated = prev.filter(f => f.file_id !== fileId);
-      onFilesChange(updated.filter(f => f.status === 'done').map(f => f.file_id));
+    setFiles((current) => {
+      const updated = current.filter((file) => file.file_id !== fileId);
+      publishDoneIds(updated);
       return updated;
     });
   };
 
   return (
-    <div className="space-y-2">
-      {/* Drop Zone */}
+    <div className="space-y-3">
       <div
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        role="button"
+        tabIndex={0}
+        onDragOver={(event) => {
+          event.preventDefault();
+          setIsDragging(true);
+        }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
+        onKeyDown={handleKeyDown}
         onClick={() => inputRef.current?.click()}
-        className={`
-          relative cursor-pointer rounded-2xl border-2 border-dashed p-6 text-center
-          transition-all duration-300 backdrop-blur-sm
-          ${isDragging
-            ? 'border-orion-accent bg-orion-accent/10 scale-[1.01]'
-            : 'border-orion-accent/20 bg-orion-surface hover:bg-orion-surface hover:shadow-md'
-          }
-        `}
+        className={`rounded-card border border-dashed px-4 py-5 text-center transition-colors ${
+          isDragging ? 'border-accent bg-accent/10' : 'border-line bg-surface hover:border-accent-dim'
+        }`}
+        aria-label="Upload PDF files"
       >
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf"
+          accept=".pdf,application/pdf"
           multiple
-          onChange={(e: ChangeEvent<HTMLInputElement>) => handleFiles(e.target.files)}
-          className="hidden"
+          onChange={(event: ChangeEvent<HTMLInputElement>) => handleFiles(event.target.files)}
+          className="sr-only"
         />
-        <Upload className="mx-auto h-6 w-6 text-orion-text-dim mb-2" />
-        <p className="text-sm text-orion-text-muted">
-          Drop PDFs here or <span className="text-orion-accent-light underline">browse</span>
-        </p>
+        <Upload className="mx-auto mb-2 h-5 w-5 text-ink-mute" />
+        <p className="text-sm text-ink-soft">Drop PDFs here or browse</p>
       </div>
 
-      {/* Uploaded Files */}
-      {files.length > 0 && (
-        <div className="space-y-1.5">
-          {files.map(f => (
-            <div
-              key={f.file_id}
-              className="flex items-center gap-3 rounded-xl bg-orion-surface backdrop-blur shadow-sm border border-orion-border/40 px-4 py-2.5 animate-fade-in hover:bg-orion-surface-2 transition-colors"
-            >
-              <FileText className="h-4 w-4 text-orion-accent shrink-0" />
-              <span className="text-sm text-orion-text-muted truncate flex-1">{f.filename}</span>
-              {f.status === 'uploading' && <Loader2 className="h-4 w-4 text-orion-accent animate-spin" />}
-              {f.status === 'done' && (
-                <span className="flex items-center gap-1 text-xs text-orion-success">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  {f.chunks_stored} chunks
+      {files.length > 0 ? (
+        <div className="space-y-1">
+          {files.map((file) => (
+            <div key={file.file_id} className="flex items-center gap-2 border-b border-line py-2">
+              <FileText className="h-3.5 w-3.5 shrink-0 text-ink-mute" />
+              <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-ink-soft">{file.filename}</span>
+              {file.status === 'uploading' ? (
+                <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-accent">uploading</span>
+              ) : null}
+              {file.status === 'done' ? (
+                <span className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.12em] text-ok">
+                  <Check className="h-3 w-3" />
+                  {file.chunks_stored} chunks
                 </span>
-              )}
-              {f.status === 'error' && (
-                <span className="text-xs text-orion-error">{f.error}</span>
-              )}
+              ) : null}
+              {file.status === 'error' ? (
+                <span className="max-w-[180px] truncate text-xs text-err">{file.error}</span>
+              ) : null}
               <button
-                onClick={(e) => { e.stopPropagation(); removeFile(f.file_id); }}
-                className="p-1 rounded-md hover:bg-orion-surface-3 transition-colors"
+                type="button"
+                onClick={() => removeFile(file.file_id)}
+                className="rounded-card p-1 text-ink-mute hover:text-err"
+                aria-label={`Remove ${file.filename}`}
               >
-                <X className="h-3.5 w-3.5 text-orion-text-dim" />
+                <X className="h-3.5 w-3.5" />
               </button>
             </div>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -4,23 +4,6 @@ export const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
  * API client for ORION backend.
  */
 export const api = {
-  getBaseUrl: () => API_BASE,
-  /**
-   * Start a new research session.
-   */
-  async startResearch(topic: string, uploadedPaperIds: string[] = []) {
-    const resp = await fetch(`${API_BASE}/research/start`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        topic,
-        uploaded_paper_ids: uploadedPaperIds,
-      }),
-    });
-    if (!resp.ok) throw new Error(`Failed to start research: ${resp.statusText}`);
-    return resp.json();
-  },
-
   async startResearchAdvanced(payload: {
     topic: string;
     uploaded_paper_ids?: string[];
@@ -92,24 +75,8 @@ export const api = {
     return resp.json();
   },
 
-  async exportBundle(sessionId: string) {
-    const resp = await fetch(`${API_BASE}/research/${sessionId}/export`);
-    if (!resp.ok) throw new Error(`Failed to export bundle: ${resp.statusText}`);
-    return resp.json();
-  },
-
   paperPdfDownloadUrl(sessionId: string) {
     return `${API_BASE}/research/${sessionId}/paper.pdf`;
-  },
-
-  async listSessionResources(sessionId: string) {
-    const resp = await fetch(`${API_BASE}/research/${sessionId}/resources/list`);
-    if (!resp.ok) throw new Error(`Failed to list resources: ${resp.statusText}`);
-    return resp.json();
-  },
-
-  resourceDownloadUrl(sessionId: string, fileName: string) {
-    return `${API_BASE}/research/${sessionId}/resources/download/${encodeURIComponent(fileName)}`;
   },
 
   /**
@@ -135,33 +102,6 @@ export const api = {
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ detail: resp.statusText }));
       throw new Error(err.detail || 'Upload failed');
-    }
-    return resp.json();
-  },
-
-  /**
-   * Health check.
-   */
-  async health() {
-    const resp = await fetch(`${API_BASE}/health`);
-    return resp.json();
-  },
-
-  async getResearchChat(sessionId: string) {
-    const resp = await fetch(`${API_BASE}/research/${sessionId}/chat`);
-    if (!resp.ok) throw new Error(`Failed to get chat: ${resp.statusText}`);
-    return resp.json();
-  },
-
-  async sendResearchChat(sessionId: string, message: string) {
-    const resp = await fetch(`${API_BASE}/research/${sessionId}/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message }),
-    });
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({ detail: resp.statusText }));
-      throw new Error(err.detail || 'Failed to send chat');
     }
     return resp.json();
   },

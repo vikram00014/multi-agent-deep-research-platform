@@ -30,18 +30,6 @@ export function useWebSocket(sessionId: string | null) {
   const activeSessionRef = useRef<string | null>(null);
   const connectTimeoutRef = useRef<number | null>(null);
 
-  const getIcon = useCallback((type: WSMessage['type']): FeedItem['icon'] => {
-    switch (type) {
-      case 'connected': return 'connect';
-      case 'paper_found': return 'paper';
-      case 'gap': return 'gap';
-      case 'debate': return 'debate';
-      case 'complete': return 'check';
-      case 'error': return 'error';
-      default: return 'search';
-    }
-  }, []);
-
   const addFeedItem = useCallback((msg: WSMessage) => {
     // Skip heartbeat and pong messages
     if (msg.type === 'heartbeat' || msg.type === 'pong') return;
@@ -52,18 +40,11 @@ export function useWebSocket(sessionId: string | null) {
       type: msg.type,
       message: msg.message || '',
       data: msg.data,
-      icon: getIcon(msg.type),
       node: typeof msg.data?.node === 'string' ? msg.data.node : undefined,
     };
 
-    // Determine icon based on message content
-    if (msg.message?.toLowerCase().includes('summariz')) item.icon = 'brain';
-    if (msg.message?.toLowerCase().includes('draft') || msg.message?.toLowerCase().includes('review')) item.icon = 'debate';
-    if (msg.message?.toLowerCase().includes('gap')) item.icon = 'gap';
-    if (msg.message?.toLowerCase().includes('assembl') || msg.message?.toLowerCase().includes('paper')) item.icon = 'file';
-
     setFeedItems(prev => [...prev, item]);
-  }, [getIcon]);
+  }, []);
 
   const connect = useCallback(async () => {
     if (!sessionId) return;
@@ -168,7 +149,6 @@ export function useWebSocket(sessionId: string | null) {
                 type,
                 message: String(entry.message || ''),
                 data,
-                icon: getIcon(type),
                 node: typeof data.node === 'string' ? data.node : undefined,
               };
             })
@@ -201,7 +181,7 @@ export function useWebSocket(sessionId: string | null) {
         wsRef.current = null;
       }
     };
-  }, [sessionId, connect, getIcon]);
+  }, [sessionId, connect]);
 
   const sendStop = useCallback(() => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
