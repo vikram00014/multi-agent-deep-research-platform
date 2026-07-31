@@ -13,18 +13,22 @@ from pathlib import Path
 class Settings(BaseSettings):
     """Application settings loaded from .env file."""
 
-    # ── Vertex AI Gemini 2.5 Pro ──────────────────────────────────────────
-    vertex_api_key: str = Field(
+    # ── LLM (Anthropic Messages API) ──────────────────────────────────────
+    llm_api_key: str = Field(
         ...,
-        description="Google Vertex AI API key (Express Mode).",
+        description="API key for the Anthropic-compatible endpoint.",
     )
-    vertex_base_url: str = Field(
-        default="https://aiplatform.googleapis.com/v1/publishers/google/models",
-        description="Vertex AI base URL.",
+    llm_base_url: str = Field(
+        default="https://api.aerolink.lat/v1",
+        description="Base URL for the Anthropic Messages API.",
     )
-    vertex_model: str = Field(
-        default="gemini-2.5-pro",
-        description="Gemini model name.",
+    llm_model: str = Field(
+        default="claude-sonnet-5",
+        description="Claude model name.",
+    )
+    anthropic_version: str = Field(
+        default="2023-06-01",
+        description="Anthropic API version header.",
     )
 
     # ── Tavily Web Search ─────────────────────────────────────────────────
@@ -76,6 +80,10 @@ class Settings(BaseSettings):
         default=False,
         description="If true, synthesis prompts enforce stricter evidence-grounded writing.",
     )
+    crossref_contact_email: str = Field(
+        default="",
+        description="Contact email sent to Crossref for polite-pool access. Empty omits the mailto.",
+    )
 
     # ── Server ────────────────────────────────────────────────────────────
     host: str = Field(default="0.0.0.0")
@@ -84,22 +92,13 @@ class Settings(BaseSettings):
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
+        "extra": "ignore",
     }
 
     @property
-    def generate_content_url(self) -> str:
-        """Full URL for Gemini generateContent endpoint."""
-        return f"{self.vertex_base_url}/{self.vertex_model}:generateContent?key={self.vertex_api_key}"
-
-    @property
-    def stream_generate_url(self) -> str:
-        """Full URL for Gemini streamGenerateContent endpoint."""
-        return f"{self.vertex_base_url}/{self.vertex_model}:streamGenerateContent?key={self.vertex_api_key}"
-
-    @property
-    def imagen_generate_url(self) -> str:
-        """Full URL for Imagen 3 generation via Vertex AI."""
-        return f"{self.vertex_base_url}/imagen-3.0-generate-001:predict?key={self.vertex_api_key}"
+    def messages_url(self) -> str:
+        """Full URL for the Anthropic Messages endpoint."""
+        return f"{self.llm_base_url.rstrip('/')}/messages"
 
 
 # Singleton instance

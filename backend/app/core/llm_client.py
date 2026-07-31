@@ -1,17 +1,15 @@
 """
-Vertex AI Gemini 2.5 Flash Client
-──────────────────────────────────
-Async HTTP client for Google Vertex AI Express Mode.
+Anthropic Messages API Client
+──────────────────────────────
+Async HTTP client for Claude models over the Anthropic Messages API.
 
 Key behaviours:
-  • Auth via API key as query parameter (no project ID needed)
+  • Auth via x-api-key header, with automatic fallback to Authorization: Bearer
   • Exponential backoff on 429 / 5xx errors
-  • Automatic empty-response retry with thinkingBudget=0
-  • JSON output mode disables thinking to prevent token consumption
+  • Extended thinking disabled for JSON requests so the whole budget goes to output
 """
 
 import asyncio
-import json
 import logging
 from typing import Optional
 
@@ -21,14 +19,31 @@ from app.core.config import settings
 
 logger = logging.getLogger("orion.llm")
 
+# Anthropic requires max_tokens > thinking budget, and a minimum budget of 1024.
+_MIN_THINKING_BUDGET = 1024
 
-class VertexGeminiClient:
-    """Async wrapper around Vertex AI Gemini 2.5 Flash REST API."""
+
+class AnthropicClient:
+    """Async wrapper around the Anthropic Messages API."""
 
     def __init__(self):
-        self._url = settings.generate_content_url
+        self._url = settings.messages_url
         self._client: Optional[httpx.AsyncClient] = None
         self._client_lock = asyncio.Lock()
+        # Some gateways expect Bearer instead of x-api-key. Probed on first failure.
+        self._use_bearer = False
+
+    def _build_headers(self) -> dict:
+        auth = (
+            {"Authorization": f"Bearer {settings.llm_api_key}"}
+            if self._use_bearer
+            else {"x-api-key": settings.llm_api_key}
+        )
+        return {
+            **auth,
+            "anthropic-version": settings.anthropic_version,
+            "Content-Type": "application/json",
+        }
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
@@ -42,37 +57,14 @@ class VertexGeminiClient:
         if self._client and not self._client.is_closed:
             await self._client.aclose()
 
-    # ── Image Generation Method ───────────────────────────────────────────
+    # ── Image Generation ──────────────────────────────────────────────────
 
     async def generate_image(self, prompt: str) -> str:
         """
-        Generate an image using Vertex AI Imagen 3.
-        Returns the base64 encoded image string.
+        Image generation is not offered by the Anthropic API. Callers treat an
+        empty string as "unavailable" and fall back to a text figure caption.
         """
-        payload = {
-            "instances": [
-                {"prompt": prompt}
-            ],
-            "parameters": {
-                "sampleCount": 1,
-                "aspectRatio": "16:9",
-            }
-        }
-        
-        client = await self._get_client()
-        url = settings.imagen_generate_url
-        try:
-            resp = await client.post(url, json=payload)
-            if resp.status_code == 200:
-                data = resp.json()
-                predictions = data.get("predictions", [])
-                if predictions and "bytesBase64Encoded" in predictions[0]:
-                    return predictions[0]["bytesBase64Encoded"]
-            logger.error("Imagen API failed: HTTP %s - %s", resp.status_code, resp.text[:300])
-            return ""
-        except Exception as e:
-            logger.error("Imagen API exception: %s", e)
-            return ""
+        return ""
 
     # ── Core Generation Method ────────────────────────────────────────────
 
@@ -85,47 +77,24 @@ class VertexGeminiClient:
         enable_thinking: bool = True,
     ) -> str:
         """
-        Send a prompt to Gemini 2.5 Flash and return the text response.
+        Send a prompt to Claude and return the text response.
 
         Args:
             prompt: The user prompt text.
             response_mime_type: "text/plain" or "application/json".
-            temperature: Sampling temperature (0.0 – 2.0).
+            temperature: Sampling temperature (0.0 – 1.0).
             max_output_tokens: Max tokens in the response.
-            enable_thinking: Whether to let the model use thinking budget.
-                             Auto-disabled when response_mime_type is JSON.
+            enable_thinking: Whether to enable extended thinking.
+                             Auto-disabled when JSON output is requested.
         """
-        # CRITICAL: Disable thinking for JSON output to prevent token consumption
-        if response_mime_type == "application/json":
-            enable_thinking = False
-
-        payload = {
-            "contents": [
-                {"role": "user", "parts": [{"text": prompt}]}
-            ],
-            "generationConfig": {
-                "temperature": temperature,
-                "maxOutputTokens": max_output_tokens,
-                "responseMimeType": response_mime_type,
-            },
-        }
-
-        if enable_thinking:
-            payload["generationConfig"]["thinkingConfig"] = {
-                "includeThoughts": False,
-                "thinkingBudget": 2048,
-            }
-        else:
-            # gemini-2.5-* are thinking models: OMITTING thinkingConfig leaves
-            # dynamic thinking ON, which silently eats a small maxOutputTokens
-            # budget and returns empty text (notably for JSON). Pin the budget to
-            # 0 to guarantee the whole budget goes to the actual response.
-            payload["generationConfig"]["thinkingConfig"] = {
-                "includeThoughts": False,
-                "thinkingBudget": 0,
-            }
-
-        return await self._send_with_retry(payload)
+        return await self._generate(
+            system_prompt=None,
+            user_prompt=prompt,
+            response_mime_type=response_mime_type,
+            temperature=temperature,
+            max_output_tokens=max_output_tokens,
+            enable_thinking=enable_thinking,
+        )
 
     # ── Multi-turn / System Prompt Generation ─────────────────────────────
 
@@ -139,35 +108,45 @@ class VertexGeminiClient:
         enable_thinking: bool = True,
     ) -> str:
         """Generate content with a system instruction."""
+        return await self._generate(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_mime_type=response_mime_type,
+            temperature=temperature,
+            max_output_tokens=max_output_tokens,
+            enable_thinking=enable_thinking,
+        )
+
+    async def _generate(
+        self,
+        system_prompt: Optional[str],
+        user_prompt: str,
+        response_mime_type: str,
+        temperature: float,
+        max_output_tokens: int,
+        enable_thinking: bool,
+    ) -> str:
         if response_mime_type == "application/json":
+            # Callers parse with helpers that already strip markdown fences and
+            # accept either an object or an array, so no output steering is needed.
             enable_thinking = False
 
-        payload = {
-            "systemInstruction": {
-                "parts": [{"text": system_prompt}]
-            },
-            "contents": [
-                {"role": "user", "parts": [{"text": user_prompt}]}
-            ],
-            "generationConfig": {
-                "temperature": temperature,
-                "maxOutputTokens": max_output_tokens,
-                "responseMimeType": response_mime_type,
-            },
+        payload: dict = {
+            "model": settings.llm_model,
+            "max_tokens": max_output_tokens,
+            "messages": [{"role": "user", "content": user_prompt}],
+            "temperature": temperature,
         }
 
+        if system_prompt:
+            payload["system"] = system_prompt
+
         if enable_thinking:
-            payload["generationConfig"]["thinkingConfig"] = {
-                "includeThoughts": False,
-                "thinkingBudget": 2048,
-            }
-        else:
-            # See note in generate_content: pin thinkingBudget to 0 so the model
-            # does not silently consume the output budget on hidden reasoning.
-            payload["generationConfig"]["thinkingConfig"] = {
-                "includeThoughts": False,
-                "thinkingBudget": 0,
-            }
+            budget = max(_MIN_THINKING_BUDGET, min(2048, max_output_tokens - 1))
+            if budget < max_output_tokens:
+                payload["thinking"] = {"type": "enabled", "budget_tokens": budget}
+                # Extended thinking requires the default temperature.
+                payload.pop("temperature", None)
 
         return await self._send_with_retry(payload)
 
@@ -175,36 +154,35 @@ class VertexGeminiClient:
 
     async def validate_api_key(self) -> bool:
         """
-        Validate the Vertex API key with a minimal test call.
-        Returns True if the key is valid (HTTP 200 + at least one candidate).
+        Validate the API key with a minimal call. Retries once with a Bearer
+        header so either gateway auth convention works.
+        Returns True if the key is accepted.
         """
-        # Keep validation payload minimal for broad model compatibility.
         payload = {
-            "contents": [
-                {"role": "user", "parts": [{"text": "OK"}]}
-            ],
-            "generationConfig": {
-                "temperature": 0,
-                "maxOutputTokens": 16,
-                "responseMimeType": "text/plain",
-            },
+            "model": settings.llm_model,
+            "max_tokens": 16,
+            "messages": [{"role": "user", "content": "OK"}],
         }
 
         try:
             client = await self._get_client()
-            resp = await client.post(self._url, json=payload)
+            for use_bearer in (self._use_bearer, not self._use_bearer):
+                self._use_bearer = use_bearer
+                resp = await client.post(self._url, json=payload, headers=self._build_headers())
 
-            if resp.status_code != 200:
-                logger.error("API key validation failed: HTTP %s - %s", resp.status_code, resp.text[:300])
-                return False
+                if resp.status_code == 200:
+                    scheme = "Authorization: Bearer" if use_bearer else "x-api-key"
+                    logger.info("LLM API key validated successfully (auth via %s).", scheme)
+                    return True
 
-            data = resp.json()
-            candidates = data.get("candidates", [])
-            if len(candidates) > 0:
-                logger.info("Vertex AI API key validated successfully.")
-                return True
+                if resp.status_code not in (401, 403):
+                    logger.error(
+                        "API key validation failed: HTTP %s - %s",
+                        resp.status_code, resp.text[:300],
+                    )
+                    return False
 
-            logger.error("API key validation: 200 but no candidates.")
+            logger.error("API key rejected with both x-api-key and Bearer auth.")
             return False
 
         except Exception as e:
@@ -218,23 +196,20 @@ class VertexGeminiClient:
         payload: dict,
         max_retries: int = 3,
     ) -> str:
-        """
-        Send request with exponential backoff.
-        On empty response (thinking consumed tokens), retry with thinkingBudget=0.
-        """
+        """Send request with exponential backoff on 429/5xx and timeouts."""
         client = await self._get_client()
         last_error = None
 
         for attempt in range(max_retries):
             try:
-                resp = await client.post(self._url, json=payload)
+                resp = await client.post(self._url, json=payload, headers=self._build_headers())
 
                 if resp.status_code == 429 or resp.status_code >= 500:
                     last_error = f"HTTP {resp.status_code}"
                     if attempt < max_retries - 1:
                         wait = 2 ** attempt
                         logger.warning(
-                            "Gemini API %s – retrying in %ds (attempt %d/%d)",
+                            "LLM API %s – retrying in %ds (attempt %d/%d)",
                             resp.status_code, wait, attempt + 1, max_retries,
                         )
                         await asyncio.sleep(wait)
@@ -243,23 +218,10 @@ class VertexGeminiClient:
                 if resp.status_code != 200:
                     error_text = resp.text[:500]
                     raise RuntimeError(
-                        f"Gemini API error {resp.status_code}: {error_text}"
+                        f"LLM API error {resp.status_code}: {error_text}"
                     )
 
-                data = resp.json()
-                text = self._extract_text(data)
-
-                # Handle empty response: retry with thinking config removed
-                if not text and attempt < max_retries - 1:
-                    logger.warning(
-                        "Empty response (thinking may have consumed tokens). "
-                        "Retrying with thinkingConfig removed."
-                    )
-                    payload.get("generationConfig", {}).pop("thinkingConfig", None)
-                    await asyncio.sleep(1)
-                    continue
-
-                return text
+                return self._extract_text(resp.json())
 
             except httpx.TimeoutException:
                 last_error = "Request timed out"
@@ -274,66 +236,41 @@ class VertexGeminiClient:
                 logger.error("Unexpected error: %s", e)
                 await asyncio.sleep(2 ** attempt)
 
-        raise RuntimeError(f"Gemini API failed after {max_retries} retries: {last_error}")
+        raise RuntimeError(f"LLM API failed after {max_retries} retries: {last_error}")
 
     @staticmethod
     def _extract_text(response_data: dict) -> str:
-        """Extract text from the Gemini API response JSON.
+        """Extract text from an Anthropic Messages API response.
 
-        Handles multiple response structures:
-        - Standard text parts
-        - Thinking-mode responses where 'thought' parts precede text parts
-        - Responses where finishReason may block content
+        Content is a list of blocks; `thinking` blocks are skipped so only the
+        visible answer is returned.
         """
         try:
-            candidates = response_data.get("candidates", [])
-            if not candidates:
-                logger.debug("No candidates in API response")
+            blocks = response_data.get("content", [])
+            if not blocks:
+                logger.debug("No content blocks in API response")
                 return ""
 
-            candidate = candidates[0]
-
-            # Check for blocked / empty responses
-            finish_reason = candidate.get("finishReason", "")
-            if finish_reason == "SAFETY":
-                logger.warning("Response blocked by safety filter")
-                return ""
-
-            parts = candidate.get("content", {}).get("parts", [])
-            if not parts:
-                logger.debug("No parts in candidate content")
-                return ""
-
-            # Collect text from non-thought parts first
-            text_parts = []
-            thought_parts = []
-            for p in parts:
-                if p.get("thought"):
-                    # This is a thinking/reasoning part — skip for output
-                    thought_parts.append(p.get("text", ""))
-                    continue
-                text = p.get("text", "")
-                if text:
-                    text_parts.append(text)
+            text_parts = [
+                block.get("text", "")
+                for block in blocks
+                if block.get("type") == "text" and block.get("text")
+            ]
 
             result = "".join(text_parts).strip()
 
-            # If no text parts found but thought parts exist, the model
-            # consumed all tokens on thinking.  Log for diagnosis.
-            if not result and thought_parts:
+            if not result:
+                stop_reason = response_data.get("stop_reason", "")
                 logger.warning(
-                    "Response contained %d thought parts but no text output "
-                    "(thinking consumed all tokens). Thought preview: %s",
-                    len(thought_parts),
-                    thought_parts[0][:120] if thought_parts else "",
+                    "Response contained no text blocks (stop_reason=%s).", stop_reason
                 )
 
             return result
 
-        except (KeyError, IndexError) as exc:
+        except (KeyError, IndexError, AttributeError) as exc:
             logger.debug("Error extracting text from response: %s", exc)
             return ""
 
 
 # Singleton instance
-gemini_client = VertexGeminiClient()
+llm_client = AnthropicClient()

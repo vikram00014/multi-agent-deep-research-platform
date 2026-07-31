@@ -14,17 +14,21 @@ Endpoints:
 """
 
 import asyncio
+import json
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from pathlib import Path
 
 from app.core.config import settings
-from app.core.llm_client import gemini_client
-from app.api.routes.research import router as research_router, ws_connections, _startup_load_sessions
+from app.core.llm_client import llm_client
+from app.api.routes.research import (
+    router as research_router,
+    ws_connections,
+    _startup_load_sessions,
+    flush_pending_persists,
+)
 from app.api.routes.upload import router as upload_router
 
 # ── Logging Setup ─────────────────────────────────────────────────────────
@@ -44,13 +48,13 @@ async def lifespan(app: FastAPI):
     logger.info("=" * 60)
     logger.info("  ORION – Multi-Agent Deep Research System")
     logger.info("=" * 60)
-    logger.info("Validating Vertex AI API key...")
+    logger.info("Validating LLM API key...")
 
-    valid = await gemini_client.validate_api_key()
+    valid = await llm_client.validate_api_key()
     if valid:
-        logger.info("✓ Vertex AI API key is valid")
+        logger.info("✓ LLM API key is valid")
     else:
-        logger.warning("✗ Vertex AI API key validation failed – LLM calls may fail")
+        logger.warning("✗ LLM API key validation failed – LLM calls may fail")
 
     # Load persisted sessions from disk (moved here from a router startup hook,
     # which does not fire reliably when the app uses a lifespan handler).
@@ -62,7 +66,8 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
-    await gemini_client.close()
+    await flush_pending_persists()
+    await llm_client.close()
     logger.info("ORION shut down cleanly")
 
 
@@ -92,12 +97,6 @@ app.add_middleware(
 # ── Include REST Routers ─────────────────────────────────────────────────
 app.include_router(research_router)
 app.include_router(upload_router)
-
-# ── Static Files ─────────────────────────────────────────────────────────
-resources_path = Path(settings.session_store_path).parent / "resources"
-resources_path.mkdir(parents=True, exist_ok=True)
-app.mount("/resources", StaticFiles(directory=resources_path), name="resources")
-
 
 # ── WebSocket Endpoint ───────────────────────────────────────────────────
 
@@ -137,7 +136,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
                 # Handle client messages
                 try:
-                    msg = __import__("json").loads(data)
+                    msg = json.loads(data)
                     if msg.get("type") == "ping":
                         await websocket.send_json({"type": "pong"})
                     elif msg.get("type") == "stop":
