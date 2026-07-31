@@ -1,155 +1,68 @@
-# ORION - Multi-Agent Deep Research System
+# ORION — Multi-Agent Deep Research Platform
 
-ORION is a production-oriented research assistant that runs a full multi-stage pipeline:
+ORION takes a research topic, gathers evidence from six academic and web sources, critiques its
+own synthesis through a proposer/critic debate loop, identifies research gaps, and produces a
+formatted paper with citations, a bibliography, and quality signals.
 
-1. Planner -> retrieval (ArXiv/Semantic Scholar/Tavily + optional uploaded PDFs)
-2. Summarizer -> proposer/critic debate loop
-3. Gap analysis with structured outputs
-4. Final paper generation with citation/evidence quality signals and downloadable session artifacts
+- **Backend** — FastAPI + LangGraph, an 8-stage research pipeline, Claude
+- **Frontend** — React 19 + Vite, live WebSocket progress feed, session history
+- **Storage** — local files only: JSON session store, SQLite checkpoints, ChromaDB vector store
 
-## What ORION now supports
-
-- **Structured quality signals** in final results:
-  - verified citations
-  - claim-evidence links
-  - source mix and duplicate clusters
-  - format compliance summary for selected paper format
-- **Configurable controls** per run:
-  - strict synthesis mode
-  - debate rounds (1..5)
-  - paper format (`academic`, `ieee`, `apa`, `acm`, `mla`)
-  - retrieval depth/source filters/year constraints
-- **Persistent sessions**:
-  - saved session state in `backend/orion_sessions.json`
-  - LangGraph SQLite Checkpointer for graph state persistence
-  - per-session resource files under `backend/resources/<session_id>/`
-- **Session operations**:
-  - cancel (with active task termination) / retry / resume / delete
-  - timeline replay
-  - export bundle download
-
-## Architecture
-
-```text
-Frontend (React + Vite)
-  - New Research
-  - Research Feed (WebSocket + persisted timeline preload)
-  - Final Paper
-  - Analytics
-  - Resources
-  - Floating Research Discussion Chat (Deep RAG enabled with vector store grounding)
-
-Backend (FastAPI + LangGraph)
-  planner -> retrieval -> summarizer -> proposer <-> critic -> gap_analysis -> paper_architect
+```
+planner → retrieval → summarizer → proposer ⇄ critic → cross_paper → gap_analysis → paper_architect
 ```
 
 ## Quick start
 
-### Prerequisites
-
-- Python 3.11+
-- Node.js 18+
-- Vertex API key
-
-### Backend
+Requires Python 3.11+, Node.js 18+, and an API key for an Anthropic-compatible endpoint.
 
 ```bash
+# Terminal 1 — backend
 cd backend
-python -m venv venv
-venv\Scripts\activate
+python -m venv .venv && .venv\Scripts\activate     # source .venv/bin/activate on macOS/Linux
 pip install -r requirements.txt
-copy .env.example .env
-```
-
-Set `VERTEX_API_KEY` in `backend\.env` (and `TAVILY_API_KEY` if you want web retrieval enabled).
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-```
-
-### Run
-
-```bash
-# terminal 1
-cd backend
+copy .env.example .env                             # then set LLM_API_KEY
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
-# terminal 2
+# Terminal 2 — frontend
 cd frontend
+npm install
 npm run dev
 ```
 
-Open: `http://localhost:5173`
+Open http://localhost:5173. The Vite dev server proxies API and WebSocket traffic to port 8000,
+so no CORS setup is needed.
 
-## Main API endpoints
+## Verification
 
-| Method | Endpoint | Purpose |
-|---|---|---|
-| POST | `/research/start` | Start research session with controls |
-| POST | `/research/{id}/cancel` | Cancel running session |
-| POST | `/research/{id}/retry` | Retry a finished/failed session |
-| POST | `/research/{id}/resume` | Resume cancelled/error session |
-| DELETE | `/research/{id}` | Delete session |
-| GET | `/research/{id}/status` | Lightweight run status |
-| GET | `/research/{id}/detail` | Full session detail + controls/metrics |
-| GET | `/research/{id}/paper` | Final paper + quality metadata |
-| GET | `/research/{id}/chat` | Get session research chat history |
-| POST | `/research/{id}/chat` | Ask context-aware research questions |
-| GET | `/research/{id}/timeline` | Timeline events |
-| GET | `/research/{id}/export` | JSON export bundle |
-| GET | `/research/{id}/resources/list` | Saved resource files for session |
-| GET | `/research/{id}/resources/download/{file_name}` | Download resource artifact |
-| GET | `/research/sessions/list` | List all sessions |
-| POST | `/upload/pdf` | Upload PDF for vector retrieval |
-| WS | `/ws/{session_id}` | Live progress stream |
-| GET | `/health` | Health check |
-
-## Environment variables
-
-Core:
-- `VERTEX_API_KEY` (required)
-- `TAVILY_API_KEY` (optional)
-
-Persistence:
-- `SESSION_STORE_PATH`
-- `SQLITE_CHECKPOINT_PATH`
-
-Tuning:
-- `MAX_SEARCH_QUERIES`
-- `MAX_SOURCE_RESULTS_PER_QUERY`
-- `SEMANTIC_SCHOLAR_MAX_RETRIES`
-- `SEMANTIC_SCHOLAR_BASE_BACKOFF_SECONDS`
-- `MAX_DEBATE_ROUNDS`
-- `STRICT_SYNTHESIS_MODE`
-
-Server:
-- `HOST`
-- `PORT`
-
-## Cleanup and build commands
+There is no test suite in this repository.
 
 ```bash
-# backend sanity
-python -m compileall backend\app
-
-# frontend production build
-cd frontend
-npm run build
+python -m compileall backend/app    # backend sanity check
+cd frontend && npm run build        # tsc typecheck + production build
 ```
 
-## Notes
+## Documentation
 
-- `frontend\dist\` is build output and can be safely regenerated.
-- `backend\resources\` stores session artifacts used by the Resources page.
-- `backend\orion_sessions.json` is persistent local state.
+Documentation is the source of truth for this project.
+
+| File | Contents |
+|---|---|
+| [CLAUDE.md](CLAUDE.md) | Permanent project memory: tech stack, folder structure, coding standards, project rules |
+| [PROJECT_STATUS.md](PROJECT_STATUS.md) | Current state, feature inventory, technical-debt register, roadmap |
+| [CHANGELOG.md](CHANGELOG.md) | What changed, when |
+| [docs/architecture.md](docs/architecture.md) | Pipeline nodes, LLM client, retrieval, realtime, process model |
+| [docs/api.md](docs/api.md) | Every endpoint with request/response shapes |
+| [docs/database.md](docs/database.md) | The persistence layers and their record shapes |
+| [docs/ui.md](docs/ui.md) | Frontend navigation model, components, state |
+| [docs/deployment.md](docs/deployment.md) | Setup, configuration reference, deployment blockers |
+
+## Status
+
+ORION is a working local prototype. It is **not ready for shared or public deployment** — there
+is no authentication or rate limiting, and the backend is single-process only. See
+[docs/deployment.md](docs/deployment.md#blockers-before-any-shared-or-public-deployment).
 
 ## License
 
 MIT
- - **Separated output artifacts**:
-   - `analysis.md` (Research Analysis Dossier)
-   - `final_draft.md` (publication-style draft)
-   - `paper.md` (compatibility combined paper field)
