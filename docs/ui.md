@@ -2,7 +2,7 @@
 
 React 19 + TypeScript + Vite 8, styled with Tailwind v4 (via `@tailwindcss/vite`, no config
 file — utilities only). Product name shown in the UI is **"Delve"**; the codebase and backend
-are named ORION.
+are named Delve.
 
 ## Navigation model
 

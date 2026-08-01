@@ -11,7 +11,7 @@ that changes project state. `CLAUDE.md` holds permanent facts; this file holds c
 
 ## 1. Where the project is right now
 
-ORION is a **working end-to-end prototype**. The full 8-stage pipeline runs, streams live
+Delve is a **working end-to-end prototype**. The full 8-stage pipeline runs, streams live
 progress over WebSocket, and produces a formatted paper with a bibliography, gap analysis, and
 downloadable artifacts. Both halves build clean:
 
@@ -144,8 +144,8 @@ count toward the debate budget but still bounds total attempts), **H8** (both ha
   constant (duplicated).
 - **Frontend:** completion is still tracked four ways, and the bundle is dominated by `mermaid`
   (which pulls in `cytoscape` and `katex`); `index-*.js` alone is ~536 kB.
-- **No checkpoint pruning** — `orion_checkpoints.db` grows monotonically.
-- **Naming:** the UI brands as "Delve" and the backend as "ORION". This is intentional and
+- **No checkpoint pruning** — `delve_checkpoints.db` grows monotonically.
+- **Naming:** the UI brands as "Delve" and the backend as "Delve". This is intentional and
   documented in `CLAUDE.md`, but the PDF export author and `delve_paper.pdf` filename mean the
   split reaches user-facing artifacts.
 
@@ -184,7 +184,7 @@ own icons and never read the field).
 imported). Moved `@types/react` and `@types/react-dom` to `devDependencies`. Added a
 `typecheck` script.
 
-**Git:** `backend/orion_sessions.json` and `backend/chroma_data/chroma.sqlite3` untracked via
+**Git:** `backend/delve_sessions.json` and `backend/chroma_data/chroma.sqlite3` untracked via
 `git rm --cached` (files kept on disk). They matched `.gitignore` but were tracked from the
 initial commit, so the ignore rules never applied.
 
@@ -202,7 +202,7 @@ referenced unused. `README.md` was slimmed to an overview plus an index into `do
 Awaiting approval — nothing here has been implemented.
 
 ### Phase 0 — Repo hygiene — DONE
-1. ~~Untrack `backend/orion_sessions.json` and `backend/chroma_data/chroma.sqlite3`~~ done (C7)
+1. ~~Untrack `backend/delve_sessions.json` and `backend/chroma_data/chroma.sqlite3`~~ done (C7)
 2. ~~Delete `frontend/fix_app.py`~~ done
 3. ~~Remove dead code and unused dependencies~~ done — see §4a
 4. ~~Fix the model-default mismatch so a fresh clone works~~ superseded — the LLM provider moved
@@ -259,4 +259,4 @@ Awaiting approval — nothing here has been implemented.
   `prompts.py` / `scoring.py` / `tables.py` (the ~30 markdown-table builders) / `nodes.py`.
   Worth doing early in any phase that touches the pipeline heavily, but not worth a standalone
   churn commit.
-- Resolve the ORION/Delve naming split.
+- Resolve the Delve/Delve naming split.

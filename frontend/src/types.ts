@@ -1,4 +1,4 @@
-/* Types for the ORION frontend */
+/* Types for the Delve frontend */
 
 export interface WSMessage {
   type: 'connected' | 'status' | 'paper_found' | 'gap' | 'debate' | 'complete' | 'error' | 'heartbeat' | 'pong';

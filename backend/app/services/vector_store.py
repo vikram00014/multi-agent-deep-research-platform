@@ -1,5 +1,5 @@
 """
-ORION Vector Store Service
+Delve Vector Store Service
 ───────────────────────────
 ChromaDB client for storing and querying PDF chunks.
 Uses the default all-MiniLM-L6-v2 embedding model.
@@ -14,7 +14,7 @@ from chromadb.config import Settings as ChromaSettings
 
 from app.core.config import settings
 
-logger = logging.getLogger("orion.vectorstore")
+logger = logging.getLogger("delve.vectorstore")
 
 
 class VectorStoreService:
@@ -27,7 +27,7 @@ class VectorStoreService:
             persist_directory=settings.chroma_persist_dir,
         ))
         self._collection = self._client.get_or_create_collection(
-            name="orion_papers",
+            name="delve_papers",
             metadata={"hnsw:space": "cosine"},
         )
         logger.info("ChromaDB initialized at %s", settings.chroma_persist_dir)

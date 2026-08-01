@@ -1,5 +1,5 @@
 """
-ORION PDF Parsing Service
+Delve PDF Parsing Service
 ──────────────────────────
 Extracts text from uploaded PDFs and splits into chunks.
 """
@@ -10,7 +10,7 @@ from typing import BinaryIO
 
 from pypdf import PdfReader
 
-logger = logging.getLogger("orion.parsing")
+logger = logging.getLogger("delve.parsing")
 
 # ── Constants ─────────────────────────────────────────────────────────────
 CHUNK_SIZE = 1000       # characters per chunk

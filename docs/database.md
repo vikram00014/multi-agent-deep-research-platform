@@ -1,16 +1,16 @@
 # Data and persistence
 
-There is no database server. ORION persists to three local layers under `backend/`, all
+There is no database server. Delve persists to three local layers under `backend/`, all
 gitignored and all safe to delete and regenerate.
 
 | Layer | Path | Purpose |
 |---|---|---|
-| Session store | `orion_sessions.json` (`SESSION_STORE_PATH`) | Session metadata, controls, timeline, metrics, full result payloads |
-| Graph checkpoints | `orion_checkpoints.db` (`SQLITE_CHECKPOINT_PATH`) | LangGraph `AsyncSqliteSaver` state, keyed by `thread_id = session_id` |
-| Vector store | `chroma_data/` (`CHROMA_PERSIST_DIR`) | ChromaDB collection `orion_papers` |
+| Session store | `delve_sessions.json` (`SESSION_STORE_PATH`) | Session metadata, controls, timeline, metrics, full result payloads |
+| Graph checkpoints | `delve_checkpoints.db` (`SQLITE_CHECKPOINT_PATH`) | LangGraph `AsyncSqliteSaver` state, keyed by `thread_id = session_id` |
+| Vector store | `chroma_data/` (`CHROMA_PERSIST_DIR`) | ChromaDB collection `delve_papers` |
 | Artifacts | `resources/<session_id>/` | Per-session markdown, JSON, PDF, and generated images |
 
-## 1. Session store — `orion_sessions.json`
+## 1. Session store — `delve_sessions.json`
 
 A single JSON object keyed by session id. The record shape is fixed by
 `_sanitize_session_for_store` (`research.py:148`):
@@ -60,7 +60,7 @@ WebSocket broadcast. The file is loaded twice at startup: once at module import
 
 This is O(all sessions) per event and is the primary scaling limit of the current design.
 
-## 2. LangGraph checkpoints — `orion_checkpoints.db`
+## 2. LangGraph checkpoints — `delve_checkpoints.db`
 
 Opened per-run as `AsyncSqliteSaver.from_conn_string(...)`, with the graph **rebuilt inside that
 context on every session** (`research.py:460`). `thread_id` is the session id. There is no
@@ -72,7 +72,7 @@ A second, uncheckpointed graph is compiled at import time in `graph.py:85` and i
 ## 3. Vector store — `chroma_data/`
 
 - Client: `chromadb.Client` with `is_persistent=True`, telemetry disabled.
-- Collection: **`orion_papers`**, `hnsw:space = cosine`.
+- Collection: **`delve_papers`**, `hnsw:space = cosine`.
 - Embeddings: Chroma's default (`all-MiniLM-L6-v2`) — never specified explicitly, so it tracks
   whatever the installed chromadb version defaults to.
 - Chunking (`services/parsing.py`): 1000 characters with 200 overlap, snapped to a sentence
@@ -111,4 +111,4 @@ All 11 JSON/markdown files are written via `asyncio.to_thread`, keeping them off
 - **Append reducers on retrieval fields.** `retrieved_papers` and `vector_results` use the
   merge-append reducer. Harmless today because retrieval runs once, but a checkpointed
   retry/resume would duplicate rather than replace.
-- **No checkpoint pruning.** `orion_checkpoints.db` grows monotonically.
+- **No checkpoint pruning.** `delve_checkpoints.db` grows monotonically.

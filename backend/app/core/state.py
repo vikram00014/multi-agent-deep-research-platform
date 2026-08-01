@@ -1,5 +1,5 @@
 """
-ORION Research State
+Delve Research State
 ────────────────────
 Defines the ResearchState TypedDict used by LangGraph.
 All agent nodes read from and write to this shared state.

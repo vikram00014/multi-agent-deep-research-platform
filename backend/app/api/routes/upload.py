@@ -1,5 +1,5 @@
 """
-ORION PDF Upload Route
+Delve PDF Upload Route
 ───────────────────────
 POST /upload/pdf – Upload a PDF, extract text, chunk, and store in ChromaDB.
 """
@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from app.services.parsing import extract_text_from_pdf, chunk_text
 from app.services.vector_store import vector_store
 
-logger = logging.getLogger("orion.api.upload")
+logger = logging.getLogger("delve.api.upload")
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024

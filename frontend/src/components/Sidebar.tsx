@@ -79,7 +79,7 @@ export function Sidebar({ currentSessionId, onSelectSession, onNewSession }: Sid
       <div className="border-b border-line px-5 py-5">
         <div className="mb-5">
           <div className="text-lg font-semibold leading-none text-ink">Delve</div>
-          <div className="mono-kicker mt-1">ORION research</div>
+          <div className="mono-kicker mt-1">Delve research</div>
         </div>
         <button type="button" onClick={onNewSession} className="control-button control-button-primary w-full">
           <Plus className="h-4 w-4" />

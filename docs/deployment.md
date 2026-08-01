@@ -2,7 +2,7 @@
 
 ## Current status
 
-ORION is a **local, single-user, single-process application**. There is no production
+Delve is a **local, single-user, single-process application**. There is no production
 deployment today, and the codebase is not yet ready for one — see "Blockers" below.
 
 A `frontend/nginx.conf` exists that assumes a container topology with a backend service
@@ -63,8 +63,8 @@ All backend settings load from `backend/.env` via pydantic-settings (`app/core/c
 | `ANTHROPIC_VERSION` | `2023-06-01` | API version header |
 | `TAVILY_API_KEY` | `""` | Optional; disables web retrieval when unset |
 | `CHROMA_PERSIST_DIR` | `./chroma_data` | |
-| `SQLITE_CHECKPOINT_PATH` | `./orion_checkpoints.db` | |
-| `SESSION_STORE_PATH` | `./orion_sessions.json` | |
+| `SQLITE_CHECKPOINT_PATH` | `./delve_checkpoints.db` | |
+| `SESSION_STORE_PATH` | `./delve_sessions.json` | |
 | `MAX_SEARCH_QUERIES` | 4 | Silently overridden upward by the per-depth budget |
 | `MAX_SOURCE_RESULTS_PER_QUERY` | 4 | Same |
 | `SEMANTIC_SCHOLAR_MAX_RETRIES` | 3 | |
@@ -79,11 +79,11 @@ Frontend: `VITE_API_BASE` (optional, defaults to same-origin). No `frontend/.env
 
 ## Runtime files
 
-Everything ORION writes lives under `backend/` and is safe to delete:
+Everything Delve writes lives under `backend/` and is safe to delete:
 
 ```
-backend/orion_sessions.json      # session store
-backend/orion_checkpoints.db     # LangGraph checkpoints (grows without bound)
+backend/delve_sessions.json      # session store
+backend/delve_checkpoints.db     # LangGraph checkpoints (grows without bound)
 backend/chroma_data/             # vector store
 backend/resources/<session_id>/  # per-session artifacts
 ```

@@ -14,7 +14,7 @@ function getWebSocketUrl(sessionId: string) {
 }
 
 /**
- * Custom hook for WebSocket connection to ORION backend.
+ * Custom hook for WebSocket connection to Delve backend.
  * Manages connection lifecycle, heartbeats, and message parsing.
  */
 export function useWebSocket(sessionId: string | null) {

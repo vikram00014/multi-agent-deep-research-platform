@@ -1,5 +1,5 @@
 """
-ORION Configuration Module
+Delve Configuration Module
 ──────────────────────────
 Loads environment variables via pydantic-settings.
 All API keys and paths are centralized here.
@@ -54,13 +54,13 @@ class Settings(BaseSettings):
 
     # ── LangGraph SQLite Checkpoint ───────────────────────────────────────
     sqlite_checkpoint_path: str = Field(
-        default="./orion_checkpoints.db",
+        default="./delve_checkpoints.db",
         description="SQLite DB path for LangGraph state persistence.",
     )
 
     # ── Session Store (persistent local JSON) ─────────────────────────────
     session_store_path: str = Field(
-        default="./orion_sessions.json",
+        default="./delve_sessions.json",
         description="Path for persisted session metadata/results/timeline.",
     )
 

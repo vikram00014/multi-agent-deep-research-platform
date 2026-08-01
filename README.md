@@ -1,6 +1,6 @@
-# ORION — Multi-Agent Deep Research Platform
+# Delve — Multi-Agent Deep Research Platform
 
-ORION takes a research topic, gathers evidence from six academic and web sources, critiques its
+Delve takes a research topic, gathers evidence from six academic and web sources, critiques its
 own synthesis through a proposer/critic debate loop, identifies research gaps, and produces a
 formatted paper with citations, a bibliography, and quality signals.
 
@@ -59,7 +59,7 @@ Documentation is the source of truth for this project.
 
 ## Status
 
-ORION is a working local prototype. It is **not ready for shared or public deployment** — there
+Delve is a working local prototype. It is **not ready for shared or public deployment** — there
 is no authentication or rate limiting, and the backend is single-process only. See
 [docs/deployment.md](docs/deployment.md#blockers-before-any-shared-or-public-deployment).
 

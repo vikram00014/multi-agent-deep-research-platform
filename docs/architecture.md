@@ -2,7 +2,7 @@
 
 ## System overview
 
-ORION is a two-process local application.
+Delve is a two-process local application.
 
 ```
 ┌──────────────────────────────┐        ┌──────────────────────────────────┐
@@ -135,7 +135,7 @@ POST /upload/pdf → parsing.extract_text_from_pdf → parsing.chunk_text → ve
                                                     (1000 chars, 200 overlap)
 ```
 
-ChromaDB persistent client, collection `orion_papers`, cosine space, Chroma's default embedding
+ChromaDB persistent client, collection `delve_papers`, cosine space, Chroma's default embedding
 function (`all-MiniLM-L6-v2`). The retrieval node queries it for the first 3 planner queries at
 `n_results=5`, filtered to the session's `uploaded_paper_ids`.
 

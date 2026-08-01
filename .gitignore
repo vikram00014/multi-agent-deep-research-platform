@@ -13,8 +13,8 @@ logs/
 *.log
 *.local
 
-# ORION runtime stores and generated session artifacts
-backend/orion_sessions.json
-backend/orion_checkpoints.db
+# Delve runtime stores and generated session artifacts
+backend/delve_sessions.json
+backend/delve_checkpoints.db
 backend/chroma_data/
 backend/resources/

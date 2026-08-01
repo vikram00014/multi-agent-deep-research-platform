@@ -1,5 +1,5 @@
 """
-ORION Agent Nodes
+Delve Agent Nodes
 ──────────────────
 All LangGraph node functions for the research pipeline.
 Each node reads from / writes to the shared ResearchState.
@@ -43,7 +43,7 @@ from app.services.retrieval import (
 )
 from app.services.vector_store import vector_store
 
-logger = logging.getLogger("orion.agents")
+logger = logging.getLogger("delve.agents")
 
 
 # ── Helper: WebSocket Status Update ──────────────────────────────────────
@@ -558,7 +558,7 @@ def _visual_evidence_flow_mermaid(cross: dict[str, Any], gaps: list[dict[str, An
     return "\n\n".join(lines)
 
 
-def _orion_visual_appendix(
+def _delve_visual_appendix(
     topic: str,
     summaries: dict[str, dict[str, Any]],
     gaps: list[dict[str, Any]],
@@ -569,19 +569,19 @@ def _orion_visual_appendix(
     cross: dict[str, Any],
 ) -> dict[str, str]:
     return {
-        "[ORION_STUDY_LANDSCAPE]": _study_landscape_table(summaries, citation_quality, citation_verification),
-        "[ORION_EVIDENCE_MATRIX]": _evidence_snapshot_table(summaries, citation_quality, citation_verification),
-        "[ORION_SOURCE_MATRIX]": _source_mix_table(source_counts, bibliography),
-        "[ORION_CITATION_AUDIT]": _citation_audit_table(bibliography),
-        "[ORION_FINDINGS_BRIEF]": _findings_brief(cross),
-        "[ORION_EXPERIMENT_BACKLOG]": _experiment_backlog_table(cross, gaps),
-        "[ORION_VISUAL_LANDSCAPE]": _visual_landscape_mermaid(topic, summaries, gaps),
-        "[ORION_VISUAL_WORKFLOW]": _visual_workflow_mermaid(gaps),
-        "[ORION_VISUAL_EVIDENCE_FLOW]": _visual_evidence_flow_mermaid(cross, gaps),
+        "[DELVE_STUDY_LANDSCAPE]": _study_landscape_table(summaries, citation_quality, citation_verification),
+        "[DELVE_EVIDENCE_MATRIX]": _evidence_snapshot_table(summaries, citation_quality, citation_verification),
+        "[DELVE_SOURCE_MATRIX]": _source_mix_table(source_counts, bibliography),
+        "[DELVE_CITATION_AUDIT]": _citation_audit_table(bibliography),
+        "[DELVE_FINDINGS_BRIEF]": _findings_brief(cross),
+        "[DELVE_EXPERIMENT_BACKLOG]": _experiment_backlog_table(cross, gaps),
+        "[DELVE_VISUAL_LANDSCAPE]": _visual_landscape_mermaid(topic, summaries, gaps),
+        "[DELVE_VISUAL_WORKFLOW]": _visual_workflow_mermaid(gaps),
+        "[DELVE_VISUAL_EVIDENCE_FLOW]": _visual_evidence_flow_mermaid(cross, gaps),
     }
 
 
-def _replace_orion_visual_tokens(markdown: str, replacements: dict[str, str]) -> str:
+def _replace_delve_visual_tokens(markdown: str, replacements: dict[str, str]) -> str:
     text = str(markdown or "")
     for token, value in replacements.items():
         if token in text:
@@ -589,7 +589,7 @@ def _replace_orion_visual_tokens(markdown: str, replacements: dict[str, str]) ->
     missing = [token for token in replacements if token not in markdown]
     if missing:
         extra = "\n\n".join(
-            f"### {token.replace('[ORION_', '').replace(']', '').replace('_', ' ').title()}\n{replacements[token]}"
+            f"### {token.replace('[DELVE_', '').replace(']', '').replace('_', ' ').title()}\n{replacements[token]}"
             for token in missing
         )
         text = f"{text.rstrip()}\n\n{extra}\n"
@@ -987,7 +987,7 @@ def _measurement_plan_table(gaps: list[dict[str, Any]], limit: int = 6) -> str:
 def _clean_analysis_narrative(markdown: str, limit: int = 2000) -> str:
     text = _strip_mermaid_blocks(markdown or "")
     text = re.sub(r"!\[[^\]]*\]\([^)]+\)", "", text)
-    text = re.sub(r"\[ORION_[A-Z_]+\]", "", text)
+    text = re.sub(r"\[DELVE_[A-Z_]+\]", "", text)
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
     if len(text) > limit:
         text = text[:limit].rsplit("\n", 1)[0].strip()
@@ -1019,14 +1019,14 @@ def _build_structured_dossier(
     visual_replacements: dict[str, str],
 ) -> str:
     narrative = _clean_analysis_narrative(raw_analysis)
-    evidence_matrix = visual_replacements.get("[ORION_EVIDENCE_MATRIX]", "")
-    study_landscape = visual_replacements.get("[ORION_STUDY_LANDSCAPE]", "")
-    source_matrix = visual_replacements.get("[ORION_SOURCE_MATRIX]", "")
-    citation_audit = visual_replacements.get("[ORION_CITATION_AUDIT]", "")
-    experiment_backlog = visual_replacements.get("[ORION_EXPERIMENT_BACKLOG]", "")
-    visual_landscape = visual_replacements.get("[ORION_VISUAL_LANDSCAPE]", "")
-    visual_evidence_flow = visual_replacements.get("[ORION_VISUAL_EVIDENCE_FLOW]", "")
-    visual_workflow = visual_replacements.get("[ORION_VISUAL_WORKFLOW]", "")
+    evidence_matrix = visual_replacements.get("[DELVE_EVIDENCE_MATRIX]", "")
+    study_landscape = visual_replacements.get("[DELVE_STUDY_LANDSCAPE]", "")
+    source_matrix = visual_replacements.get("[DELVE_SOURCE_MATRIX]", "")
+    citation_audit = visual_replacements.get("[DELVE_CITATION_AUDIT]", "")
+    experiment_backlog = visual_replacements.get("[DELVE_EXPERIMENT_BACKLOG]", "")
+    visual_landscape = visual_replacements.get("[DELVE_VISUAL_LANDSCAPE]", "")
+    visual_evidence_flow = visual_replacements.get("[DELVE_VISUAL_EVIDENCE_FLOW]", "")
+    visual_workflow = visual_replacements.get("[DELVE_VISUAL_WORKFLOW]", "")
     evidence_notes = _evidence_notes_table(cross)
     source_inventory = _source_inventory_table(summaries, bibliography)
     methodology_table = _methodology_comparison_table(summaries)
@@ -2663,16 +2663,16 @@ Visual requirements (STRICTLY CONFINED TO PART A):
 - Use Markdown tables heavily to compare studies, metrics, methodologies, or evidence quality in Part A.
 - Do NOT write raw Mermaid code yourself.
 - Instead, place these exact tokens where visuals should appear in Part A:
-  - `[ORION_STUDY_LANDSCAPE]`
-  - `[ORION_EVIDENCE_MATRIX]`
-  - `[ORION_SOURCE_MATRIX]`
-  - `[ORION_CITATION_AUDIT]`
-  - `[ORION_FINDINGS_BRIEF]`
-  - `[ORION_EXPERIMENT_BACKLOG]`
-  - `[ORION_VISUAL_LANDSCAPE]`
-  - `[ORION_VISUAL_WORKFLOW]`
-  - `[ORION_VISUAL_EVIDENCE_FLOW]`
-- ABSOLUTELY NO `[IMAGE_PROMPT]`, Mermaid code, or ORION visual tokens are allowed in Part B.
+  - `[DELVE_STUDY_LANDSCAPE]`
+  - `[DELVE_EVIDENCE_MATRIX]`
+  - `[DELVE_SOURCE_MATRIX]`
+  - `[DELVE_CITATION_AUDIT]`
+  - `[DELVE_FINDINGS_BRIEF]`
+  - `[DELVE_EXPERIMENT_BACKLOG]`
+  - `[DELVE_VISUAL_LANDSCAPE]`
+  - `[DELVE_VISUAL_WORKFLOW]`
+  - `[DELVE_VISUAL_EVIDENCE_FLOW]`
+- ABSOLUTELY NO `[IMAGE_PROMPT]`, Mermaid code, or Delve visual tokens are allowed in Part B.
 
 Quality requirements:
 - Do not include placeholder author text.
@@ -2760,7 +2760,7 @@ Rules:
 - Every body section must be multiple full paragraphs of connected academic prose. No bullet-only sections, no one-line sections.
 - Ground specific claims in specific sources with in-text citations in the required style.
 - IEEE/ACM: numbered [1], [2] in-text and a numbered reference list. APA: (Author, Year). MLA: parenthetical + Works Cited. ACADEMIC: [@AuthorYear].
-- STRICTLY TEXTUAL: no images, no Mermaid, no tables, no ORION tokens, no IMAGE_PROMPT tokens.
+- STRICTLY TEXTUAL: no images, no Mermaid, no tables, no Delve tokens, no IMAGE_PROMPT tokens.
 - Do NOT include any preface like "As an expert academic writer" or "Here is the paper". Start directly with the title."""
 
 
@@ -2956,7 +2956,7 @@ async def paper_architect_node(state: ResearchState, config: dict) -> dict:
         low = str(text or "").lower()
         if len(low.split()) < 500:
             return False
-        if "part a" in low or "orion_" in low:
+        if "part a" in low or "delve_" in low:
             return False  # Part A content leaked into the draft
         has_intro = "introduction" in low
         has_close = "conclusion" in low
@@ -3019,7 +3019,7 @@ async def paper_architect_node(state: ResearchState, config: dict) -> dict:
         )
     )
 
-    visual_replacements = _orion_visual_appendix(
+    visual_replacements = _delve_visual_appendix(
         topic=topic,
         summaries=summaries,
         gaps=gaps,
@@ -3029,9 +3029,9 @@ async def paper_architect_node(state: ResearchState, config: dict) -> dict:
         bibliography=bibliography,
         cross=cross,
     )
-    analysis_markdown = _replace_orion_visual_tokens(analysis_markdown, visual_replacements)
+    analysis_markdown = _replace_delve_visual_tokens(analysis_markdown, visual_replacements)
     analysis_markdown = _sanitize_mermaid_syntax(analysis_markdown)
-    draft_markdown = _replace_orion_visual_tokens(draft_markdown, {token: "" for token in visual_replacements})
+    draft_markdown = _replace_delve_visual_tokens(draft_markdown, {token: "" for token in visual_replacements})
     draft_markdown = _strip_mermaid_blocks(draft_markdown)
     draft_markdown = _strip_visual_placeholder_labels(draft_markdown)
 

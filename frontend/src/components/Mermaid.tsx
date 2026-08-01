@@ -4,13 +4,15 @@ import mermaid from 'mermaid';
 mermaid.initialize({
   startOnLoad: false,
   theme: 'base',
+  // Hex, not oklch: mermaid's color parser rejects oklch() and throws at init,
+  // which takes down the whole bundle. Values mirror the light --color-* tokens.
   themeVariables: {
-    primaryColor: 'oklch(0.24 0.008 265)',
-    primaryTextColor: 'oklch(0.95 0.004 265)',
-    primaryBorderColor: 'oklch(0.30 0.008 265)',
-    lineColor: 'oklch(0.58 0.010 265)',
-    secondaryColor: 'oklch(0.20 0.007 265)',
-    tertiaryColor: 'oklch(0.16 0.006 265)',
+    primaryColor: '#eeeff1',
+    primaryTextColor: '#33363d',
+    primaryBorderColor: '#dcdee1',
+    lineColor: '#8f9299',
+    secondaryColor: '#f5f6f7',
+    tertiaryColor: '#fbfbfc',
     fontFamily: 'Inter Tight, ui-sans-serif, system-ui, sans-serif',
   },
   securityLevel: 'loose',

@@ -1,5 +1,5 @@
 """
-ORION – Multi-Agent Deep Research System
+Delve – Multi-Agent Deep Research System
 ═════════════════════════════════════════
 Main FastAPI application with WebSocket support.
 
@@ -37,7 +37,7 @@ logging.basicConfig(
     format="%(asctime)s  %(name)-25s  %(levelname)-7s  %(message)s",
     datefmt="%H:%M:%S",
 )
-logger = logging.getLogger("orion.main")
+logger = logging.getLogger("delve.main")
 
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ logger = logging.getLogger("orion.main")
 async def lifespan(app: FastAPI):
     """Validate API key on startup, clean up on shutdown."""
     logger.info("=" * 60)
-    logger.info("  ORION – Multi-Agent Deep Research System")
+    logger.info("  Delve – Multi-Agent Deep Research System")
     logger.info("=" * 60)
     logger.info("Validating LLM API key...")
 
@@ -68,13 +68,13 @@ async def lifespan(app: FastAPI):
     # Shutdown
     await flush_pending_persists()
     await llm_client.close()
-    logger.info("ORION shut down cleanly")
+    logger.info("Delve shut down cleanly")
 
 
 # ── FastAPI App ───────────────────────────────────────────────────────────
 
 app = FastAPI(
-    title="ORION API",
+    title="Delve API",
     description="Multi-Agent Deep Research & Paper Drafting System",
     version="1.0.0",
     lifespan=lifespan,
@@ -174,7 +174,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 async def health_check():
     return {
         "status": "healthy",
-        "service": "ORION",
+        "service": "Delve",
         "version": "1.0.0",
     }
 

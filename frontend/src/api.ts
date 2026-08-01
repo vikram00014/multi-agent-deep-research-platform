@@ -1,7 +1,7 @@
 export const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '');
 
 /**
- * API client for ORION backend.
+ * API client for Delve backend.
  */
 export const api = {
   async startResearchAdvanced(payload: {

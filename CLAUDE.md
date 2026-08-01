@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-ORION is a multi-agent deep-research platform. A FastAPI + LangGraph backend runs an 8-stage
+Delve is a multi-agent deep-research platform. A FastAPI + LangGraph backend runs an 8-stage
 research pipeline (plan → retrieve → summarize → debate → cross-paper → gap analysis → paper), and
 a React + Vite frontend drives it with a live WebSocket feed and session history.
 
-The UI brands itself "Delve"; the codebase and backend are named ORION. Both names refer to the
-same system.
+The project was previously named ORION; that name has been fully retired. If you find it anywhere
+outside `CHANGELOG.md` history entries, it is a leftover and should be renamed to Delve.
 
 ## Documentation map
 
@@ -87,7 +87,7 @@ backend/
       pdf_export.py         Markdown → PDF via reportlab
   requirements.txt
   .env.example
-  (runtime, gitignored: orion_sessions.json, orion_checkpoints.db, chroma_data/, resources/)
+  (runtime, gitignored: delve_sessions.json, delve_checkpoints.db, chroma_data/, resources/)
 
 frontend/
   src/
@@ -137,7 +137,7 @@ planner -> retrieval -> summarizer -> proposer <-> critic (debate loop) -> cross
   scoring, off-topic drift penalties, dedup, and near-duplicate clustering. All six are enabled
   by default; per-depth budgets are hardcoded in `_depth_budgets` in `agents.py`, not config.
 - Uploaded PDFs: `services/parsing.py` (extract/chunk) → `services/vector_store.py` (ChromaDB,
-  collection `orion_papers`). The retrieval node also queries ChromaDB for uploaded-PDF chunks, and
+  collection `delve_papers`). The retrieval node also queries ChromaDB for uploaded-PDF chunks, and
   the floating research chat uses the same vector store for Deep RAG grounding.
 
 ### API & realtime
@@ -150,9 +150,9 @@ planner -> retrieval -> summarizer -> proposer <-> critic (debate loop) -> cross
 
 ### Persistence (three layers, all local files under `backend/`)
 
-1. **`orion_sessions.json`** — session metadata, controls, timeline, metrics, result payloads
+1. **`delve_sessions.json`** — session metadata, controls, timeline, metrics, result payloads
    (path via `SESSION_STORE_PATH`). Writes are debounced.
-2. **`orion_checkpoints.db`** — LangGraph SQLite checkpointer for graph state (`SQLITE_CHECKPOINT_PATH`).
+2. **`delve_checkpoints.db`** — LangGraph SQLite checkpointer for graph state (`SQLITE_CHECKPOINT_PATH`).
 3. **`resources/<session_id>/`** — per-session artifacts: `analysis.md`, `final_draft.md`, `paper.md`,
    `bibliography.json`, `paper_summaries.json`, `claim_evidence_map.json`, `gaps.json`,
    `source_counts.json`, `timeline.json`, `export_bundle.json`, `chat_history.json`, and images.
@@ -194,11 +194,11 @@ safe to regenerate.
   serialization in `research.py`, and `frontend/src/types.ts`.
 - **The backend is single-process.** Session and WebSocket state live in module-level dicts.
   Never introduce anything that assumes multiple workers without moving that state first.
-- **Runtime files are disposable:** `orion_sessions.json`, `orion_checkpoints.db`, `chroma_data/`,
+- **Runtime files are disposable:** `delve_sessions.json`, `delve_checkpoints.db`, `chroma_data/`,
   and `resources/`. Never hand-edit them; deleting them is a valid reset.
-- **Do not commit runtime state or secrets.** `.env` is gitignored. Note that
-  `backend/orion_sessions.json` and `backend/chroma_data/chroma.sqlite3` are currently tracked
-  in error and should be untracked.
+- **Do not commit runtime state or secrets.** `.env` is gitignored, as are
+  `backend/delve_sessions.json`, `backend/delve_checkpoints.db`, `backend/chroma_data/`, and
+  `backend/resources/`.
 - Update the relevant doc in the same commit as any change that invalidates it.
 
 ## Configuration

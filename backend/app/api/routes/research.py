@@ -1,5 +1,5 @@
 """
-ORION Research Routes
+Delve Research Routes
 ──────────────────────
 POST /research/start              – Start a new research session
 POST /research/{id}/cancel        – Request cancel
@@ -37,7 +37,7 @@ from app.core.config import settings
 from app.core.llm_client import llm_client
 from app.services.pdf_export import generate_research_pdf
 
-logger = logging.getLogger("orion.api.research")
+logger = logging.getLogger("delve.api.research")
 
 router = APIRouter(prefix="/research", tags=["research"])
 
@@ -413,7 +413,7 @@ def _build_export_bundle(session_id: str, session: dict[str, Any]) -> dict[str, 
     }
     bibtex_entries = []
     for idx, b in enumerate(bibliography, start=1):
-        key = f"orion{idx}"
+        key = f"delve{idx}"
         bibtex_entries.append(
             f"@article{{{key}, title={{{b.get('title','')}}}, author={{{b.get('authors','')}}}, year={{{b.get('year','')}}}, url={{{b.get('url','')}}}, doi={{{b.get('doi','')}}}}}"
         )
@@ -886,7 +886,7 @@ async def chat_with_research(session_id: str, request: ResearchChatRequest) -> R
                 rag_context += f"- {c['text']}\n"
 
     system_prompt = (
-        "You are ORION Research Discussion Assistant. You answer questions about the selected research session. "
+        "You are Delve Research Discussion Assistant. You answer questions about the selected research session. "
         "Stay grounded in the provided session context and the relevant RAG document excerpts. Be concrete and analytical. "
         "If information is missing in session context, clearly say it is not available yet."
     )
@@ -1026,7 +1026,7 @@ async def get_presentation_slides(session_id: str) -> str:
 <html lang="en">
     <head>
         <meta charset="utf-8">
-        <title>{topic} - ORION Presentation</title>
+        <title>{topic} - Delve Presentation</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reset.css">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.css">

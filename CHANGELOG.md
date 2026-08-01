@@ -1,12 +1,29 @@
 # Changelog
 
-All notable changes to ORION are documented here. Format loosely follows
+All notable changes to Delve are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Prior to 2026-07-28 this project had no changelog. The entries below are reconstructed from git
 history and are therefore coarse; entries from here on should be written as changes land.
 
 ## [Unreleased]
+
+### Changed
+- **Renamed the project from ORION to Delve.** The UI already branded itself Delve while the
+  codebase used ORION; the two names are now one. Covers loggers (`delve.*`), the FastAPI
+  title, the `/health` service name, HTTP `User-Agent` strings, paper placeholder tokens
+  (`[DELVE_*]`), the ChromaDB collection (`delve_papers`), and the runtime state files
+  (`delve_sessions.json`, `delve_checkpoints.db`). Existing state files were renamed on disk,
+  so prior sessions carry over. Bibtex keys generated before the rename keep their `orion<n>`
+  prefix in already-exported bundles; new exports use `delve<n>`.
+- **UI converted from a dark to a light theme.** Every component consumes the semantic
+  `--color-*` tokens with no hardcoded colors, so this was a token-only inversion in
+  `index.css` plus a matching Mermaid palette and `color-scheme: light`.
+
+### Fixed
+- `Mermaid.tsx` passed `oklch()` colors to `mermaid.initialize()`, which its color parser
+  cannot read. The throw happened at module import, so it took down the entire bundle and
+  rendered a blank page rather than just a broken diagram. Theme variables are now hex.
 
 ### Changed
 - **LLM provider migrated from Google Vertex AI (Gemini) to the Anthropic Messages API.**
@@ -30,7 +47,7 @@ history and are therefore coarse; entries from here on should be written as chan
   still bounding total attempts so a sustained LLM outage cannot loop forever.
 - Debounced session-store writes are now cleaned up, and `flush_pending_persists()` forces a
   final write on shutdown so in-flight state is not lost.
-- The Crossref `User-Agent` placeholder `orion@example.com` is now the optional
+- The Crossref `User-Agent` placeholder `user@example.com` is now the optional
   `CROSSREF_CONTACT_EMAIL` setting, omitted entirely when blank.
 
 ### Added
@@ -63,7 +80,7 @@ boots cleanly; frontend builds with zero TypeScript errors.
   `FeedItem.icon` and the dead `getIcon` heuristic in `useWebSocket`
 - Dependencies: `class-variance-authority`, `clsx`, `tailwind-merge` — declared but never
   imported
-- Untracked `backend/orion_sessions.json` and `backend/chroma_data/chroma.sqlite3` from git
+- Untracked `backend/delve_sessions.json` and `backend/chroma_data/chroma.sqlite3` from git
   (kept on disk); they matched `.gitignore` but were tracked from the initial commit
 - Documentation: `PROJECT_DETAILED_EXPLANATION.md` (described the removed components, the
   Analytics tab, and only three retrieval sources) and `RUN_COMMANDS.md` (duplicated the README

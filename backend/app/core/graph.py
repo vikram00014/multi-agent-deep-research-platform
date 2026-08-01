@@ -1,5 +1,5 @@
 """
-ORION LangGraph Workflow
+Delve LangGraph Workflow
 ─────────────────────────
 Defines the full research pipeline as a LangGraph StateGraph.
 
@@ -25,12 +25,12 @@ from app.core.agents import (
     debate_should_continue,
 )
 
-logger = logging.getLogger("orion.graph")
+logger = logging.getLogger("delve.graph")
 
 
 def build_research_graph(checkpointer: Any = None) -> Any:
     """
-    Build and compile the ORION research graph.
+    Build and compile the Delve research graph.
 
     Returns a compiled LangGraph that can be invoked with a ResearchState.
     """

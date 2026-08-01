@@ -1,5 +1,5 @@
 """
-ORION Retrieval Services
+Delve Retrieval Services
 ─────────────────────────
 Fetches papers from ArXiv, Semantic Scholar, and web via Tavily.
 All methods are async and return normalized paper dicts.
@@ -16,7 +16,7 @@ import httpx
 
 from app.core.config import settings
 
-logger = logging.getLogger("orion.retrieval")
+logger = logging.getLogger("delve.retrieval")
 
 
 def _author_string_from_parts(names: list[str], limit: int = 5) -> str:
@@ -201,7 +201,7 @@ async def fetch_openalex(query: str, max_results: int = 10) -> list[dict]:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=30.0, headers={"User-Agent": "ORION/1.0"}) as client:
+        async with httpx.AsyncClient(timeout=30.0, headers={"User-Agent": "Delve/1.0"}) as client:
             resp = await client.get(url, params=params)
             if resp.status_code != 200:
                 logger.error("OpenAlex HTTP %s", resp.status_code)
@@ -249,7 +249,7 @@ async def fetch_crossref(query: str, max_results: int = 10) -> list[dict]:
     }
     contact = (settings.crossref_contact_email or "").strip()
     headers = {
-        "User-Agent": f"ORION/1.0 (mailto:{contact})" if contact else "ORION/1.0",
+        "User-Agent": f"Delve/1.0 (mailto:{contact})" if contact else "Delve/1.0",
     }
 
     try:
@@ -314,7 +314,7 @@ async def fetch_github_repositories(query: str, max_results: int = 5) -> list[di
     }
     headers = {
         "Accept": "application/vnd.github+json",
-        "User-Agent": "ORION/1.0",
+        "User-Agent": "Delve/1.0",
     }
 
     try:
