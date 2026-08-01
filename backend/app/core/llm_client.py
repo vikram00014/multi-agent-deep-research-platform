@@ -187,6 +187,16 @@ class AnthropicClient:
                 logger.info("LLM API key validated successfully (auth via %s).", scheme)
                 return True
 
+            if resp.status_code == 402:
+                # Authenticated fine, just out of quota. The key is valid; research
+                # runs will fail until the window resets, which _send_with_retry
+                # reports with the gateway's own message.
+                logger.warning(
+                    "LLM key is valid (auth via %s) but quota is exhausted: %s",
+                    scheme, resp.text[:200],
+                )
+                return True
+
             if resp.status_code in (401, 403):
                 logger.warning("Auth via %s rejected (HTTP %s).", scheme, resp.status_code)
                 continue
