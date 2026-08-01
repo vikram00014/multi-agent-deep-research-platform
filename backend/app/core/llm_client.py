@@ -4,7 +4,7 @@ Anthropic Messages API Client
 Async HTTP client for Claude models over the Anthropic Messages API.
 
 Key behaviours:
-  • Auth via x-api-key header, with automatic fallback to Authorization: Bearer
+  • Auth via Authorization: Bearer, falling back to x-api-key
   • Exponential backoff on 429 / 5xx errors
   • Extended thinking disabled for JSON requests so the whole budget goes to output
 """
@@ -19,9 +19,6 @@ from app.core.config import settings
 
 logger = logging.getLogger("orion.llm")
 
-# Anthropic requires max_tokens > thinking budget, and a minimum budget of 1024.
-_MIN_THINKING_BUDGET = 1024
-
 
 class AnthropicClient:
     """Async wrapper around the Anthropic Messages API."""
@@ -30,8 +27,10 @@ class AnthropicClient:
         self._url = settings.messages_url
         self._client: Optional[httpx.AsyncClient] = None
         self._client_lock = asyncio.Lock()
-        # Some gateways expect Bearer instead of x-api-key. Probed on first failure.
-        self._use_bearer = False
+        # Bearer first: the Aerolink gateway accepts it, while x-api-key hangs
+        # instead of returning 401. Validation falls back to x-api-key for
+        # gateways (and Anthropic direct) that expect the native header.
+        self._use_bearer = True
 
     def _build_headers(self) -> dict:
         auth = (
@@ -50,7 +49,9 @@ class AnthropicClient:
             async with self._client_lock:
                 # Re-check inside the lock in case another coroutine created it.
                 if self._client is None or self._client.is_closed:
-                    self._client = httpx.AsyncClient(timeout=httpx.Timeout(120.0))
+                    self._client = httpx.AsyncClient(
+                        timeout=httpx.Timeout(settings.llm_timeout_seconds)
+                    )
         return self._client
 
     async def close(self):
@@ -126,6 +127,8 @@ class AnthropicClient:
         max_output_tokens: int,
         enable_thinking: bool,
     ) -> str:
+        # `temperature` is accepted for call-site compatibility but never sent —
+        # the API rejects it as deprecated for current Claude models.
         if response_mime_type == "application/json":
             # Callers parse with helpers that already strip markdown fences and
             # accept either an object or an array, so no output steering is needed.
@@ -135,18 +138,14 @@ class AnthropicClient:
             "model": settings.llm_model,
             "max_tokens": max_output_tokens,
             "messages": [{"role": "user", "content": user_prompt}],
-            "temperature": temperature,
         }
 
         if system_prompt:
             payload["system"] = system_prompt
 
         if enable_thinking:
-            budget = max(_MIN_THINKING_BUDGET, min(2048, max_output_tokens - 1))
-            if budget < max_output_tokens:
-                payload["thinking"] = {"type": "enabled", "budget_tokens": budget}
-                # Extended thinking requires the default temperature.
-                payload.pop("temperature", None)
+            payload["thinking"] = {"type": "adaptive"}
+            payload["output_config"] = {"effort": settings.llm_thinking_effort}
 
         return await self._send_with_retry(payload)
 
@@ -154,8 +153,10 @@ class AnthropicClient:
 
     async def validate_api_key(self) -> bool:
         """
-        Validate the API key with a minimal call. Retries once with a Bearer
-        header so either gateway auth convention works.
+        Validate the API key with a minimal call, trying both auth conventions.
+        A scheme the gateway does not accept may hang rather than return 401, so
+        each attempt is independently timed out and a timeout is treated as a
+        failed scheme rather than a fatal error.
         Returns True if the key is accepted.
         """
         payload = {
@@ -164,30 +165,40 @@ class AnthropicClient:
             "messages": [{"role": "user", "content": "OK"}],
         }
 
-        try:
-            client = await self._get_client()
-            for use_bearer in (self._use_bearer, not self._use_bearer):
-                self._use_bearer = use_bearer
-                resp = await client.post(self._url, json=payload, headers=self._build_headers())
+        client = await self._get_client()
+        for use_bearer in (self._use_bearer, not self._use_bearer):
+            scheme = "Authorization: Bearer" if use_bearer else "x-api-key"
+            self._use_bearer = use_bearer
+            try:
+                resp = await client.post(
+                    self._url,
+                    json=payload,
+                    headers=self._build_headers(),
+                    timeout=30.0,
+                )
+            except httpx.TimeoutException:
+                logger.warning("Auth via %s timed out; trying the other scheme.", scheme)
+                continue
+            except Exception as e:
+                logger.error("API key validation exception (%s): %s", scheme, e)
+                continue
 
-                if resp.status_code == 200:
-                    scheme = "Authorization: Bearer" if use_bearer else "x-api-key"
-                    logger.info("LLM API key validated successfully (auth via %s).", scheme)
-                    return True
+            if resp.status_code == 200:
+                logger.info("LLM API key validated successfully (auth via %s).", scheme)
+                return True
 
-                if resp.status_code not in (401, 403):
-                    logger.error(
-                        "API key validation failed: HTTP %s - %s",
-                        resp.status_code, resp.text[:300],
-                    )
-                    return False
+            if resp.status_code in (401, 403):
+                logger.warning("Auth via %s rejected (HTTP %s).", scheme, resp.status_code)
+                continue
 
-            logger.error("API key rejected with both x-api-key and Bearer auth.")
+            logger.error(
+                "API key validation failed: HTTP %s - %s",
+                resp.status_code, resp.text[:300],
+            )
             return False
 
-        except Exception as e:
-            logger.error("API key validation exception: %s", e)
-            return False
+        logger.error("API key rejected with both x-api-key and Bearer auth.")
+        return False
 
     # ── Internal: Retry Logic ─────────────────────────────────────────────
 
@@ -215,6 +226,13 @@ class AnthropicClient:
                         await asyncio.sleep(wait)
                     continue
 
+                if resp.status_code == 402:
+                    # Quota/balance exhausted. Retrying cannot help.
+                    logger.error("LLM quota exhausted: %s", resp.text[:300])
+                    raise RuntimeError(
+                        f"LLM quota or balance exhausted (HTTP 402): {resp.text[:300]}"
+                    )
+
                 if resp.status_code != 200:
                     error_text = resp.text[:500]
                     raise RuntimeError(
@@ -226,7 +244,8 @@ class AnthropicClient:
             except httpx.TimeoutException:
                 last_error = "Request timed out"
                 logger.warning("Timeout on attempt %d/%d", attempt + 1, max_retries)
-                await asyncio.sleep(2 ** attempt)
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)
 
             except RuntimeError:
                 raise
@@ -234,7 +253,8 @@ class AnthropicClient:
             except Exception as e:
                 last_error = str(e)
                 logger.error("Unexpected error: %s", e)
-                await asyncio.sleep(2 ** attempt)
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)
 
         raise RuntimeError(f"LLM API failed after {max_retries} retries: {last_error}")
 

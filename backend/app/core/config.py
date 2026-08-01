@@ -30,6 +30,15 @@ class Settings(BaseSettings):
         default="2023-06-01",
         description="Anthropic API version header.",
     )
+    llm_thinking_effort: str = Field(
+        default="medium",
+        description="Reasoning effort when thinking is enabled: low, medium, or high.",
+    )
+    llm_timeout_seconds: float = Field(
+        default=600.0,
+        description="Per-request timeout. Long-form drafting (16k output tokens) can run "
+                    "several minutes, so this is generous by design.",
+    )
 
     # ── Tavily Web Search ─────────────────────────────────────────────────
     tavily_api_key: str = Field(
