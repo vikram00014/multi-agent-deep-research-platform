@@ -21,9 +21,23 @@ history and are therefore coarse; entries from here on should be written as chan
   `index.css` plus a matching Mermaid palette and `color-scheme: light`.
 
 ### Fixed
+- The live feed always fell back to HTTP polling in dev. Vite's `/ws` proxy accepts the
+  upgrade from some clients but drops it from the browser, so the socket never reached the
+  backend. In dev the WebSocket now connects straight to `127.0.0.1:8000`; production is
+  unchanged because the backend serves the app itself. The dev server is also pinned to
+  IPv4, since Vite's default bound `[::1]` only while the proxy targeted `127.0.0.1`.
+- `useWebSocket` opened a socket after an `await`, so React StrictMode's double-mount could
+  orphan it — nothing held the reference, it closed, and the reconnect/fallback path ran
+  even though the server was healthy. Stale sockets no longer clobber live state.
 - `Mermaid.tsx` passed `oklch()` colors to `mermaid.initialize()`, which its color parser
   cannot read. The throw happened at module import, so it took down the entire bundle and
   rendered a blank page rather than just a broken diagram. Theme variables are now hex.
+
+### Added
+- `docs/aerolink.md` — guide to calling the Aerolink gateway from any project: auth scheme,
+  the four current-model API gotchas, error semantics (402 means a valid key with no
+  balance; 400 `anomaly` is a per-key fingerprint block), and the risks of routing data
+  through an unofficial proxy.
 
 ### Changed
 - **LLM provider migrated from Google Vertex AI (Gemini) to the Anthropic Messages API.**

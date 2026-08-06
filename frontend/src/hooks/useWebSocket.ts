@@ -10,6 +10,15 @@ function getWebSocketUrl(sessionId: string) {
   }
 
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+
+  // Dev: connect straight to the backend. Vite's proxy accepts the upgrade from
+  // some clients but drops it from the browser, so the feed silently falls back
+  // to polling. In production the app is served by the backend itself, so
+  // window.location.host is already correct.
+  if (import.meta.env.DEV) {
+    return `${protocol}//127.0.0.1:8000/ws/${sessionId}`;
+  }
+
   return `${protocol}//${window.location.host}/ws/${sessionId}`;
 }
 
@@ -67,6 +76,12 @@ export function useWebSocket(sessionId: string | null) {
     }
     const url = getWebSocketUrl(sessionId);
 
+    // The status pre-flight above is async, so the effect cleanup may already
+    // have run (React StrictMode double-mounts). Opening a socket now would
+    // orphan it: nothing holds a reference, so it closes and trips the
+    // reconnect/fallback path even though the server is healthy.
+    if (activeSessionRef.current !== sessionId) return;
+
     try {
       const ws = new WebSocket(url);
       wsRef.current = ws;
@@ -97,6 +112,7 @@ export function useWebSocket(sessionId: string | null) {
       };
 
       ws.onclose = () => {
+        if (wsRef.current !== ws) return; // superseded by a newer socket
         setIsConnected(false);
         wsRef.current = null;
 
@@ -112,6 +128,7 @@ export function useWebSocket(sessionId: string | null) {
       };
 
       ws.onerror = () => {
+        if (wsRef.current !== ws) return;
         setWarning('Live updates unavailable, using polling fallback');
       };
 
@@ -172,6 +189,7 @@ export function useWebSocket(sessionId: string | null) {
     }
 
     return () => {
+      activeSessionRef.current = null;
       if (connectTimeoutRef.current) {
         window.clearTimeout(connectTimeoutRef.current);
         connectTimeoutRef.current = null;

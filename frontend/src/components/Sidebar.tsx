@@ -123,12 +123,12 @@ export function Sidebar({ currentSessionId, onSelectSession, onNewSession }: Sid
                       <span className={`h-2 w-2 shrink-0 rounded-full ${statusDot(session.status)}`} />
                       <span className="truncate text-sm font-medium text-ink">{session.topic}</span>
                     </div>
-                    <div className="ml-4 mt-1 flex items-center gap-2 text-[11px] text-ink-mute">
+                    <div className="ml-4 mt-1 flex items-center gap-2 text-[12px] text-ink-mute">
                       <span className="font-mono uppercase tracking-[0.12em]">{session.session_id.slice(0, 8)}</span>
                       <span aria-hidden="true">/</span>
                       <span>{relativeTime(session.updated_at)}</span>
                     </div>
-                    <div className="ml-4 mt-1 truncate text-[11px] text-ink-mute">{formatStep(session.current_step)}</div>
+                    <div className="ml-4 mt-1 truncate text-[12px] text-ink-mute">{formatStep(session.current_step)}</div>
                   </button>
                   <button
                     type="button"

@@ -118,12 +118,12 @@ export function PdfUpload({ onFilesChange }: PdfUploadProps) {
           {files.map((file) => (
             <div key={file.file_id} className="flex items-center gap-2 border-b border-line py-2">
               <FileText className="h-3.5 w-3.5 shrink-0 text-ink-mute" />
-              <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-ink-soft">{file.filename}</span>
+              <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink-soft">{file.filename}</span>
               {file.status === 'uploading' ? (
-                <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-accent">uploading</span>
+                <span className="font-mono text-[12px] uppercase tracking-[0.12em] text-accent">uploading</span>
               ) : null}
               {file.status === 'done' ? (
-                <span className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.12em] text-ok">
+                <span className="inline-flex items-center gap-1 font-mono text-[12px] uppercase tracking-[0.12em] text-ok">
                   <Check className="h-3 w-3" />
                   {file.chunks_stored} chunks
                 </span>

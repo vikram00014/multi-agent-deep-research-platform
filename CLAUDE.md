@@ -26,6 +26,7 @@ Documentation is the source of truth. Never rely on chat history from a previous
 | `docs/database.md` | The three persistence layers and their record shapes |
 | `docs/ui.md` | Frontend navigation model, components, state, known gaps |
 | `docs/deployment.md` | Local setup, configuration, deployment blockers |
+| `docs/aerolink.md` | Aerolink gateway: auth scheme, API gotchas, error semantics, risks |
 
 Keep these current. If a change makes a doc statement false, fix the doc in the same commit.
 

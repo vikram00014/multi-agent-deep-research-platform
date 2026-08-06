@@ -56,6 +56,7 @@ Documentation is the source of truth for this project.
 | [docs/database.md](docs/database.md) | The persistence layers and their record shapes |
 | [docs/ui.md](docs/ui.md) | Frontend navigation model, components, state |
 | [docs/deployment.md](docs/deployment.md) | Setup, configuration reference, deployment blockers |
+| [docs/aerolink.md](docs/aerolink.md) | Connecting to the Aerolink LLM gateway — auth, gotchas, error handling |
 
 ## Status
 

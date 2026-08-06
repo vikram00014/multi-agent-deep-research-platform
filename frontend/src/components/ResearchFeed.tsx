@@ -78,7 +78,7 @@ function EventCard({ item, onRetry }: { item: FeedItem; onRetry?: () => void }) 
     <div className={`rounded-card border bg-surface px-4 py-3 ${isError ? 'border-err' : 'border-line'} ${isGap ? 'border-l-2 border-l-warn' : ''}`}>
       <div className="mb-1 flex items-center justify-between gap-3">
         <p className={`mono-kicker ${eventKickerClass(item.type)}`}>{item.type.replaceAll('_', ' ')}</p>
-        <time className="font-mono text-[11px] text-ink-mute">
+        <time className="font-mono text-[12px] text-ink-mute">
           {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </time>
       </div>
@@ -89,7 +89,7 @@ function EventCard({ item, onRetry }: { item: FeedItem; onRetry?: () => void }) 
           <p className="truncate text-xs text-ink-mute">
             {compactAuthors(item.data?.authors)} / {String(item.data?.year || 'n.d.')}
           </p>
-          <span className="inline-flex rounded-card border border-line px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-mute">
+          <span className="inline-flex rounded-card border border-line px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-mute">
             {String(item.data?.source || 'source')}
           </span>
         </div>
@@ -218,7 +218,7 @@ export function ResearchFeed({
                       {stage.key === 'synthesis' && debateRounds.length > 0 ? (
                         <div className="mt-2 space-y-1 border-l border-line pl-3">
                           {debateRounds.map((round) => (
-                            <p key={round} className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink-mute">
+                            <p key={round} className="font-mono text-[12px] uppercase tracking-[0.12em] text-ink-mute">
                               round {round}
                             </p>
                           ))}
