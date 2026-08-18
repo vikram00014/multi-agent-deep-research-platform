@@ -1,34 +1,47 @@
 import { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Check, Copy, Download, FileText } from 'lucide-react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { Check, Copy, Download, FileText, Sparkles, BookOpen, ArrowUp } from 'lucide-react';
+import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
 import { api } from '../api';
 import type { PaperResult } from '../types';
-import { Mermaid } from './Mermaid';
 
 interface PaperViewerProps {
   sessionId: string | null;
   isComplete: boolean;
+  paper?: PaperResult | null;
 }
 
 function extractHeadings(markdown: string) {
   return markdown
     .split('\n')
-    .map((line) => line.match(/^#{1,3}\s+(.+)$/)?.[1]?.trim())
-    .filter((line): line is string => Boolean(line))
-    .slice(0, 12);
+    .map((line) => {
+      const match = line.match(/^(#{1,3})\s+(.+)$/);
+      if (!match) return null;
+      return {
+        level: match[1].length,
+        text: match[2].trim().replace(/\*\*/g, ''),
+        id: match[2].trim().toLowerCase().replace(/[^\w]+/g, '-'),
+      };
+    })
+    .filter((h): h is { level: number; text: string; id: string } => Boolean(h))
+    .slice(0, 24);
 }
 
-export function PaperViewer({ sessionId, isComplete }: PaperViewerProps) {
+export function PaperViewer({ sessionId, isComplete, paper: paperProp }: PaperViewerProps) {
   const reduceMotion = useReducedMotion();
-  const [paper, setPaper] = useState<PaperResult | null>(null);
+  const [paper, setPaper] = useState<PaperResult | null>(paperProp ?? null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeHeadingId, setActiveHeadingId] = useState<string>('');
 
   useEffect(() => {
+    if (paperProp) {
+      setPaper(paperProp);
+      return;
+    }
     if (!sessionId || !isComplete) return;
     setLoading(true);
     setError(null);
@@ -36,24 +49,10 @@ export function PaperViewer({ sessionId, isComplete }: PaperViewerProps) {
       .then(setPaper)
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load paper'))
       .finally(() => setLoading(false));
-  }, [sessionId, isComplete]);
+  }, [sessionId, isComplete, paperProp]);
 
   const manuscript = paper?.final_draft || paper?.paper || '';
   const headings = useMemo(() => extractHeadings(manuscript), [manuscript]);
-
-  const markdownComponents: Components = {
-    code({ className, children, ...props }) {
-      const match = /language-(\w+)/.exec(className || '');
-      if (match?.[1] === 'mermaid') {
-        return <Mermaid chart={String(children).replace(/\n$/, '')} />;
-      }
-      return (
-        <code className={className} {...props}>
-          {children}
-        </code>
-      );
-    },
-  };
 
   const handleCopy = async () => {
     if (!manuscript) return;
@@ -62,24 +61,72 @@ export function PaperViewer({ sessionId, isComplete }: PaperViewerProps) {
     window.setTimeout(() => setCopied(false), 1800);
   };
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     if (!sessionId) return;
     setDownloading(true);
-    const anchor = document.createElement('a');
-    anchor.href = api.paperPdfDownloadUrl(sessionId);
-    anchor.download = `delve-paper-${sessionId.slice(0, 8)}.pdf`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    window.setTimeout(() => setDownloading(false), 1200);
+    try {
+      const blob = await api.downloadPaperPdf(sessionId);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'delve-research-paper.pdf';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const scrollToHeading = (id: string) => {
+    setActiveHeadingId(id);
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const scrollToTop = () => {
+    const container = document.getElementById('paper-scroll-container');
+    if (container) {
+      container.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const markdownComponents: Components = {
+    h1({ children, ...props }) {
+      const text = String(children);
+      const id = text.toLowerCase().replace(/[^\w]+/g, '-');
+      return <h1 id={id} {...props}>{children}</h1>;
+    },
+    h2({ children, ...props }) {
+      const text = String(children);
+      const id = text.toLowerCase().replace(/[^\w]+/g, '-');
+      return <h2 id={id} {...props}>{children}</h2>;
+    },
+    h3({ children, ...props }) {
+      const text = String(children);
+      const id = text.toLowerCase().replace(/[^\w]+/g, '-');
+      return <h3 id={id} {...props}>{children}</h3>;
+    },
+    code({ className, children, ...props }) {
+      return (
+        <code className={className} {...props}>
+          {children}
+        </code>
+      );
+    },
   };
 
   if (!sessionId || (!isComplete && !loading)) {
     return (
       <div className="flex h-full items-center justify-center px-4">
         <div className="max-w-sm text-center">
-          <FileText className="mx-auto mb-4 h-8 w-8 text-ink-mute" />
-          <p className="text-sm font-medium text-ink-soft">The paper will appear here when the run completes.</p>
+          <FileText className="mx-auto mb-4 h-8 w-8 opacity-40" style={{ color: 'var(--color-ink-mute)' }} />
+          <p className="text-sm font-medium" style={{ color: 'var(--color-ink-soft)' }}>
+            The research manuscript will render here when generation completes.
+          </p>
         </div>
       </div>
     );
@@ -87,8 +134,11 @@ export function PaperViewer({ sessionId, isComplete }: PaperViewerProps) {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center px-4 text-sm text-ink-mute">
-        Loading paper...
+      <div className="flex h-full items-center justify-center px-4">
+        <div className="text-center space-y-3">
+          <div className="loading-dots mx-auto"><span/><span/><span/></div>
+          <p className="text-xs" style={{ color: 'var(--color-ink-mute)' }}>Rendering manuscript...</p>
+        </div>
       </div>
     );
   }
@@ -96,8 +146,9 @@ export function PaperViewer({ sessionId, isComplete }: PaperViewerProps) {
   if (error) {
     return (
       <div className="flex h-full items-center justify-center px-4">
-        <div className="rounded-card border border-err bg-err/10 px-4 py-3 text-sm text-err">
-          {error}
+        <div className="rounded-xl border border-err bg-err/10 px-5 py-4 text-xs text-err max-w-md">
+          <p className="font-semibold mb-1">Failed to load paper</p>
+          <p>{error}</p>
         </div>
       </div>
     );
@@ -105,64 +156,114 @@ export function PaperViewer({ sessionId, isComplete }: PaperViewerProps) {
 
   if (!paper || !manuscript.trim()) {
     return (
-      <div className="flex h-full items-center justify-center px-4 text-sm text-ink-mute">
+      <div className="flex h-full items-center justify-center px-4 text-xs" style={{ color: 'var(--color-ink-mute)' }}>
         No manuscript text was returned for this session.
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-y-auto px-4 py-8">
-      <div className="mx-auto max-w-[1120px]">
-        <div className="mb-8 flex items-start justify-between gap-4 border-b border-line pb-5">
+    <div id="paper-scroll-container" className="h-full overflow-y-auto px-4 sm:px-6 py-6 sm:py-8 relative">
+      <div className="mx-auto max-w-[1160px]">
+        {/* Header bar */}
+        <motion.div 
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b pb-5" 
+          style={{ borderColor: 'var(--color-line)' }}
+        >
           <div>
-            <p className="mono-kicker mb-2">Final paper</p>
-            <div className="flex flex-wrap gap-2 text-xs text-ink-mute">
-              <span className="rounded-card border border-line px-2 py-1 font-mono uppercase tracking-[0.12em]">
-                {String(paper.paper_format || 'academic')}
+            <p className="mono-kicker mb-1.5">Academic Publication Manuscript</p>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="badge badge-blue">
+                {String(paper.paper_format || 'IEEE').toUpperCase()} Standard
               </span>
-              <span className="rounded-card border border-line px-2 py-1">
-                {paper.verified_citations ?? paper.bibliography?.length ?? 0} verified sources
+              <span className="badge badge-pink">
+                {paper.verified_citations ?? paper.bibliography?.length ?? 0} Citations Verified
               </span>
-              <span className="rounded-card border border-line px-2 py-1">
-                {paper.debate_rounds ?? 0} debate rounds
+              <span className="badge badge-green">
+                Peer-Debated ({paper.debate_rounds ?? 2} Rounds)
               </span>
             </div>
           </div>
-          <div className="flex shrink-0 gap-2">
-            <button type="button" onClick={handleCopy} className="control-button">
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              {copied ? 'Copied' : 'Copy'}
-            </button>
-            <button type="button" onClick={handleDownloadPdf} className="control-button control-button-primary">
+          <div className="flex shrink-0 gap-2 flex-wrap">
+            <motion.button 
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              type="button" 
+              onClick={handleCopy} 
+              className="control-button text-xs font-semibold flex-1 sm:flex-none justify-center"
+            >
+              {copied ? <Check className="h-3.5 w-3.5 text-ok" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? 'Copied to Clipboard' : 'Copy Markdown'}
+            </motion.button>
+            <motion.button 
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              type="button" 
+              onClick={handleDownloadPdf} 
+              className="control-button control-button-primary text-xs font-semibold flex-1 sm:flex-none justify-center"
+            >
               <Download className="h-3.5 w-3.5" />
-              {downloading ? 'Preparing' : 'PDF'}
-            </button>
+              {downloading ? 'Exporting PDF…' : 'Download PDF'}
+            </motion.button>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="grid gap-10 xl:grid-cols-[1fr_220px]">
-          <motion.article
-            initial={reduceMotion ? false : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: reduceMotion ? 0 : 0.2 }}
-            className="paper-body mx-auto w-full"
+        {/* Paper Content & Table of Contents */}
+        <div className="grid gap-6 xl:gap-10 xl:grid-cols-[1fr_260px]">
+          {/* Main Paper Article */}
+          <motion.div
+            initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="card p-5 sm:p-8 md:p-12 shadow-md"
+            style={{ background: 'var(--color-surface)' }}
           >
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-              {manuscript}
-            </ReactMarkdown>
-          </motion.article>
+            <article className="paper-body mx-auto w-full">
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                {manuscript}
+              </ReactMarkdown>
+            </article>
+          </motion.div>
 
+          {/* Table of Contents Sidebar */}
           <aside className="hidden xl:block">
-            <div className="sticky top-8 border-l border-line pl-4">
-              <p className="mono-kicker mb-3">Contents</p>
-              <div className="space-y-2">
-                {headings.length > 0 ? headings.map((heading) => (
-                  <p key={heading} className="line-clamp-2 text-xs leading-5 text-ink-mute">
-                    {heading}
-                  </p>
-                )) : (
-                  <p className="text-xs text-ink-mute">No headings detected.</p>
+            <div className="sticky top-8 card p-4 shadow-sm" style={{ background: 'var(--color-surface)' }}>
+              <div className="flex items-center justify-between gap-1.5 mb-3 border-b pb-2" style={{ borderColor: 'var(--color-line)' }}>
+                <div className="flex items-center gap-1.5">
+                  <BookOpen size={13} color="var(--color-blue)" />
+                  <p className="mono-kicker text-[10px]">Table of Contents</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={scrollToTop}
+                  className="text-[11px] font-semibold hover:underline flex items-center gap-0.5"
+                  style={{ color: 'var(--color-blue)' }}
+                >
+                  <ArrowUp size={10} /> Top
+                </button>
+              </div>
+              <div className="space-y-1 max-h-[calc(100vh-14rem)] overflow-y-auto pr-1">
+                {headings.length > 0 ? headings.map((h) => {
+                  const isSelected = activeHeadingId === h.id;
+                  return (
+                    <button
+                      key={h.id}
+                      onClick={() => scrollToHeading(h.id)}
+                      className="block text-left text-xs leading-snug transition-all rounded-md px-2 py-1.5 w-full truncate"
+                      style={{
+                        paddingLeft: h.level === 2 ? '0.75rem' : h.level === 3 ? '1.25rem' : '0.5rem',
+                        color: isSelected ? 'var(--color-blue)' : 'var(--color-ink-soft)',
+                        background: isSelected ? 'rgba(79,70,229,0.08)' : 'transparent',
+                        fontWeight: h.level === 1 ? 700 : h.level === 2 ? 600 : 400,
+                      }}
+                    >
+                      {h.text}
+                    </button>
+                  );
+                }) : (
+                  <p className="text-xs" style={{ color: 'var(--color-ink-mute)' }}>No section headers found.</p>
                 )}
               </div>
             </div>

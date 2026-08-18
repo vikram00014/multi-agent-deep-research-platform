@@ -45,6 +45,30 @@ def extract_text_from_pdf(file_data: bytes) -> str:
         raise ValueError(f"Could not extract text from PDF: {e}")
 
 
+def inspect_pdf(file_data: bytes, *, max_pages: int, max_characters: int) -> tuple[int, str]:
+    """Bound PDF extraction so hostile but small PDFs cannot exhaust the API."""
+    try:
+        reader = PdfReader(io.BytesIO(file_data))
+        page_count = len(reader.pages)
+        if page_count > max_pages:
+            raise ValueError(f"PDF has {page_count} pages; maximum is {max_pages}")
+        text_parts: list[str] = []
+        total = 0
+        for page in reader.pages:
+            page_text = page.extract_text() or ""
+            total += len(page_text)
+            if total > max_characters:
+                raise ValueError(f"Extracted PDF text exceeds the {max_characters} character limit")
+            if page_text:
+                text_parts.append(page_text)
+        return page_count, "\n\n".join(text_parts)
+    except ValueError:
+        raise
+    except Exception as exc:
+        logger.error("PDF inspection failed: %s", exc)
+        raise ValueError(f"Could not extract text from PDF: {exc}") from exc
+
+
 def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
     """
     Split text into overlapping chunks.

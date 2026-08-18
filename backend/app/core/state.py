@@ -83,3 +83,4 @@ class ResearchState(TypedDict, total=False):
 
     # ── Session ───────────────────────────────────────────────────────────
     session_id: str
+    owner_id: str

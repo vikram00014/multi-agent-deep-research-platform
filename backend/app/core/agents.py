@@ -23,9 +23,6 @@ import logging
 import math
 import re
 import uuid
-import base64
-import aiofiles
-from pathlib import Path
 from collections import Counter
 from typing import Any
 
@@ -41,7 +38,7 @@ from app.services.retrieval import (
     fetch_web_tavily,
     deduplicate_papers,
 )
-from app.services.vector_store import vector_store
+from app.services.supabase_vectors import query_uploaded_documents
 
 logger = logging.getLogger("delve.agents")
 
@@ -301,10 +298,14 @@ def _citation_marker_map(bibliography: list[dict[str, Any]]) -> dict[str, int]:
     return mapping
 
 def _strip_reference_tail(markdown: str) -> str:
+    """Safely strip only the trailing References / Works Cited section at the very end of the manuscript."""
     if not markdown:
         return ""
-    pattern = r"(?is)\n(?:#+\s*)?(references|works cited)\b.*$"
-    return re.sub(pattern, "", markdown).rstrip()
+    matches = list(re.finditer(r"(?im)^#{1,4}\s*(?:references|works cited)\s*$", markdown))
+    if matches:
+        last_match = matches[-1]
+        return markdown[:last_match.start()].rstrip()
+    return markdown.rstrip()
 
 
 def _sanitize_mermaid_syntax(markdown: str) -> str:
@@ -352,8 +353,8 @@ def _depth_budgets(depth: str) -> dict[str, int]:
     if key == "quick":
         return {"queries": 3, "results": 4, "max_total": 10, "summary_cap": 8}
     if key == "deep":
-        return {"queries": 6, "results": 6, "max_total": 36, "summary_cap": 22}
-    return {"queries": 5, "results": 5, "max_total": 20, "summary_cap": 14}
+        return {"queries": 6, "results": 6, "max_total": 36, "summary_cap": 15}  # reduced from 22 to 15
+    return {"queries": 5, "results": 5, "max_total": 20, "summary_cap": 12}  # reduced from 14 to 12
 
 
 def _safe_mermaid_text(text: str, limit: int = 34) -> str:
@@ -1654,6 +1655,7 @@ async def retrieval_node(state: ResearchState, config: dict) -> dict:
     exclude_sources = set(constraints.get("exclude_sources", []) or [])
     year_from = constraints.get("year_from")
     uploaded_ids = state.get("uploaded_paper_ids", [])
+    owner_id = str(state.get("owner_id", ""))
 
     await _send_status(config, "Searching academic databases...", data={"node": "retrieval"})
 
@@ -1818,13 +1820,13 @@ async def retrieval_node(state: ResearchState, config: dict) -> dict:
         },
     )
 
-    # Query ChromaDB for uploaded PDF content
+    # Query Supabase pgvector for uploaded PDF content
     vector_results = []
     if uploaded_ids:
         await _send_status(config, "Searching uploaded PDFs...")
         for query in queries[:3]:
-            chunks = await asyncio.to_thread(
-                vector_store.query, query, n_results=5, file_ids=uploaded_ids
+            chunks = await query_uploaded_documents(
+                owner_id=owner_id, document_ids=uploaded_ids, query=query, n_results=5,
             )
             vector_results.extend(chunks)
 
@@ -1880,7 +1882,7 @@ async def summarizer_node(state: ResearchState, config: dict) -> dict:
     summaries = {}
     citation_quality: dict[str, dict[str, Any]] = {}
     citation_verification: dict[str, dict[str, Any]] = {}
-    concurrency = 6 if depth == "deep" else 4
+    concurrency = 3 if depth == "deep" else 2
     semaphore = asyncio.Semaphore(concurrency)
 
     async def _summarize_single(i: int, paper: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
@@ -1916,15 +1918,15 @@ async def summarizer_node(state: ResearchState, config: dict) -> dict:
                     "authors": authors,
                     "year": year,
                     "summary": data.get("summary", ""),
-                "limitation": data.get("limitation", ""),
-                "methodology": data.get("methodology", ""),
-                "evaluation_signal": data.get("evaluation_signal", ""),
-                "key_metrics": _normalize_metric_items(data.get("key_metrics", [])),
-                "url": paper.get("url", ""),
-                "doi": paper.get("doi", ""),
-                "citation_count": paper.get("citation_count", 0),
-                "source": paper.get("source", ""),
-            }
+                    "limitation": data.get("limitation", ""),
+                    "methodology": data.get("methodology", ""),
+                    "evaluation_signal": data.get("evaluation_signal", ""),
+                    "key_metrics": _normalize_metric_items(data.get("key_metrics", [])),
+                    "url": paper.get("url", ""),
+                    "doi": paper.get("doi", ""),
+                    "citation_count": paper.get("citation_count", 0),
+                    "source": paper.get("source", ""),
+                }
                 quality = {
                     "source_quality": _source_quality_score(paper.get("source", "")),
                     "confidence": _confidence_score(
@@ -2036,23 +2038,26 @@ async def summarizer_node(state: ResearchState, config: dict) -> dict:
 # NODE 4A: PROPOSER (Debate Subgraph - Draft)
 # ══════════════════════════════════════════════════════════════════════════
 
-PROPOSER_PROMPT = """You are a research synthesis expert. Write a comprehensive literature review on the topic: "{topic}".
+PROPOSER_PROMPT = """You are a senior academic research scientist and literature review specialist. Write an exhaustive, rigorous, multi-thematic literature review on the topic: "{topic}".
 
-Organize the review by themes (not paper-by-paper). Use academic tone and cite papers using [@AuthorYear] notation.
+Organize the review by conceptual themes, theoretical mechanisms, and methodological paradigms (not paper-by-paper). Use authoritative academic prose and cite papers using [@AuthorYear] notation.
 
-Available paper summaries:
+Available verified paper summaries:
 {summaries}
 
 {previous_critique}
 
-Write a well-structured literature review with thematic sections.
+Structure your synthesis with clear thematic headings:
+1. **Thematic Conceptual Framework**: Synthesize foundational and emerging paradigms across the retrieved papers.
+2. **Methodological & Algorithmic Mechanics**: Compare algorithmic formulations, mathematical objectives, experimental setups, and datasets across studies.
+3. **Empirical Findings, Agreements & Contradictions**: Critically analyze quantitative benchmarks, points of consensus, statistical discrepancies, and performance trade-offs.
+4. **Evidence Caveats & Systematic Limitations**: Address threat models, assumptions, and failure modes across current literature.
+5. **Synthesis Summary**: Conclude with a rigorous transition setting up cross-paper analysis and research gaps.
 
 Requirements:
-- Synthesize across studies rather than listing them.
-- Explicitly compare methodologies, evaluation setups, and findings.
-- Call out agreements, contradictions, and evidence-quality limitations.
-- Include concrete benchmark, dataset, or metric information whenever available.
-- End with a short synthesis paragraph that sets up cross-paper analysis and research gaps."""
+- Deep multi-paragraph continuous academic prose with dense citations.
+- Explicitly compare study designs, evaluation metrics, and dataset distributions.
+- Call out agreements, tensions, and empirical caveats with concrete numbers from the summaries."""
 
 
 async def proposer_node(state: ResearchState, config: dict) -> dict:
@@ -2085,14 +2090,14 @@ async def proposer_node(state: ResearchState, config: dict) -> dict:
 
     prompt = PROPOSER_PROMPT.format(
         topic=topic,
-        summaries=(summary_text + strict_guard)[:8000],
+        summaries=(summary_text + strict_guard)[:10000],
         previous_critique=critique_text + strict_guard,
     )
 
     draft = await llm_client.generate_content(
         prompt=prompt,
-        temperature=0.4,
-        max_output_tokens=6144,
+        temperature=0.35,
+        max_output_tokens=8192,
         enable_thinking=True,
     )
 
@@ -2708,60 +2713,124 @@ def _split_analysis_and_final_draft(markdown: str) -> tuple[str, str]:
     return "", text
 
 
-FINAL_PAPER_PROMPT = """You are an expert academic writer. Write a COMPLETE, publication-ready research paper in Markdown on the topic: "{topic}".
-Citation/style format: "{paper_format}".
+PAPER_PART1_PROMPT = """You are a distinguished academic professor and peer-reviewed author. Write PART 1 of an exhaustive, publication-grade research manuscript on: "{topic}".
+Required citation and reference style: "{paper_format}".
 
-This is a standalone academic paper. It must read like a real peer-reviewed article — full connected prose,
-not an outline, not bullet points, not a summary. Target 2500-4000 words.
-
-Base the paper strictly on these inputs (do NOT invent authors, venues, numbers, or results not present here):
-
-## Literature Review (peer-reviewed synthesis):
+Write in rigorous, dense, high-impact academic prose. Target 2500-3500 words with deep domain expertise.
+Strictly synthesize and integrate these verified research findings:
+## Verified Literature Review:
 {literature_review}
 
-## Cross-Paper Analysis:
+## Cross-Paper Evidence & Methodologies:
 {cross_paper_analysis}
 
-## Identified Research Gaps:
-{gaps_section}
-
-## Sources available for citation:
+## Available Source Citations:
 {citation_info}
 
-Required structure (use these exact section headings):
-# <a specific, informative paper title — not the raw topic string>
+Required structure for Part 1 (Start directly with the paper Title):
+# <Authoritative, Specific Academic Title>
 
-**Abstract** — 180-250 words: context, problem, what this paper synthesizes, key findings, implications.
+**Abstract** — 250-350 words:
+Provide a structured academic abstract encompassing: (1) Background and theoretical context, (2) Core challenge and architectural problem formulation, (3) Synthesis methodology and scope across repositories, (4) Primary empirical and algorithmic findings, (5) Key limitations identified in existing literature, and (6) Strategic implications for future systems.
 
-**Keywords** — 4-6 comma-separated keywords.
+**Keywords** — 5-8 precise domain keywords.
 
 ## 1. Introduction
-3-5 paragraphs: motivation, why it matters, scope, the questions addressed, and an explicit "Contributions" paragraph.
+Write 6-8 extensive, connected paragraphs of formal academic text:
+- **1.1 Domain Motivation & Historical Trajectory**: Trace the theoretical origin, practical necessity, and evolution of the field.
+- **1.2 Threat Surface & Core Architectural Challenges**: Formalize the underlying tensions, vulnerabilities, computational boundaries, and failure modes in current approaches.
+- **1.3 Scope and Research Questions**: Delineate the precise boundaries of this investigation and state the central research hypotheses.
+- **1.4 Summary of Contributions**: Provide an explicit, numbered list of 4-5 substantial technical and analytical contributions made by this synthesis.
 
-## 2. Background and Related Work
-Organize by theme. Synthesize across studies; compare methodologies and evaluation setups; cite concrete sources.
+## 2. Theoretical Foundations and Background
+Write an extensive multi-paragraph theoretical foundation:
+- Define core mathematical notations, formal paradigms, and baseline conceptual mechanics.
+- Categorize the foundational taxonomy of existing approaches with comprehensive citations in "{paper_format}" format.
+- Contextualize how early paradigms evolved into modern state-of-the-art formulations.
 
-## 3. Comparative Analysis and Discussion
-Critically compare approaches, datasets, metrics, and results; discuss agreements, contradictions, and evidence-quality caveats.
-
-## 4. Research Gaps and Future Directions
-Turn each identified gap into a substantive paragraph: the gap, why it persists, and a concrete, testable direction.
-
-## 5. Limitations
-Threats to validity of this synthesis itself (coverage, source quality, recency).
-
-## 6. Conclusion
-2-3 paragraphs restating findings and significance.
-
-## References
-Every in-text citation must appear here, and every reference must be cited in text.
+## 3. Thematic Literature Survey
+Provide an exhaustive thematic literature survey organized into rigorous subsections:
+- Group studies by conceptual methodology, defense paradigm, or architectural archetype.
+- Compare study objectives, assumptions, threat models, and algorithmic designs with dense in-text citations.
+- Avoid superficial listicles; write continuous, deeply reasoned academic synthesis.
 
 Rules:
-- Every body section must be multiple full paragraphs of connected academic prose. No bullet-only sections, no one-line sections.
-- Ground specific claims in specific sources with in-text citations in the required style.
-- IEEE/ACM: numbered [1], [2] in-text and a numbered reference list. APA: (Author, Year). MLA: parenthetical + Works Cited. ACADEMIC: [@AuthorYear].
-- STRICTLY TEXTUAL: no images, no Mermaid, no tables, no Delve tokens, no IMAGE_PROMPT tokens.
-- Do NOT include any preface like "As an expert academic writer" or "Here is the paper". Start directly with the title."""
+- Strictly textual formal academic prose (no Mermaid blocks, no placeholder tokens).
+- Maintain rigorous "{paper_format}" in-text citations ([1], [2] for IEEE; (Author, Year) for APA).
+- CRITICAL: Do NOT include a References section at the end of Part 1 (References are added at the very end of the full paper). Conclude Part 1 directly at the end of Section 3."""
+
+PAPER_PART2_PROMPT = """You are a distinguished academic professor and peer-reviewed author. Write PART 2 of an exhaustive, publication-grade research manuscript on: "{topic}".
+Required citation and reference style: "{paper_format}".
+
+Write in rigorous, dense, high-impact academic prose. Target 2500-3500 words with deep empirical and algorithmic depth.
+Strictly synthesize these verified cross-paper analyses, empirical signals, and research gaps:
+## Cross-Paper Analysis & Methodological Patterns:
+{cross_paper_analysis}
+
+## Identified Research Gaps & Vulnerabilities:
+{gaps_section}
+
+## Available Source Citations:
+{citation_info}
+
+Required structure for Part 2 (Continue directly from Section 4):
+## 4. Algorithmic Mechanics, Methodologies & Defense Architectures
+Write a comprehensive technical deep-dive across 4-6 detailed subsections:
+- **4.1 Algorithmic Formulations & Optimization Dynamics**: Detail mathematical formulations, objective functions, gradient dynamics, and privacy/robustness bounds.
+- **4.2 Threat Models & Attack Vectors**: Rigorous taxonomy of adversary capabilities, information leakage vectors, and perturbation mechanics.
+- **4.3 Mitigation Paradigms & Defense Frameworks**: Analyze multi-layered mitigation strategies, cryptographic bounds, differential privacy mechanisms, and robust aggregation protocols.
+- **4.4 Operational & Computational Trade-Offs**: Address convergence penalties, communication overheads, and scalability barriers.
+
+## 5. Comprehensive Comparative Evaluation and Empirical Synthesis
+Provide an authoritative comparative evaluation:
+- Include extensive Markdown comparison tables contrasting studies across: (1) Datasets & Benchmarks, (2) Attack Success Rate / Defense Resilience, (3) Accuracy vs Privacy Degradation, (4) Computational & Communication Overhead, and (5) Real-World Deployment Assumptions.
+- Follow tables with deep analytical discussion dissecting empirical anomalies, statistical agreements, contradictions, and protocol discrepancies across the literature.
+- Critically evaluate why certain defenses fail under realistic distribution shifts or adaptive adversaries.
+
+Rules:
+- High-density academic prose with structured Markdown comparison matrices.
+- Dense in-text citations in "{paper_format}" style.
+- CRITICAL: Do NOT include a References section at the end of Part 2. Conclude Part 2 directly at the end of Section 5."""
+
+PAPER_PART3_PROMPT = """You are a distinguished academic professor and peer-reviewed author. Write PART 3 (the concluding part) of an exhaustive, publication-grade research manuscript on: "{topic}".
+Required citation and reference style: "{paper_format}".
+
+Write in rigorous, dense, high-impact academic prose. Target 2500-3500 words.
+Strictly synthesize these verified research gaps, peer critiques, and citation inventories:
+## Identified Research Gaps & Frontiers:
+{gaps_section}
+
+## Peer Review Critique & Rigor Assessment:
+{gap_critique}
+
+## Available Source Citations for Complete Bibliography:
+{citation_info}
+
+Required structure for Part 3 (Continue directly from Section 6):
+## 6. Critical Research Gaps and 5-Year Strategic Roadmap
+Provide an exhaustive analysis of major open challenges:
+- For each identified gap (at least 4-5 gaps), dedicate a structured subsection:
+  - **The Theoretical & Structural Blocker**: Why existing state-of-the-art methods fundamentally fail to resolve this issue.
+  - **Empirical Blindspots & Evaluation Voids**: Missing benchmarks, unverified assumptions, and metric limitations.
+  - **Proposed Testable Research Direction & Protocol**: Specific algorithmic architectures, experimental protocols, and measurable validation metrics to overcome the gap.
+- Synthesize an integrated 5-year technical roadmap outlining key milestone phases for the research community.
+
+## 7. Practical Implications & Systems Engineering Takeaways
+- Actionable engineering guidelines for enterprise deployment, ML practitioners, and security architects.
+- Production trade-off matrix: choosing appropriate configurations under constrained bandwidth, heterogeneous hardware, and regulatory constraints.
+
+## 8. Limitations & Threats to Validity
+- Methodological bounds of the reviewed literature, potential publication biases, dataset homogeneity, and synthesis assumptions.
+
+## 9. Conclusion
+- Executive synthesis summarizing core breakthroughs, structural paradoxes, and the future paradigm shift of the domain.
+
+## References
+Provide a complete, fully formatted, professional bibliography containing all cited sources in strict "{paper_format}" format with complete author names, paper titles, publication venues/journals, and DOIs/URLs.
+
+Rules:
+- Complete all sections in full depth with zero placeholders or truncated endings.
+- Strictly adhere to "{paper_format}" formatting throughout."""
 
 
 async def _generate_final_paper(
@@ -2770,31 +2839,84 @@ async def _generate_final_paper(
     literature_review: str,
     cross_text: str,
     gaps_text: str,
+    gap_critique: str,
     citation_text: str,
+    config: Optional[dict] = None,
 ) -> str:
-    """Generate the publication-style paper as a dedicated call with its own full budget.
+    """Generate a multi-section comprehensive publication manuscript using 3 focused 8k token calls."""
+    sections = []
 
-    Isolating this from the visual Part A dossier guarantees the real paper always
-    receives the entire output budget instead of being starved by large visual tables.
-    """
-    prompt = FINAL_PAPER_PROMPT.format(
+    # Part 1: Abstract, Intro, Background & Thematic Survey (Sections 1-3)
+    if config:
+        await _send_status(config, "Composing Part 1: Abstract, Foundations & Literature Survey...", data={"node": "paper_architect", "step": 1})
+    prompt1 = PAPER_PART1_PROMPT.format(
         topic=topic,
         paper_format=paper_format,
-        literature_review=literature_review[:8000],
-        cross_paper_analysis=cross_text[:4000],
-        gaps_section=gaps_text[:3000],
-        citation_info=citation_text[:5000],
+        literature_review=literature_review[:10000],
+        cross_paper_analysis=cross_text[:6000],
+        citation_info=citation_text[:7000],
     )
     try:
-        return await llm_client.generate_content(
-            prompt=prompt,
-            temperature=0.4,
-            max_output_tokens=16384,
+        p1 = await llm_client.generate_content(
+            prompt=prompt1,
+            temperature=0.35,
+            max_output_tokens=8192,
             enable_thinking=True,
         )
+        if p1.strip():
+            # Clean any accidental trailing references heading from part 1
+            cleaned_p1 = _strip_reference_tail(p1.strip())
+            sections.append(cleaned_p1 or p1.strip())
     except Exception as e:
-        logger.error("Dedicated final-paper generation failed: %s", e)
-        return ""
+        logger.error("Paper Architect Part 1 generation failed: %s", e)
+
+    # Part 2: Algorithmic Mechanics & Comparative Empirical Evaluation (Sections 4-5)
+    if config:
+        await _send_status(config, "Composing Part 2: Algorithmic Mechanics & Comparative Evaluation...", data={"node": "paper_architect", "step": 2})
+    prompt2 = PAPER_PART2_PROMPT.format(
+        topic=topic,
+        paper_format=paper_format,
+        cross_paper_analysis=cross_text[:8000],
+        gaps_section=gaps_text[:6000],
+        citation_info=citation_text[:7000],
+    )
+    try:
+        p2 = await llm_client.generate_content(
+            prompt=prompt2,
+            temperature=0.35,
+            max_output_tokens=8192,
+            enable_thinking=True,
+        )
+        if p2.strip():
+            # Clean any accidental trailing references heading from part 2
+            cleaned_p2 = _strip_reference_tail(p2.strip())
+            sections.append(cleaned_p2 or p2.strip())
+    except Exception as e:
+        logger.error("Paper Architect Part 2 generation failed: %s", e)
+
+    # Part 3: Gaps, Roadmap, Engineering Takeaways, Conclusion & References (Sections 6-9 + References)
+    if config:
+        await _send_status(config, "Composing Part 3: Strategic Roadmap, Takeaways & References...", data={"node": "paper_architect", "step": 3})
+    prompt3 = PAPER_PART3_PROMPT.format(
+        topic=topic,
+        paper_format=paper_format,
+        gaps_section=gaps_text[:6000],
+        gap_critique=gap_critique[:3000],
+        citation_info=citation_text[:7000],
+    )
+    try:
+        p3 = await llm_client.generate_content(
+            prompt=prompt3,
+            temperature=0.35,
+            max_output_tokens=8192,
+            enable_thinking=True,
+        )
+        if p3.strip():
+            sections.append(p3.strip())
+    except Exception as e:
+        logger.error("Paper Architect Part 3 generation failed: %s", e)
+
+    return "\n\n".join(sections)
 
 
 async def paper_architect_node(state: ResearchState, config: dict) -> dict:
@@ -2884,105 +3006,30 @@ async def paper_architect_node(state: ResearchState, config: dict) -> dict:
             "- End with a references section that includes all cited keys.\n"
         )
 
-    prompt = PAPER_ARCHITECT_PROMPT.format(
+    # Generate the 3-part publication-ready paper (12,000-token modular generation)
+    await _send_status(
+        config,
+        "Composing 12k-token publication paper...",
+        data={"node": "paper_architect"},
+    )
+    draft_markdown = await _generate_final_paper(
         topic=topic,
         paper_format=paper_format,
-        literature_review=lit_review[:8000],
-        cross_paper_analysis=cross_text,
-        gaps_section=gaps_text[:3000],
-        gap_critique=gap_critique[:1200],
-        citation_info=(citation_text + style_addendum)[:5000],
+        literature_review=lit_review,
+        cross_text=cross_text,
+        gaps_text=gaps_text,
+        gap_critique=gap_critique,
+        citation_text=citation_text + style_addendum,
+        config=config,
     )
+    draft_markdown = _strip_mermaid_blocks(draft_markdown).strip()
+    analysis_markdown = ""
 
-    paper = await llm_client.generate_content(
-        prompt=prompt,
-        temperature=0.4,
-        max_output_tokens=16384,
-        enable_thinking=True,
-    )
-    
-    # Process IMAGE_PROMPTs
-    session_id = state.get("session_id", "default")
-    safe_session_id = session_id if re.fullmatch(r"[a-zA-Z0-9_-]+", session_id) else uuid.uuid4().hex
-    resource_dir = Path(settings.session_store_path).parent / "resources" / safe_session_id
-    resource_dir.mkdir(parents=True, exist_ok=True)
-    
-    async def _replace_image_prompt(match: re.Match) -> str:
-        raw_prompt = match.group(1)
-        img_prompt = _normalize_image_prompt(raw_prompt, topic)
-        await _send_status(config, f"Generating image for: {img_prompt[:30]}...", data={"node": "paper_architect"})
-        img_base64 = await llm_client.generate_image(img_prompt)
-        if not img_base64:
-            fallback_prompt = _normalize_image_prompt(
-                f"Scientific editorial infographic about {topic}. {img_prompt}",
-                topic,
-                max_len=180,
-            )
-            img_base64 = await llm_client.generate_image(fallback_prompt)
-        if img_base64:
-            img_filename = f"img_{uuid.uuid4().hex[:8]}.png"
-            img_path = resource_dir / img_filename
-            try:
-                img_data = base64.b64decode(img_base64)
-                async with aiofiles.open(img_path, "wb") as f:
-                    await f.write(img_data)
-                return f"![Generated Image](/research/{safe_session_id}/resources/download/{img_filename})\n*Figure: {img_prompt}*"
-            except Exception as e:
-                logger.error("Failed to save image: %s", e)
-        return f"> Figure concept: {img_prompt}"
-
-    # Find all image prompts and replace them asynchronously
-    prompts = list(re.finditer(r"\[IMAGE_PROMPT:\s*\"?(.*?)\"?\]", paper))
-    if prompts:
-        offset = 0
-        new_paper = ""
-        for match in prompts:
-            new_paper += paper[offset:match.start()]
-            replacement = await _replace_image_prompt(match)
-            new_paper += replacement
-            offset = match.end()
-        new_paper += paper[offset:]
-        paper = new_paper
-    
-    paper = _strip_mermaid_blocks(paper)
-    analysis_markdown, draft_markdown = _split_analysis_and_final_draft(paper)
-
-    # The combined prompt frequently exhausts its budget on the visual Part A
-    # dossier and never emits a real Part B paper (missing Introduction/Conclusion,
-    # or PART A content leaking into the draft). Detect that and generate the
-    # publication-style paper with a dedicated, full-budget call so the user always
-    # gets a complete academic paper with proper sections.
-    def _looks_like_real_paper(text: str) -> bool:
-        low = str(text or "").lower()
-        if len(low.split()) < 500:
-            return False
-        if "part a" in low or "delve_" in low:
-            return False  # Part A content leaked into the draft
-        has_intro = "introduction" in low
-        has_close = "conclusion" in low
-        has_body = "related work" in low or "discussion" in low or "background" in low
-        return has_intro and has_close and has_body
-
-    if not _looks_like_real_paper(draft_markdown):
-        await _send_status(
-            config,
-            "Composing full publication-style paper...",
-            data={"node": "paper_architect"},
-        )
-        dedicated = await _generate_final_paper(
-            topic=topic,
-            paper_format=paper_format,
-            literature_review=lit_review,
-            cross_text=cross_text,
-            gaps_text=gaps_text,
-            citation_text=citation_text + style_addendum,
-        )
-        dedicated = _strip_mermaid_blocks(dedicated).strip()
-        if _looks_like_real_paper(dedicated) or len(dedicated.split()) > len(str(draft_markdown or "").split()):
-            # Keep the combined output (rich Part A) as the analysis dossier source.
-            if not analysis_markdown:
-                analysis_markdown = paper
-            draft_markdown = dedicated
+    # If both calls completely failed, provide a basic fallback so the user doesn't get an empty screen
+    if not draft_markdown or len(draft_markdown.strip()) < 100:
+        draft_markdown = f"# Research Summary: {topic}\n\n## Literature Review\n{lit_review}\n\n## Cross-Paper Analysis\n{cross_text}\n\n## Identified Gaps\n{gaps_text}\n"
+        if not analysis_markdown:
+            analysis_markdown = "Analysis generation failed due to API limits."
 
     # Build bibliography + deterministic citation keys
     bibliography = []

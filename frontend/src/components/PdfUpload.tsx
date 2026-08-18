@@ -1,5 +1,5 @@
 import { useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from 'react';
-import { Check, FileText, Upload, X } from 'lucide-react';
+import { Check, FileText, Upload, X, Loader2 } from 'lucide-react';
 import { api } from '../api';
 import type { UploadResponse } from '../types';
 
@@ -96,9 +96,11 @@ export function PdfUpload({ onFilesChange }: PdfUploadProps) {
         onDrop={handleDrop}
         onKeyDown={handleKeyDown}
         onClick={() => inputRef.current?.click()}
-        className={`rounded-card border border-dashed px-4 py-5 text-center transition-colors ${
-          isDragging ? 'border-accent bg-accent/10' : 'border-line bg-surface hover:border-accent-dim'
-        }`}
+        className="rounded-xl border border-dashed px-4 py-5 text-center transition-all cursor-pointer"
+        style={{
+          borderColor: isDragging ? 'var(--color-blue)' : 'var(--color-line)',
+          background: isDragging ? 'rgba(99,102,241,0.1)' : 'var(--color-surface)',
+        }}
         aria-label="Upload PDF files"
       >
         <input
@@ -109,35 +111,46 @@ export function PdfUpload({ onFilesChange }: PdfUploadProps) {
           onChange={(event: ChangeEvent<HTMLInputElement>) => handleFiles(event.target.files)}
           className="sr-only"
         />
-        <Upload className="mx-auto mb-2 h-5 w-5 text-ink-mute" />
-        <p className="text-sm text-ink-soft">Drop PDFs here or browse</p>
+        <Upload className="mx-auto mb-2 h-5 w-5" style={{ color: 'var(--color-blue-dim)' }} />
+        <p className="text-xs font-semibold" style={{ color: 'var(--color-ink)' }}>Drop reference PDFs here or browse</p>
+        <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-ink-mute)' }}>Extracted text will be indexed into pgvector for RAG grounding</p>
       </div>
 
       {files.length > 0 ? (
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {files.map((file) => (
-            <div key={file.file_id} className="flex items-center gap-2 border-b border-line py-2">
-              <FileText className="h-3.5 w-3.5 shrink-0 text-ink-mute" />
-              <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink-soft">{file.filename}</span>
-              {file.status === 'uploading' ? (
-                <span className="font-mono text-[12px] uppercase tracking-[0.12em] text-accent">uploading</span>
-              ) : null}
-              {file.status === 'done' ? (
-                <span className="inline-flex items-center gap-1 font-mono text-[12px] uppercase tracking-[0.12em] text-ok">
-                  <Check className="h-3 w-3" />
-                  {file.chunks_stored} chunks
+            <div
+              key={file.file_id}
+              className="flex items-center gap-2.5 p-2.5 rounded-lg border text-xs"
+              style={{ background: 'var(--color-surface)', borderColor: 'var(--color-line)' }}
+            >
+              <FileText className="h-4 w-4 shrink-0" style={{ color: 'var(--color-blue-dim)' }} />
+              <span className="min-w-0 flex-1 truncate font-medium" style={{ color: 'var(--color-ink-soft)' }}>
+                {file.filename}
+              </span>
+              {file.status === 'uploading' && (
+                <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--color-blue-dim)' }}>
+                  <Loader2 size={12} className="animate-spin" /> Indexing…
                 </span>
-              ) : null}
-              {file.status === 'error' ? (
-                <span className="max-w-[180px] truncate text-xs text-err">{file.error}</span>
-              ) : null}
+              )}
+              {file.status === 'done' && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-ok">
+                  <Check size={12} /> {file.chunks_stored} passages indexed
+                </span>
+              )}
+              {file.status === 'error' && (
+                <span className="max-w-[180px] truncate text-[11px] text-err">{file.error}</span>
+              )}
               <button
                 type="button"
                 onClick={() => removeFile(file.file_id)}
-                className="rounded-card p-1 text-ink-mute hover:text-err"
+                className="p-1 rounded hover:bg-white/5"
+                style={{ color: 'var(--color-ink-mute)' }}
+                onMouseOver={(e) => (e.currentTarget.style.color = 'var(--color-err)')}
+                onMouseOut={(e) => (e.currentTarget.style.color = 'var(--color-ink-mute)')}
                 aria-label={`Remove ${file.filename}`}
               >
-                <X className="h-3.5 w-3.5" />
+                <X size={14} />
               </button>
             </div>
           ))}

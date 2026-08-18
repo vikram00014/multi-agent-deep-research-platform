@@ -93,3 +93,12 @@ export interface SessionDetail {
     updated_at: string;
   }>;
 }
+
+export interface UserQuota {
+  papers_generated: number;
+  papers_allowed: number;
+  papers_remaining: number;
+  last_paper_at: string | null;
+  has_quota: boolean;
+}
+

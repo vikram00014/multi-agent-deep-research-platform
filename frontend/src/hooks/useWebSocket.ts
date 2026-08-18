@@ -2,11 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { WSMessage, FeedItem } from '../types';
 import { api } from '../api';
 
-function getWebSocketUrl(sessionId: string) {
+function getWebSocketUrl(sessionId: string, ticket: string) {
   const configuredBase = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '');
   if (configuredBase) {
     const wsBase = configuredBase.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
-    return `${wsBase}/ws/${sessionId}`;
+    return `${wsBase}/ws/${sessionId}?ticket=${encodeURIComponent(ticket)}`;
   }
 
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -16,10 +16,10 @@ function getWebSocketUrl(sessionId: string) {
   // to polling. In production the app is served by the backend itself, so
   // window.location.host is already correct.
   if (import.meta.env.DEV) {
-    return `${protocol}//127.0.0.1:8000/ws/${sessionId}`;
+    return `${protocol}//127.0.0.1:8000/ws/${sessionId}?ticket=${encodeURIComponent(ticket)}`;
   }
 
-  return `${protocol}//${window.location.host}/ws/${sessionId}`;
+  return `${protocol}//${window.location.host}/ws/${sessionId}?ticket=${encodeURIComponent(ticket)}`;
 }
 
 /**
@@ -57,6 +57,10 @@ export function useWebSocket(sessionId: string | null) {
 
   const connect = useCallback(async () => {
     if (!sessionId) return;
+    setError(null);
+    setWarning(null);
+    setIsComplete(false);
+    completedRef.current = false;
 
     // Pre-flight: skip WS for sessions that are already done or errored
     try {
@@ -74,7 +78,15 @@ export function useWebSocket(sessionId: string | null) {
       // session might not exist; skip silently
       return;
     }
-    const url = getWebSocketUrl(sessionId);
+    let ticket: string;
+    try {
+      ticket = (await api.createWebSocketTicket(sessionId)).ticket;
+    } catch {
+      setIsPollingFallback(true);
+      setWarning('Live updates unavailable, using polling fallback');
+      return;
+    }
+    const url = getWebSocketUrl(sessionId, ticket);
 
     // The status pre-flight above is async, so the effect cleanup may already
     // have run (React StrictMode double-mounts). Opening a socket now would
@@ -215,5 +227,6 @@ export function useWebSocket(sessionId: string | null) {
     error,
     warning,
     sendStop,
+    connect,
   };
 }
