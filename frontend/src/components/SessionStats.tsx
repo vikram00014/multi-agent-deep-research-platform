@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Activity, BookOpen, Clock, CheckCircle2, Database, FileText, Hash, Layers, ShieldCheck, Sparkles } from 'lucide-react';
+import { Activity, BookOpen, Clock, Database, FileText, Hash, Layers, ShieldCheck, Sparkles } from 'lucide-react';
 import type { SessionDetail, PaperResult } from '../types';
 
 interface SessionStatsProps {
@@ -26,6 +26,24 @@ function formatCheckName(name: string): string {
     .replace(/^has_/, '')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatSourceName(source: string): string {
+  const map: Record<string, string> = {
+    openalex: 'OpenAlex',
+    crossref: 'Crossref',
+    arxiv: 'arXiv',
+    tavily: 'Tavily',
+    web_tavily: 'Tavily',
+    semantic_scholar: 'Semantic Scholar',
+    semanticscholar: 'Semantic Scholar',
+    github: 'GitHub',
+    custom_pdf: 'Custom PDF',
+    vector_store: 'Custom Document Store',
+  };
+  const key = source.trim().toLowerCase();
+  if (map[key]) return map[key];
+  return source.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function StatCard({ icon: Icon, label, value, sub, color }: {
@@ -68,7 +86,6 @@ export function SessionStats({ detail, paper }: SessionStatsProps) {
   const gapCount    = paper?.gaps?.length      ?? 0;
   const bibCount    = paper?.bibliography?.length ?? 0;
   const compliance  = paper?.format_compliance;
-  const compScore   = compliance?.score != null ? Math.round(compliance.score * 100) : null;
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -80,13 +97,13 @@ export function SessionStats({ detail, paper }: SessionStatsProps) {
     <div className="space-y-6">
       {/* ── Header ── */}
       <div>
-        <p className="mono-kicker mb-1">Session Analytics & Rigor Score</p>
+        <p className="mono-kicker mb-1">Session Analytics & Provenance</p>
         <h2 className="text-xl font-bold" style={{ color: 'var(--color-ink)' }}>
           {detail.topic}
         </h2>
         <div className="flex items-center gap-2 mt-2 flex-wrap">
           {detail.status === 'complete' && (
-            <span className="badge badge-green">Verified Complete</span>
+            <span className="badge badge-green">Research Complete</span>
           )}
           {Boolean(detail.controls?.paper_format) && (
             <span className="badge badge-blue">{String(detail.controls!.paper_format).toUpperCase()} Format</span>
@@ -108,38 +125,56 @@ export function SessionStats({ detail, paper }: SessionStatsProps) {
         />
         <StatCard
           icon={Hash}
-          label="LLM Tokens"
+          label="Tokens Processed"
           value={tokenEstimate.toLocaleString()}
-          sub="Gemini Free Tier Engine"
+          sub="Gemini Model Engine"
           color="#ec4899"
         />
         <StatCard
           icon={Database}
-          label="Academic Papers"
+          label="Papers Retrieved"
           value={totalSources}
-          sub={`from ${Object.keys(sourceCounts).length} repositories`}
+          sub={`from ${Object.keys(sourceCounts).length} research sources`}
           color="#818cf8"
         />
         <StatCard
           icon={Activity}
           label="Debate Rounds"
           value={debates}
-          sub={`${citations} verified citations`}
+          sub={`${debates === 1 ? '1 round' : `${debates} rounds`} peer critique`}
           color="#d946ef"
         />
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard icon={FileText} label="Bibliography" value={bibCount} sub="curated citations" color="#f472b6" />
-        <StatCard icon={Layers}   label="Research Gaps" value={gapCount} sub="unexplored frontiers" color="#ec4899" />
         <StatCard
           icon={ShieldCheck}
-          label="Format Quality"
-          value={compScore != null ? `${compScore}%` : '100%'}
-          sub={compliance?.paper_format ? compliance.paper_format.toUpperCase() : 'Standard'}
+          label="Citations Verified"
+          value={bibCount > 0 ? `${citations} / ${bibCount}` : citations}
+          sub={bibCount > 0 && citations === bibCount ? 'all citations validated' : `${Math.max(0, bibCount - citations)} unindexed / web sources`}
           color="#10b981"
         />
-        <StatCard icon={BookOpen} label="Grounding PDFs" value={detail.uploaded_paper_ids?.length ?? 0} sub="custom source documents" color="#6366f1" />
+        <StatCard
+          icon={FileText}
+          label="Bibliography"
+          value={bibCount}
+          sub="cited in manuscript"
+          color="#f472b6"
+        />
+        <StatCard
+          icon={Layers}
+          label="Research Gaps"
+          value={gapCount}
+          sub="unexplored frontiers"
+          color="#ec4899"
+        />
+        <StatCard
+          icon={BookOpen}
+          label="Grounding PDFs"
+          value={detail.uploaded_paper_ids?.length ?? 0}
+          sub="custom reference files"
+          color="#6366f1"
+        />
       </div>
 
       {/* ── Source Breakdown ── */}
@@ -156,11 +191,11 @@ export function SessionStats({ detail, paper }: SessionStatsProps) {
               return (
                 <div key={source}>
                   <div className="flex items-center justify-between mb-1.5 text-xs">
-                    <span className="capitalize font-medium" style={{ color: 'var(--color-ink-soft)' }}>
-                      {source.replace(/_/g, ' ')}
+                    <span className="font-medium" style={{ color: 'var(--color-ink-soft)' }}>
+                      {formatSourceName(source)}
                     </span>
                     <span className="font-semibold" style={{ color: 'var(--color-ink)' }}>
-                      {String(count)} papers ({pct}%)
+                      {String(count)} {count === 1 ? 'paper' : 'papers'} · {pct}%
                     </span>
                   </div>
                   <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--color-raised)' }}>
@@ -201,7 +236,7 @@ export function SessionStats({ detail, paper }: SessionStatsProps) {
           </div>
           <div className="mt-5 pt-4 flex items-center justify-between border-t" style={{ borderColor: 'var(--color-line)' }}>
             <span className="text-xs font-medium" style={{ color: 'var(--color-ink-mute)' }}>
-              Overall Publication Score
+              Citation & Structural Checks
             </span>
             <span className="text-base font-bold gradient-text">
               {compliance.passed}/{compliance.total} structural checks passed

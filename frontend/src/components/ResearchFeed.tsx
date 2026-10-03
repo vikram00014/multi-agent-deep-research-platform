@@ -4,14 +4,14 @@ import { BookOpen, CheckCircle2, FileText, Sparkles, MessageSquare, AlertCircle,
 import type { FeedItem } from '../types';
 
 const PIPELINE_STAGES = [
-  { key: 'planner', label: 'Research Planning', desc: 'Formulates search vectors & angle strategy', nodes: ['planner'] },
-  { key: 'retrieval', label: 'Academic Retrieval', desc: 'Searches 6 academic databases & journals', nodes: ['retrieval'] },
+  { key: 'planner', label: 'Research Planning', desc: 'Formulates research questions & retrieval strategy', nodes: ['planner'] },
+  { key: 'retrieval', label: 'Academic Retrieval', desc: 'Searches 6 academic indexes & research sources', nodes: ['retrieval'] },
   { key: 'summarizer', label: 'Paper Summarization', desc: 'Extracts methodology, datasets & limitations', nodes: ['summarizer'] },
   { key: 'synthesis', label: 'Synthesis & Peer Review', desc: 'Proposer & Critic debate literature rigor', nodes: ['proposer', 'critic'] },
   { key: 'cross_paper', label: 'Cross-Paper Analysis', desc: 'Maps cross-citation themes & contradictions', nodes: ['cross_paper'] },
-  { key: 'gap_analysis', label: 'Gap Discovery', desc: 'Identifies unaddressed research frontiers', nodes: ['gap_analysis'] },
-  { key: 'paper_architect', label: 'Manuscript Assembly', desc: 'Assembles publication-ready manuscripts', nodes: ['paper_architect'] },
-  { key: 'complete', label: 'Paper Ready', desc: 'Synthesis verified & ready for export', nodes: ['complete'] },
+  { key: 'gap_analysis', label: 'Gap Discovery', desc: 'Identifies evidence-backed research frontiers', nodes: ['gap_analysis'] },
+  { key: 'paper_architect', label: 'Manuscript Assembly', desc: 'Structures research into IEEE/APA manuscript drafts', nodes: ['paper_architect'] },
+  { key: 'complete', label: 'Paper Ready', desc: 'Synthesis complete & ready for export', nodes: ['complete'] },
 ] as const;
 
 interface ResearchFeedProps {

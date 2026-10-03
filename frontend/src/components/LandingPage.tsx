@@ -1,34 +1,59 @@
 import { motion } from 'framer-motion';
-import { ArrowRight, BookOpen, Brain, FlaskConical, GitBranch, Layers, Search, Shield, Sparkles, Zap } from 'lucide-react';
+import { ArrowRight, BookOpen, Brain, FileText, FlaskConical, GitBranch, Layers, Search, ShieldCheck, Sparkles, Zap } from 'lucide-react';
 
 interface LandingPageProps {
   onSignIn: () => void;
 }
 
 const PIPELINE_NODES = [
-  { icon: Brain,        label: 'Research Planner',    color: '#6366f1', desc: 'Refines queries & devises literature strategy' },
-  { icon: Search,       label: 'Academic Retrieval',  color: '#818cf8', desc: 'Searches 6 academic databases & journals' },
-  { icon: BookOpen,     label: 'Paper Summarizer',    color: '#9333ea', desc: 'Scores methodology, data, & key claims' },
-  { icon: Layers,       label: 'Literature Proposer', color: '#c026d3', desc: 'Synthesizes deep literature reviews' },
-  { icon: FlaskConical, label: 'Peer Review Critic',  color: '#ec4899', desc: 'Rigorous debate & counter-argumentation' },
-  { icon: GitBranch,    label: 'Cross-Paper Analysis',color: '#f43f5e', desc: 'Maps cross-citation themes & tensions' },
-  { icon: Sparkles,     label: 'Gap Discovery',       color: '#f59e0b', desc: 'Identifies unaddressed research frontiers' },
-  { icon: Zap,          label: 'Paper Architect',     color: '#10b981', desc: 'Assembles publication-ready IEEE/APA manuscripts' },
+  { icon: Brain,        label: '01 — Research Planner',    color: '#6366f1', desc: 'Refines research questions, queries & retrieval strategy' },
+  { icon: Search,       label: '02 — Academic Retrieval',  color: '#818cf8', desc: 'Searches academic indexes, repositories & research sources' },
+  { icon: BookOpen,     label: '03 — Paper Summarizer',    color: '#9333ea', desc: 'Extracts methodology, datasets, findings & limitations' },
+  { icon: Layers,       label: '04 — Literature Proposer', color: '#c026d3', desc: 'Synthesizes evidence into a structured literature review' },
+  { icon: FlaskConical, label: '05 — Peer Review Critic',  color: '#ec4899', desc: 'Challenges claims, evidence & methodological assumptions' },
+  { icon: GitBranch,    label: '06 — Cross-Paper Analyst', color: '#f43f5e', desc: 'Maps themes, contradictions, evidence & research trends' },
+  { icon: Sparkles,     label: '07 — Gap Discovery',       color: '#f59e0b', desc: 'Identifies evidence-backed research gaps & future directions' },
+  { icon: Zap,          label: '08 — Paper Architect',     color: '#10b981', desc: 'Structures research into IEEE/APA manuscript drafts' },
 ];
 
 const STATS = [
-  { value: '7', label: 'Autonomous Agents' },
-  { value: '6', label: 'Academic Databases' },
-  { value: '100%', label: 'Citation Verification' },
-  { value: '~15m', label: 'Avg Generation Time' },
+  { value: '8', label: 'Autonomous Agents' },
+  { value: '6', label: 'Research Sources' },
+  { value: 'Automated', label: 'Citation Verification' },
+  { value: '5 Free', label: 'Research Papers' },
 ];
 
 const FEATURES = [
-  { icon: Search,       title: 'Multi-Source Retrieval',   desc: 'Live academic search across ArXiv, Semantic Scholar, OpenAlex, Crossref, and GitHub.' },
-  { icon: FlaskConical, title: 'Proposer–Critic Debate',   desc: 'Two competing agents critique and refine drafts over multiple debate rounds.' },
-  { icon: Shield,       title: 'Citation Verification',    desc: 'Validates DOIs, publication years, and evidence grounding to prevent hallucinations.' },
-  { icon: Sparkles,     title: 'Research Gap Analysis',    desc: 'Discovers unexplored research opportunities with structured evidence mapping.' },
-  { icon: Zap,          title: 'Live Real-Time Stream',    desc: 'Watch the entire multi-agent deliberation stream live in real time as agents debate and synthesize.' },
+  {
+    icon: Search,
+    title: 'Multi-Source Retrieval',
+    desc: 'Live academic search across ArXiv, Semantic Scholar, OpenAlex, Crossref, GitHub, and Tavily.',
+  },
+  {
+    icon: FlaskConical,
+    title: 'Proposer–Critic Debate',
+    desc: 'Competing agents challenge claims, identify weaknesses, and refine the research synthesis through iterative debate.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Automated Citation Verification',
+    desc: 'Validates DOIs, publication metadata, and evidence grounding to reduce citation errors and unsupported claims.',
+  },
+  {
+    icon: Sparkles,
+    title: 'Research Gap Analysis',
+    desc: 'Discovers unexplored research opportunities with structured evidence mapping and innovation roadmaps.',
+  },
+  {
+    icon: Zap,
+    title: 'Live Research Stream',
+    desc: 'Watch agents search, critique, debate, and synthesize findings in real time as the pipeline executes.',
+  },
+  {
+    icon: FileText,
+    title: 'Custom PDF Grounding',
+    desc: 'Upload reference PDFs to index private papers into pgvector embeddings for domain-specific RAG synthesis.',
+  },
 ];
 
 export function LandingPage({ onSignIn }: LandingPageProps) {
@@ -95,7 +120,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
               style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)' }}>
               <Sparkles size={13} color="var(--color-pink-dim)" />
               <span className="text-xs font-semibold" style={{ color: 'var(--color-pink-dim)', letterSpacing: '0.06em' }}>
-                7-AGENT AUTONOMOUS DEEP RESEARCH
+                8-AGENT AUTONOMOUS DEEP RESEARCH
               </span>
             </div>
 
@@ -107,8 +132,8 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
             </h1>
 
             <p className="text-sm sm:text-base md:text-lg mb-10 max-w-2xl mx-auto" style={{ color: 'var(--color-ink-soft)', lineHeight: 1.7 }}>
-              Delve orchestrates 7 specialized AI agents to search academic repositories,
-              synthesize literature, debate rigor, and compose publication-ready manuscripts.
+              Delve orchestrates 8 specialized AI agents to search academic sources,
+              synthesize evidence, challenge findings, discover research gaps, and generate structured research manuscripts.
             </p>
 
             <div className="flex items-center justify-center gap-4 flex-wrap">
@@ -136,7 +161,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
                 transition={{ delay: 0.05 * i + 0.2 }}
                 className="card text-center p-5 shadow-lg"
               >
-                <div className="text-3xl font-extrabold gradient-text mb-1">{stat.value}</div>
+                <div className="text-2xl sm:text-3xl font-extrabold gradient-text mb-1">{stat.value}</div>
                 <div className="text-xs font-medium" style={{ color: 'var(--color-ink-mute)' }}>{stat.label}</div>
               </motion.div>
             ))}
@@ -148,7 +173,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
           <div className="text-center mb-12">
             <p className="mono-kicker mb-2 text-xs">Autonomous Architecture</p>
             <h2 className="text-3xl font-bold" style={{ color: 'var(--color-ink)' }}>
-              The 7-Agent Deliberation Pipeline
+              The 8-Agent Deliberation Pipeline
             </h2>
             <p className="mt-2 text-sm max-w-lg mx-auto" style={{ color: 'var(--color-ink-soft)' }}>
               Each agent specializes in a distinct research phase, passing verified context through state graphs.
@@ -232,7 +257,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
               Experience AI Research
             </h2>
             <p className="mb-6 text-sm" style={{ color: 'var(--color-ink-soft)' }}>
-              Generate your deep research paper in minutes. 5 free papers included per account.
+              Generate structured deep research papers in minutes. 5 free papers included per account.
             </p>
             <div className="flex gap-3 items-center justify-center">
               <motion.button
