@@ -86,8 +86,8 @@ export function Sidebar({ currentSessionId, onSelectSession, onNewSession }: Sid
             <Brain size={16} color="white" />
           </div>
           <div>
-            <div className="font-bold text-base leading-none" style={{ color: 'var(--color-ink)' }}>Delve</div>
-            <div className="text-xs mt-0.5" style={{ color: 'var(--color-ink-mute)' }}>Deep Research AI</div>
+            <div className="font-bold text-base leading-none" style={{ color: 'var(--color-ink)' }}>ResearchAgent</div>
+            <div className="text-xs mt-0.5" style={{ color: 'var(--color-ink-mute)' }}>Autonomous Deep Research</div>
           </div>
         </div>
 
@@ -119,9 +119,9 @@ export function Sidebar({ currentSessionId, onSelectSession, onNewSession }: Sid
               className="font-semibold text-[11px]"
               style={{ color: quota.has_quota ? 'var(--color-blue-dim)' : 'var(--color-err)' }}
             >
-              {quota.has_quota
-                ? `${quota.papers_remaining} free ${quota.papers_remaining === 1 ? 'paper' : 'papers'} left`
-                : '0 free papers left'}
+              {quota.unlimited
+                ? `${quota.papers_generated} ${quota.papers_generated === 1 ? 'paper' : 'papers'} · Unlimited`
+                : `${quota.papers_remaining} free ${quota.papers_remaining === 1 ? 'paper' : 'papers'} left`}
             </span>
           </div>
         )}

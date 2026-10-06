@@ -23,7 +23,7 @@ function getWebSocketUrl(sessionId: string, ticket: string) {
 }
 
 /**
- * Custom hook for WebSocket connection to Delve backend.
+ * Custom hook for WebSocket connection to ResearchAgent backend.
  * Manages connection lifecycle, heartbeats, and message parsing.
  */
 export function useWebSocket(sessionId: string | null) {

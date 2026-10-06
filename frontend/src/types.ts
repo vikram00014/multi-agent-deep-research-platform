@@ -1,4 +1,4 @@
-/* Types for the Delve frontend */
+/* Types for the ResearchAgent frontend */
 
 export interface WSMessage {
   type: 'connected' | 'status' | 'paper_found' | 'gap' | 'debate' | 'complete' | 'error' | 'heartbeat' | 'pong';
@@ -100,5 +100,7 @@ export interface UserQuota {
   papers_remaining: number;
   last_paper_at: string | null;
   has_quota: boolean;
+  unlimited?: boolean;
 }
+
 

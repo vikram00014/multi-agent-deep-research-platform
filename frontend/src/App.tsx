@@ -190,7 +190,7 @@ export default function App() {
             style={{ background: 'var(--gradient-primary)' }}>
             <Brain size={18} color="white" />
           </div>
-          <span className="font-semibold text-sm tracking-wide" style={{ color: 'var(--color-ink-soft)' }}>Loading Delve…</span>
+          <span className="font-semibold text-sm tracking-wide" style={{ color: 'var(--color-ink-soft)' }}>Loading ResearchAgent…</span>
         </motion.div>
       </div>
     );
@@ -250,7 +250,7 @@ export default function App() {
                   <div className="w-7 h-7 rounded-lg flex items-center justify-center shadow-md" style={{ background: 'var(--gradient-primary)' }}>
                     <Brain size={15} color="white" />
                   </div>
-                  <span className="font-bold text-sm" style={{ color: 'var(--color-ink)' }}>Delve Research</span>
+                  <span className="font-bold text-sm" style={{ color: 'var(--color-ink)' }}>ResearchAgent</span>
                 </div>
                 <button
                   type="button"
@@ -377,7 +377,7 @@ export default function App() {
                         style={{ background: 'var(--gradient-primary)', boxShadow: '0 4px 12px rgba(99,102,241,0.3)' }}>
                         <Sparkles size={14} color="white" />
                       </div>
-                      <p className="mono-kicker">Delve Research Platform</p>
+                      <p className="mono-kicker">Autonomous Deep Research Platform</p>
                     </div>
                     <h1 className="max-w-[760px] text-3xl sm:text-4xl md:text-5xl font-extrabold leading-tight"
                       style={{ color: 'var(--color-ink)', letterSpacing: '-0.025em' }}>
@@ -386,7 +386,7 @@ export default function App() {
                       {' '}automated.
                     </h1>
                     <p className="mt-3 text-sm sm:text-base max-w-[620px]" style={{ color: 'var(--color-ink-soft)', lineHeight: 1.6 }}>
-                      Enter any academic research query. Delve will search databases, synthesize literature, debate rigor, and generate structured research manuscripts.
+                      Enter any academic research query. ResearchAgent will search databases, synthesize literature, debate rigor, and generate publication-ready research manuscripts.
                     </p>
                   </motion.div>
 
@@ -407,7 +407,7 @@ export default function App() {
                         onChange={(e) => setTopic(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleStart()}
                         placeholder="e.g. Vision transformers for medical image segmentation"
-                        className="delve-input flex-1 min-h-[48px] text-sm"
+                        className="research-input flex-1 min-h-[48px] text-sm"
                       />
                       <motion.button
                         whileHover={{ scale: 1.02 }}

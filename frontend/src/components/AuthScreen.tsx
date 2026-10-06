@@ -69,7 +69,7 @@ export function AuthScreen() {
             >
               <Brain size={20} color="white" />
             </div>
-            <p className="mono-kicker text-[10px] mb-1">Delve Research</p>
+            <p className="mono-kicker text-[10px] mb-1">ResearchAgent</p>
             <h1 className="text-2xl font-bold" style={{ color: 'var(--color-ink)' }}>
               {mode === 'sign-in' ? 'Welcome back' : 'Create account'}
             </h1>
@@ -91,7 +91,7 @@ export function AuthScreen() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@university.edu"
-                className="delve-input pl-9 text-xs"
+                className="research-input pl-9 text-xs"
               />
             </div>
           </div>
@@ -109,7 +109,7 @@ export function AuthScreen() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="delve-input pl-9 pr-9 text-xs"
+                className="research-input pl-9 pr-9 text-xs"
               />
               <button
                 type="button"
@@ -181,7 +181,7 @@ export function AuthScreen() {
           <div className="flex items-center gap-1.5 justify-center pt-2 border-t" style={{ borderColor: 'var(--color-line)' }}>
             <Sparkles size={12} color="var(--color-pink)" />
             <span className="text-[11px]" style={{ color: 'var(--color-ink-mute)' }}>
-              5 free research papers included per account
+              Unlimited deep research included per account
             </span>
           </div>
         </form>

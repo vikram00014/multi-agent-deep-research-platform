@@ -24,7 +24,7 @@ async function apiFetch(path: string, init: RequestInit = {}) {
 }
 
 /**
- * API client for Delve backend.
+ * API client for ResearchAgent backend.
  */
 export const api = {
   async startResearchAdvanced(payload: {

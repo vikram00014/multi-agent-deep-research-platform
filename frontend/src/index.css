@@ -281,6 +281,7 @@
   }
 
   /* ── Input ── */
+  .research-input,
   .delve-input {
     width: 100%;
     border: 1.5px solid var(--color-line);
@@ -293,11 +294,13 @@
     font-weight: 400;
   }
 
+  .research-input:focus,
   .delve-input:focus {
     border-color: var(--color-blue);
     box-shadow: 0 0 0 3px rgba(79,70,229,0.15);
   }
 
+  .research-input::placeholder,
   .delve-input::placeholder { color: var(--color-ink-mute); }
 
   /* ── Loading dots ── */

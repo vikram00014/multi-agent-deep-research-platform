@@ -1,4 +1,4 @@
-# Delve — Multi-Agent Deep Research & Synthesis Engine
+# ResearchAgent — Autonomous Multi-Agent Deep Research & Synthesis Engine
 
 <p align="center">
   <strong>Autonomous academic literature synthesis, peer-review deliberation, and publication-ready manuscript generation powered by multi-agent architectures.</strong>
@@ -17,9 +17,9 @@
 
 ## Overview
 
-**Delve** is an autonomous deep research platform designed to automate the process of academic discovery, cross-paper comparison, critical gap analysis, and manuscript drafting.
+**ResearchAgent** is an autonomous deep research platform designed to automate the process of academic discovery, cross-paper comparison, critical gap analysis, and manuscript drafting.
 
-Instead of generic summaries, Delve orchestrates a multi-agent deliberation graph that searches peer-reviewed repositories, critiques findings via an iterative **Proposer ↔ Critic** peer review debate, extracts concrete empirical benchmarks, and generates complete, citation-verified academic papers (IEEE, APA, ACM, MLA).
+Instead of generic summaries, ResearchAgent orchestrates a multi-agent deliberation graph that searches peer-reviewed repositories, critiques findings via an iterative **Proposer ↔ Critic** peer review debate, extracts concrete empirical benchmarks, and generates complete, citation-verified academic papers (IEEE, APA, ACM, MLA).
 
 ---
 
@@ -69,7 +69,7 @@ Delve executes an autonomous multi-stage LangGraph execution pipeline:
 | **Backend** | Python 3.12, FastAPI, LangGraph, Pydantic, HTTPX, ReportLab |
 | **LLM Engine** | Google Gemini REST API (Free-Tier Cascade & Cooldown Handler) |
 | **Database & Auth** | Supabase (PostgreSQL, Row Level Security, Auth JWT, pgvector, Storage) |
-| **Queue & Rate Limits** | Upstash QStash (Durable Background Jobs) & Upstash Redis REST |
+| **Background Execution** | Native Python Asyncio Workers (In-Process Durable Execution) |
 | **Frontend** | React 19, TypeScript, Vite, TailwindCSS / CSS Design Tokens, Framer Motion, Lucide Icons |
 
 ---
@@ -123,7 +123,6 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
 WS_TICKET_SECRET=generate_a_random_32_char_secret
-JOB_DISPATCH_SECRET=generate_a_random_32_char_secret
 ```
 
 #### Run Database Migrations:
@@ -131,6 +130,7 @@ Execute the SQL migration scripts in your Supabase SQL Editor:
 1. `backend/supabase/migrations/001_delve_public_beta.sql`
 2. `backend/supabase/migrations/002_lifetime_quota.sql`
 3. `backend/supabase/migrations/003_increase_paper_quota.sql`
+4. `backend/supabase/migrations/004_unlimited_quota.sql` (enables unlimited papers)
 
 #### Start the Backend Server:
 
@@ -176,7 +176,7 @@ Open [http://127.0.0.1:5173](http://127.0.0.1:5173) in your browser.
 The backend includes a production-ready `Dockerfile` and `render.yaml` configuration:
 1. Connect your GitHub repository to [Render](https://render.com/).
 2. Select **Web Service** using the Docker runtime.
-3. Configure environment variables (`GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `QSTASH_TOKEN`, `UPSTASH_REDIS_REST_URL`, etc.).
+3. Configure environment variables (`GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `WS_TICKET_SECRET`, etc.).
 
 ### Frontend (Vercel)
 The frontend includes a pre-configured `vercel.json` with security headers and SPA rewrites:

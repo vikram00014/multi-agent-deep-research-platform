@@ -1,4 +1,4 @@
-# Delve Frontend — Research UI
+# ResearchAgent Frontend — Research UI
 
 React 19 single-page application for autonomous academic research, live deliberation streaming, and manuscript viewing.
 

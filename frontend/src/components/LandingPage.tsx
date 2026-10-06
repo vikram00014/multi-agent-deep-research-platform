@@ -20,7 +20,7 @@ const STATS = [
   { value: '8', label: 'Autonomous Agents' },
   { value: '6', label: 'Research Sources' },
   { value: 'Automated', label: 'Citation Verification' },
-  { value: '5 Free', label: 'Research Papers' },
+  { value: 'Unlimited', label: 'Research Papers' },
 ];
 
 const FEATURES = [
@@ -98,7 +98,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
             >
               <Brain size={18} color="white" />
             </div>
-            <span className="font-bold text-lg tracking-tight" style={{ color: 'var(--color-ink)' }}>Delve</span>
+            <span className="font-bold text-lg tracking-tight" style={{ color: 'var(--color-ink)' }}>ResearchAgent</span>
           </div>
           <button
             onClick={onSignIn}
@@ -132,7 +132,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
             </h1>
 
             <p className="text-sm sm:text-base md:text-lg mb-10 max-w-2xl mx-auto" style={{ color: 'var(--color-ink-soft)', lineHeight: 1.7 }}>
-              Delve orchestrates 8 specialized AI agents to search academic sources,
+              ResearchAgent orchestrates 8 specialized AI agents to search academic sources,
               synthesize evidence, challenge findings, discover research gaps, and generate structured research manuscripts.
             </p>
 
@@ -278,7 +278,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
           style={{ borderColor: 'var(--color-line)', color: 'var(--color-ink-mute)', fontSize: 12 }}>
           <div className="flex items-center justify-center gap-2 mb-1">
             <Brain size={14} color="var(--color-blue-dim)" />
-            <span className="font-semibold" style={{ color: 'var(--color-ink-soft)' }}>Delve</span>
+            <span className="font-semibold" style={{ color: 'var(--color-ink-soft)' }}>ResearchAgent</span>
           </div>
           Multi-Agent Academic Deep Research System
         </footer>
