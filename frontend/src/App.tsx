@@ -540,19 +540,6 @@ export default function App() {
                           );
                         })}
                       </div>
-
-                      {/* Verification Badges */}
-                      <div className="mt-2.5 flex items-center gap-3 text-[11px] text-ink-mute flex-wrap">
-                        <span className="flex items-center gap-1">
-                          <span className="text-ok">✓</span> Professional Math Typesetting
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <span className="text-ok">✓</span> CSL Citation Verification
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <span className="text-ok">✓</span> Pre-Flight Document QA
-                        </span>
-                      </div>
                     </div>
 
                     {/* Custom PDF References */}
