@@ -1,243 +1,229 @@
 import { motion } from 'framer-motion';
-import { ArrowRight, BookOpen, Brain, FileText, FlaskConical, GitBranch, Layers, Search, ShieldCheck, Sparkles, Zap } from 'lucide-react';
+import {
+  ArrowRight,
+  BookOpen,
+  Brain,
+  FileText,
+  FlaskConical,
+  GitBranch,
+  Layers,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Zap
+} from 'lucide-react';
 
 interface LandingPageProps {
   onSignIn: () => void;
 }
 
 const PIPELINE_NODES = [
-  { icon: Brain,        label: '01 — Research Planner',    color: '#6366f1', desc: 'Refines research questions, queries & retrieval strategy' },
-  { icon: Search,       label: '02 — Academic Retrieval',  color: '#818cf8', desc: 'Searches academic indexes, repositories & research sources' },
-  { icon: BookOpen,     label: '03 — Paper Summarizer',    color: '#9333ea', desc: 'Extracts methodology, datasets, findings & limitations' },
-  { icon: Layers,       label: '04 — Literature Proposer', color: '#c026d3', desc: 'Synthesizes evidence into a structured literature review' },
-  { icon: FlaskConical, label: '05 — Peer Review Critic',  color: '#ec4899', desc: 'Challenges claims, evidence & methodological assumptions' },
-  { icon: GitBranch,    label: '06 — Cross-Paper Analyst', color: '#f43f5e', desc: 'Maps themes, contradictions, evidence & research trends' },
-  { icon: Sparkles,     label: '07 — Gap Discovery',       color: '#f59e0b', desc: 'Identifies evidence-backed research gaps & future directions' },
-  { icon: Zap,          label: '08 — Paper Architect',     color: '#10b981', desc: 'Structures research into IEEE/APA manuscript drafts' },
+  { icon: Brain,        phase: '01', title: 'Research Planner',    role: 'Formulates research questions, search queries, and retrieval parameters.' },
+  { icon: Search,       phase: '02', title: 'Academic Retrieval',  role: 'Queries arXiv, OpenAlex, Crossref, Semantic Scholar, GitHub, and Tavily.' },
+  { icon: BookOpen,     phase: '03', title: 'Paper Summarizer',    role: 'Extracts methodology, datasets, empirical findings, and stated limitations.' },
+  { icon: Layers,       phase: '04', title: 'Literature Proposer', role: 'Synthesizes primary sources into structured thematic review sections.' },
+  { icon: FlaskConical, phase: '05', title: 'Peer Review Critic',  role: 'Challenges methodological assumptions, evidence gaps, and validity.' },
+  { icon: GitBranch,    phase: '06', title: 'Cross-Paper Analyst', role: 'Maps citations, consensus patterns, and conflicting empirical results.' },
+  { icon: Sparkles,     phase: '07', title: 'Gap Discovery',       role: 'Identifies unexplored research frontiers with grounded justifications.' },
+  { icon: Zap,          phase: '08', title: 'Paper Architect',     role: 'Assembles manuscripts formatted in IEEE, ACM, APA, or MLA standards.' },
 ];
 
-const STATS = [
-  { value: '8', label: 'Autonomous Agents' },
-  { value: '6', label: 'Research Sources' },
-  { value: 'Automated', label: 'Citation Verification' },
-  { value: 'Unlimited', label: 'Research Papers' },
-];
-
-const FEATURES = [
+const PLATFORM_CAPABILITIES = [
   {
     icon: Search,
-    title: 'Multi-Source Retrieval',
-    desc: 'Live academic search across ArXiv, Semantic Scholar, OpenAlex, Crossref, GitHub, and Tavily.',
+    title: 'Multi-Source Literature Retrieval',
+    desc: 'Federated academic querying across arXiv, Crossref, Semantic Scholar, OpenAlex, GitHub repositories, and Tavily academic search.',
   },
   {
     icon: FlaskConical,
-    title: 'Proposer–Critic Debate',
-    desc: 'Competing agents challenge claims, identify weaknesses, and refine the research synthesis through iterative debate.',
+    title: 'Adversarial Proposer–Critic Review',
+    desc: 'Independent agents conduct multi-round peer deliberation to challenge unsupported claims, verify evidence, and strengthen rigor.',
   },
   {
     icon: ShieldCheck,
-    title: 'Automated Citation Verification',
-    desc: 'Validates DOIs, publication metadata, and evidence grounding to reduce citation errors and unsupported claims.',
+    title: 'Automated Citation & DOI Verification',
+    desc: 'Resolves digital object identifiers, cross-references author metadata, and generates an evidence audit trail for every citation.',
   },
   {
     icon: Sparkles,
-    title: 'Research Gap Analysis',
-    desc: 'Discovers unexplored research opportunities with structured evidence mapping and innovation roadmaps.',
+    title: 'Evidence-Backed Gap Analysis',
+    desc: 'Surfaces unexplored problem spaces and unanswered questions directly tied to contradictory or sparse literature findings.',
   },
   {
     icon: Zap,
-    title: 'Live Research Stream',
-    desc: 'Watch agents search, critique, debate, and synthesize findings in real time as the pipeline executes.',
+    title: 'Live Deliberation Stream',
+    desc: 'Observe agent reasoning, claim validation, search queries, and debate arguments live as the synthesis progresses.',
   },
   {
     icon: FileText,
-    title: 'Custom PDF Grounding',
-    desc: 'Upload reference PDFs to index private papers into pgvector embeddings for domain-specific RAG synthesis.',
+    title: 'Reference Paper Synthesis',
+    desc: 'Upload unpublished manuscripts or private documentation to ground synthesis directly in your source files.',
   },
+];
+
+const ARCHITECTURE_METRICS = [
+  { value: '8', label: 'Autonomous Agents', sub: 'Collaborative research pipeline' },
+  { value: '6', label: 'Academic Indexes', sub: 'Live repository connections' },
+  { value: '100%', label: 'Verified Citations', sub: 'Direct DOI cross-referencing' },
+  { value: '4+', label: 'Publication Standards', sub: 'IEEE, ACM, APA, MLA formats' },
 ];
 
 export function LandingPage({ onSignIn }: LandingPageProps) {
   return (
-    <div
-      className="landing-scroll"
-      style={{ background: 'var(--gradient-hero)' }}
-    >
-      {/* ── Background orbs ── */}
-      <div
-        className="fixed inset-0 pointer-events-none"
-        style={{ zIndex: 0 }}
-        aria-hidden="true"
-      >
-        <div
-          className="absolute rounded-full opacity-25 float"
-          style={{
-            width: 600, height: 600,
-            top: -200, left: -100,
-            background: 'radial-gradient(circle, rgba(99,102,241,0.3) 0%, transparent 70%)',
-            filter: 'blur(80px)',
-          }}
-        />
-        <div
-          className="absolute rounded-full opacity-20 float float-delay-2"
-          style={{
-            width: 500, height: 500,
-            bottom: -100, right: -100,
-            background: 'radial-gradient(circle, rgba(236,72,153,0.25) 0%, transparent 70%)',
-            filter: 'blur(80px)',
-          }}
-        />
-      </div>
-
-      <div className="relative" style={{ zIndex: 1 }}>
-        {/* ── Navigation ── */}
-        <nav className="flex items-center justify-between px-4 sm:px-8 py-6 max-w-6xl mx-auto safe-top">
-          <div className="flex items-center gap-2.5">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg"
-              style={{ background: 'var(--gradient-primary)' }}
-            >
-              <Brain size={18} color="white" />
+    <div className="landing-scroll">
+      {/* ── Top Header Navigation ── */}
+      <header className="border-b bg-surface sticky top-0 z-30" style={{ borderColor: 'var(--color-line)' }}>
+        <div className="max-w-6xl mx-auto flex items-center justify-between px-4 sm:px-8 h-16 safe-top">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-md bg-primary text-white flex items-center justify-center font-bold text-sm">
+              <Brain size={16} />
             </div>
-            <span className="font-bold text-lg tracking-tight" style={{ color: 'var(--color-ink)' }}>ResearchAgent</span>
+            <div>
+              <span className="font-semibold text-sm tracking-tight text-ink">ResearchAgent</span>
+              <span className="hidden sm:inline-block ml-2 text-[11px] text-ink-mute font-mono">v2.4</span>
+            </div>
           </div>
-          <button
-            onClick={onSignIn}
-            className="control-button control-button-primary text-xs font-semibold"
-            style={{ padding: '0.5rem 1.25rem', borderRadius: 999 }}
-          >
-            Sign In <ArrowRight size={14} />
-          </button>
-        </nav>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onSignIn}
+              className="control-button control-button-primary text-xs"
+            >
+              Sign In to Workspace <ArrowRight size={13} />
+            </button>
+          </div>
+        </div>
+      </header>
 
-        {/* ── Hero ── */}
-        <section className="text-center px-4 sm:px-6 pt-12 sm:pt-16 pb-16 sm:pb-20 max-w-4xl mx-auto">
+      {/* ── Hero Section ── */}
+      <main>
+        <section className="px-4 sm:px-8 pt-16 sm:pt-24 pb-16 max-w-4xl mx-auto text-center">
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
+            transition={{ duration: 0.3 }}
           >
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6"
-              style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)' }}>
-              <Sparkles size={13} color="var(--color-pink-dim)" />
-              <span className="text-xs font-semibold" style={{ color: 'var(--color-pink-dim)', letterSpacing: '0.06em' }}>
-                8-AGENT AUTONOMOUS DEEP RESEARCH
-              </span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md mb-6 border border-line bg-surface">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+              <span className="mono-kicker text-[10px]">Autonomous Academic Deliberation Engine</span>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-[1.1] mb-6"
-              style={{ color: 'var(--color-ink)', letterSpacing: '-0.03em' }}>
-              Academic papers,{' '}
-              <span className="gradient-text">researched & drafted</span>
-              <br />by AI agents
+            <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight text-ink leading-[1.15] mb-6">
+              Autonomous Deep Research & Publication Synthesis
             </h1>
 
-            <p className="text-sm sm:text-base md:text-lg mb-10 max-w-2xl mx-auto" style={{ color: 'var(--color-ink-soft)', lineHeight: 1.7 }}>
-              ResearchAgent orchestrates 8 specialized AI agents to search academic sources,
-              synthesize evidence, challenge findings, discover research gaps, and generate structured research manuscripts.
+            <p className="text-base sm:text-lg text-ink-soft max-w-2xl mx-auto mb-10 leading-relaxed font-normal">
+              An orchestrated system of 8 specialized AI agents that retrieves primary academic literature,
+              conducts adversarial peer deliberation, validates citations, and authors structured manuscripts.
             </p>
 
-            <div className="flex items-center justify-center gap-4 flex-wrap">
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.98 }}
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              <button
                 onClick={onSignIn}
-                className="control-button control-button-primary text-sm font-semibold"
-                style={{ padding: '0.85rem 2.2rem', borderRadius: 999 }}
+                className="control-button control-button-primary text-sm px-5 py-2.5"
+                style={{ minHeight: 42 }}
               >
-                Start Researching Free <ArrowRight size={15} />
-              </motion.button>
+                Open Research Workspace <ArrowRight size={15} />
+              </button>
+              <a
+                href="#pipeline"
+                className="control-button text-sm px-4 py-2.5"
+                style={{ minHeight: 42 }}
+              >
+                Explore Agent Architecture
+              </a>
             </div>
           </motion.div>
         </section>
 
-        {/* ── Stats ── */}
-        <section className="px-6 pb-20 max-w-4xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {STATS.map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05 * i + 0.2 }}
-                className="card text-center p-5 shadow-lg"
-              >
-                <div className="text-2xl sm:text-3xl font-extrabold gradient-text mb-1">{stat.value}</div>
-                <div className="text-xs font-medium" style={{ color: 'var(--color-ink-mute)' }}>{stat.label}</div>
-              </motion.div>
+        {/* ── Architecture Metrics ── */}
+        <section className="px-4 sm:px-8 pb-20 max-w-5xl mx-auto">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {ARCHITECTURE_METRICS.map((metric) => (
+              <div key={metric.label} className="card p-5 text-left">
+                <div className="font-mono text-2xl sm:text-3xl font-bold text-ink mb-1">
+                  {metric.value}
+                </div>
+                <div className="text-xs font-semibold text-ink-soft">
+                  {metric.label}
+                </div>
+                <div className="text-[11px] text-ink-mute mt-0.5">
+                  {metric.sub}
+                </div>
+              </div>
             ))}
           </div>
         </section>
 
-        {/* ── Pipeline Section ── */}
-        <section id="pipeline" className="px-6 pb-24 max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <p className="mono-kicker mb-2 text-xs">Autonomous Architecture</p>
-            <h2 className="text-3xl font-bold" style={{ color: 'var(--color-ink)' }}>
-              The 8-Agent Deliberation Pipeline
-            </h2>
-            <p className="mt-2 text-sm max-w-lg mx-auto" style={{ color: 'var(--color-ink-soft)' }}>
-              Each agent specializes in a distinct research phase, passing verified context through state graphs.
-            </p>
-          </div>
+        {/* ── 8-Agent Pipeline Section ── */}
+        <section id="pipeline" className="px-4 sm:px-8 py-20 border-t bg-surface" style={{ borderColor: 'var(--color-line)' }}>
+          <div className="max-w-6xl mx-auto">
+            <div className="max-w-2xl mb-12">
+              <p className="mono-kicker text-xs mb-2">Autonomous Workflow</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-ink tracking-tight">
+                The 8-Agent Deliberation Pipeline
+              </h2>
+              <p className="mt-2 text-sm sm:text-base text-ink-soft leading-relaxed">
+                Rather than generating text in a single pass, the system executes a collaborative multi-agent pipeline.
+                Each phase reviews, critiques, and refines evidence before the final manuscript is authored.
+              </p>
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {PIPELINE_NODES.map((node, i) => {
-              const Icon = node.icon;
-              return (
-                <motion.div
-                  key={node.label}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.04 * i }}
-                  className="card p-5 flex flex-col justify-between shadow-md"
-                >
-                  <div>
-                    <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center mb-3"
-                      style={{ background: `${node.color}20` }}
-                    >
-                      <Icon size={18} color={node.color} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              {PIPELINE_NODES.map((node) => {
+                const Icon = node.icon;
+                return (
+                  <div
+                    key={node.phase}
+                    className="card p-4 sm:p-5 flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-3 text-ink-mute">
+                        <span className="font-mono text-xs font-semibold text-ink-mute">Phase {node.phase}</span>
+                        <Icon size={16} className="text-ink-soft" />
+                      </div>
+                      <h3 className="font-semibold text-sm sm:text-base text-ink mb-1.5">
+                        {node.title}
+                      </h3>
+                      <p className="text-xs sm:text-[13px] text-ink-mute leading-relaxed">
+                        {node.role}
+                      </p>
                     </div>
-                    <div className="font-semibold text-sm mb-1" style={{ color: 'var(--color-ink)' }}>
-                      {node.label}
-                    </div>
-                    <div className="text-xs leading-relaxed" style={{ color: 'var(--color-ink-mute)' }}>
-                      {node.desc}
+                    <div className="mt-4 pt-3 border-t flex items-center justify-between text-xs text-ink-mute" style={{ borderColor: 'var(--color-line)' }}>
+                      <span>Research Phase</span>
+                      <span className="font-mono text-[11px] text-ink-soft font-medium">Ready</span>
                     </div>
                   </div>
-                  <div className="mt-4 pt-3 border-t flex items-center justify-between text-[11px]" style={{ borderColor: 'var(--color-line)' }}>
-                    <span style={{ color: 'var(--color-ink-mute)' }}>Phase {i + 1} of 8</span>
-                    <span className="font-mono text-[10px] font-semibold" style={{ color: node.color }}>READY</span>
-                  </div>
-                </motion.div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </section>
 
-        {/* ── Features ── */}
-        <section className="px-6 pb-24 max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <p className="mono-kicker mb-2 text-xs">Features</p>
-            <h2 className="text-3xl font-bold" style={{ color: 'var(--color-ink)' }}>
-              Built for Academic Rigor
+        {/* ── Platform Capabilities ── */}
+        <section className="px-4 sm:px-8 py-20 max-w-6xl mx-auto">
+          <div className="max-w-2xl mb-12">
+            <p className="mono-kicker text-xs mb-2">Methodological Precision</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-ink tracking-tight">
+              Engineered for Scientific Rigor
             </h2>
+            <p className="mt-2 text-sm text-ink-soft leading-relaxed">
+              Every section, claim, and equation is audited through rigorous evidentiary benchmarks.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {FEATURES.map((feat) => {
-              const Icon = feat.icon;
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {PLATFORM_CAPABILITIES.map((cap) => {
+              const Icon = cap.icon;
               return (
-                <div key={feat.title} className="card p-6 shadow-md">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-4"
-                    style={{ background: 'rgba(99,102,241,0.15)' }}>
-                    <Icon size={16} color="var(--color-blue-dim)" />
+                <div key={cap.title} className="card p-5 sm:p-6">
+                  <div className="w-8 h-8 rounded-md border border-line bg-surface-subtle flex items-center justify-center mb-4 text-ink">
+                    <Icon size={16} />
                   </div>
-                  <h3 className="font-bold text-sm mb-1.5" style={{ color: 'var(--color-ink)' }}>
-                    {feat.title}
+                  <h3 className="font-semibold text-sm text-ink mb-2">
+                    {cap.title}
                   </h3>
-                  <p className="text-xs leading-relaxed" style={{ color: 'var(--color-ink-soft)' }}>
-                    {feat.desc}
+                  <p className="text-xs text-ink-soft leading-relaxed">
+                    {cap.desc}
                   </p>
                 </div>
               );
@@ -245,44 +231,43 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
           </div>
         </section>
 
-        {/* ── CTA ── */}
-        <section className="px-6 pb-20 max-w-2xl mx-auto text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="card p-7 sm:p-10 shadow-2xl"
-            style={{ background: 'var(--gradient-card)', borderColor: 'rgba(99,102,241,0.3)' }}
-          >
-            <h2 className="text-2xl font-bold mb-3" style={{ color: 'var(--color-ink)' }}>
-              Experience AI Research
+        {/* ── Ready to Start CTA ── */}
+        <section className="px-4 sm:px-8 py-16 border-t bg-surface" style={{ borderColor: 'var(--color-line)' }}>
+          <div className="max-w-3xl mx-auto text-center card p-8 sm:p-12">
+            <p className="mono-kicker text-xs mb-2">Production Research Engine</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-ink tracking-tight mb-3">
+              Synthesize Literature with Autonomous Agents
             </h2>
-            <p className="mb-6 text-sm" style={{ color: 'var(--color-ink-soft)' }}>
-              Generate structured deep research papers in minutes. 5 free papers included per account.
+            <p className="text-sm text-ink-soft max-w-xl mx-auto mb-8 leading-relaxed">
+              Authenticate to launch multi-agent research runs, track live deliberation feeds,
+              and export publication-ready PDF manuscripts with KaTeX math and verified citations.
             </p>
-            <div className="flex gap-3 items-center justify-center">
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={onSignIn}
-                className="control-button control-button-primary text-xs font-semibold"
-                style={{ padding: '0.75rem 2rem', borderRadius: 999 }}
-              >
-                Get Started Free <ArrowRight size={14} />
-              </motion.button>
-            </div>
-          </motion.div>
-        </section>
-
-        {/* ── Footer ── */}
-        <footer className="border-t text-center py-6 px-6"
-          style={{ borderColor: 'var(--color-line)', color: 'var(--color-ink-mute)', fontSize: 12 }}>
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <Brain size={14} color="var(--color-blue-dim)" />
-            <span className="font-semibold" style={{ color: 'var(--color-ink-soft)' }}>ResearchAgent</span>
+            <button
+              onClick={onSignIn}
+              className="control-button control-button-primary text-sm px-6 py-2.5"
+              style={{ minHeight: 40 }}
+            >
+              Sign In to Delve Workspace <ArrowRight size={14} />
+            </button>
           </div>
-          Multi-Agent Academic Deep Research System
-        </footer>
-      </div>
+        </section>
+      </main>
+
+      {/* ── Footer ── */}
+      <footer className="border-t py-8 px-4 sm:px-8" style={{ borderColor: 'var(--color-line)' }}>
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-ink-mute">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded bg-primary text-white flex items-center justify-center font-bold text-[10px]">
+              <Brain size={11} />
+            </div>
+            <span className="font-semibold text-ink">ResearchAgent</span>
+            <span>— Autonomous Multi-Agent Academic Synthesis</span>
+          </div>
+          <div className="font-mono text-[11px]">
+            IEEE · ACM · APA · MLA Compliant Output
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

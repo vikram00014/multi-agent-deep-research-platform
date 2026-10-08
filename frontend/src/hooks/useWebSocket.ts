@@ -83,7 +83,7 @@ export function useWebSocket(sessionId: string | null) {
       ticket = (await api.createWebSocketTicket(sessionId)).ticket;
     } catch {
       setIsPollingFallback(true);
-      setWarning('Live updates unavailable, using polling fallback');
+      setWarning(null);
       return;
     }
     const url = getWebSocketUrl(sessionId, ticket);
@@ -119,7 +119,7 @@ export function useWebSocket(sessionId: string | null) {
             setError(msg.message || 'Unknown error');
           }
         } catch (e) {
-          console.error('Failed to parse WebSocket message:', e);
+          console.error('Failed to parse message:', e);
         }
       };
 
@@ -135,18 +135,18 @@ export function useWebSocket(sessionId: string | null) {
           connectTimeoutRef.current = window.setTimeout(connect, 2000 * reconnectAttempts.current);
         } else if (!completedRef.current) {
           setIsPollingFallback(true);
-          setWarning('Live updates unavailable, using polling fallback');
+          setWarning(null);
         }
       };
 
       ws.onerror = () => {
         if (wsRef.current !== ws) return;
-        setWarning('Live updates unavailable, using polling fallback');
+        setWarning(null);
       };
 
     } catch (e) {
       setIsPollingFallback(true);
-      setWarning('Failed to create live connection, using polling fallback');
+      setWarning(null);
     }
   }, [sessionId, addFeedItem]);
 
@@ -212,6 +212,61 @@ export function useWebSocket(sessionId: string | null) {
       }
     };
   }, [sessionId, connect]);
+
+  useEffect(() => {
+    if (!isPollingFallback || !sessionId || isComplete) return;
+
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      try {
+        const [timelineRes, statusRes] = await Promise.all([
+          api.getTimeline(sessionId),
+          api.getSessionStatus(sessionId),
+        ]);
+
+        if (!isMounted) return;
+
+        if (statusRes?.status === 'complete') {
+          setIsComplete(true);
+          completedRef.current = true;
+        } else if (statusRes?.status === 'error') {
+          setError(statusRes?.error || 'Session failed');
+        }
+
+        const timeline = Array.isArray(timelineRes?.timeline) ? timelineRes.timeline : [];
+        const mapped: FeedItem[] = timeline
+          .map((entry: Record<string, unknown>, idx: number) => {
+            const type = (entry.type as WSMessage['type']) || 'status';
+            const data = (entry.data as Record<string, unknown>) || {};
+            const ts = typeof entry.timestamp === 'string' ? new Date(entry.timestamp) : new Date();
+            return {
+              id: `timeline-${idx}-${String(entry.timestamp || Date.now())}`,
+              timestamp: ts,
+              type,
+              message: String(entry.message || ''),
+              data,
+              node: typeof data.node === 'string' ? data.node : undefined,
+            };
+          })
+          .filter((item: FeedItem) => item.type !== 'heartbeat' && item.type !== 'pong');
+
+        if (mapped.length && isMounted) {
+          setFeedItems(mapped);
+          if (mapped.some(m => m.type === 'complete')) {
+            setIsComplete(true);
+            completedRef.current = true;
+          }
+        }
+      } catch (err) {
+        console.error('Polling fallback update error:', err);
+      }
+    }, 2500);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [isPollingFallback, sessionId, isComplete]);
 
   const sendStop = useCallback(() => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {

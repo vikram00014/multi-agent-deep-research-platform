@@ -5,8 +5,11 @@ Loads environment variables via pydantic-settings.
 All API keys and paths are centralized here.
 """
 
+from pathlib import Path
 from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
 
 
 class Settings(BaseSettings):
@@ -31,19 +34,14 @@ class Settings(BaseSettings):
     )
     gemini_fallback_models: list[str] = Field(
         default_factory=lambda: [
-            "gemini-3.5-flash-lite",    # 15 RPM / 250k TPM / 500 RPD (Alternative Workhorse)
-            "gemini-3.8-flash",         # 5 RPM / 250k TPM / 20 RPD (Latest Reasoning Flash)
-            "gemini-3.7-flash",         # 5 RPM / 250k TPM / 20 RPD (Deep Reasoning)
-            "gemini-3.6-flash",         # 5 RPM / 250k TPM / 20 RPD (Reasoning Flash)
-            "gemini-3.5-flash",         # 5 RPM / 250k TPM / 20 RPD (Reasoning Flash)
-            "gemini-3-flash-preview",   # 5 RPM / 250k TPM / 20 RPD (Flash Preview)
-            "gemma-4-31b-it",           # 30 RPM / 16k TPM / 14,400 RPD (Massive Daily Volume)
-            "gemma-4-26b-a4b-it",       # 30 RPM / 16k TPM / 14,400 RPD (Massive Daily Volume)
+            "gemini-3.5-flash-lite",    # 15 RPM / 250k TPM / 500 RPD (Twin Workhorse)
             "gemini-flash-lite-latest", # 15 RPM / 250k TPM / 500 RPD (Safety Net Alias)
-            "gemini-2.5-flash-lite",    # 10 RPM / 250k TPM / 20 RPD (Legacy Safety Fallback)
-            "gemini-2.5-flash",         # 5 RPM / 250k TPM / 20 RPD (Legacy Safety Fallback)
+            "gemini-3.8-flash",         # 5 RPM / 250k TPM / 20 RPD (Reasoning Fallback)
+            "gemini-3.7-flash",         # 5 RPM / 250k TPM / 20 RPD (Reasoning Fallback)
+            "gemini-3.6-flash",         # 5 RPM / 250k TPM / 20 RPD (Reasoning Fallback)
+            "gemini-3.5-flash",         # 5 RPM / 250k TPM / 20 RPD (Reasoning Fallback)
         ],
-        description="Priority cascade across all verified active free-tier models.",
+        description="Priority cascade across verified active free-tier models.",
     )
     llm_model: str = Field(
         default="gemini-3.1-flash-lite",
@@ -87,14 +85,14 @@ class Settings(BaseSettings):
     max_extracted_text_bytes: int = Field(default=5 * 1024 * 1024, ge=100_000)
     max_documents_per_user: int = Field(default=20, ge=1, le=200)
     max_llm_calls_per_job: int = Field(default=60, ge=5, le=200)
-    max_llm_calls_in_flight: int = Field(default=6, ge=1, le=20)
+    max_llm_calls_in_flight: int = Field(default=4, ge=1, le=20)
 
     # ── Server ────────────────────────────────────────────────────────────
     host: str = Field(default="0.0.0.0")
     port: int = Field(default=10000)
 
     model_config = {
-        "env_file": ".env",
+        "env_file": (str(BACKEND_DIR / ".env"), ".env"),
         "env_file_encoding": "utf-8",
         "extra": "ignore",
         "enable_decoding": False,

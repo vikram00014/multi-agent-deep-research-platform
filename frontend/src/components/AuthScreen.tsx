@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain, Mail, Lock, ArrowRight, Eye, EyeOff, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Brain, Mail, Lock, ArrowRight, Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../supabase';
 
 export function AuthScreen() {
@@ -24,167 +24,152 @@ export function AuthScreen() {
       setMessage(result.error.message);
       setIsError(true);
     } else if (mode === 'sign-up') {
-      setMessage('Account created! Check your email to confirm, then sign in.');
+      setMessage('Account created. Check your email to confirm your account, then sign in.');
       setIsError(false);
     }
   };
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center px-4 overflow-hidden"
-      style={{ background: 'var(--gradient-hero)' }}
-    >
-      {/* Background orbs */}
-      <div className="fixed inset-0 pointer-events-none" aria-hidden="true">
-        <div className="absolute rounded-full float"
-          style={{
-            width: 500, height: 500, top: -150, left: -100,
-            background: 'radial-gradient(circle, rgba(99,102,241,0.25) 0%, transparent 70%)',
-            filter: 'blur(80px)',
-          }} />
-        <div className="absolute rounded-full float float-delay-2"
-          style={{
-            width: 400, height: 400, bottom: -100, right: -50,
-            background: 'radial-gradient(circle, rgba(236,72,153,0.2) 0%, transparent 70%)',
-            filter: 'blur(80px)',
-          }} />
-      </div>
-
+    <div className="min-h-screen flex items-center justify-center px-4 bg-canvas">
       <motion.div
-        initial={{ opacity: 0, y: 16, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-        className="relative w-full max-w-sm"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2 }}
+        className="w-full max-w-sm"
       >
-        <form
-          onSubmit={submit}
-          className="card p-6 sm:p-8 space-y-5 shadow-2xl"
-          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-line)' }}
-        >
-          {/* Logo */}
-          <div className="text-center mb-2">
-            <div
-              className="w-11 h-11 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg"
-              style={{ background: 'var(--gradient-primary)' }}
-            >
-              <Brain size={20} color="white" />
+        <div className="card p-6 sm:p-8 space-y-6">
+          {/* Header */}
+          <div className="text-center">
+            <div className="w-10 h-10 rounded-md bg-primary text-white flex items-center justify-center mx-auto mb-3 shadow-sm">
+              <Brain size={18} />
             </div>
-            <p className="mono-kicker text-[10px] mb-1">ResearchAgent</p>
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--color-ink)' }}>
-              {mode === 'sign-in' ? 'Welcome back' : 'Create account'}
+            <p className="mono-kicker text-[10px] mb-1">Delve Research Platform</p>
+            <h1 className="text-xl font-bold text-ink">
+              {mode === 'sign-in' ? 'Sign in to workspace' : 'Create an account'}
             </h1>
-            <p className="text-xs mt-1" style={{ color: 'var(--color-ink-mute)' }}>
-              Your research papers stay private to your workspace
+            <p className="text-xs text-ink-mute mt-1">
+              {mode === 'sign-in'
+                ? 'Access your autonomous research sessions and papers'
+                : 'Start running multi-agent deep research runs'}
             </p>
           </div>
 
-          {/* Email */}
-          <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--color-ink-soft)' }}>
-              Email address
-            </label>
-            <div className="relative">
-              <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-ink-mute)' }} />
-              <input
-                required
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@university.edu"
-                className="research-input pl-9 text-xs"
-              />
+          <form onSubmit={submit} className="space-y-4">
+            {/* Email Field */}
+            <div>
+              <label className="block text-xs font-semibold text-ink-soft mb-1.5" htmlFor="email-input">
+                Email address
+              </label>
+              <div className="relative">
+                <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-mute" />
+                <input
+                  id="email-input"
+                  required
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@institution.edu"
+                  className="research-input pl-9"
+                  autoComplete="email"
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Password */}
-          <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--color-ink-soft)' }}>
-              Password
-            </label>
-            <div className="relative">
-              <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-ink-mute)' }} />
-              <input
-                required
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="research-input pl-9 pr-9 text-xs"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2"
-                style={{ color: 'var(--color-ink-mute)' }}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-              </button>
+            {/* Password Field */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-ink-soft" htmlFor="password-input">
+                  Password
+                </label>
+              </div>
+              <div className="relative">
+                <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-mute" />
+                <input
+                  id="password-input"
+                  required
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="research-input pl-9 pr-9"
+                  autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-mute hover:text-ink transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
             </div>
-          </div>
 
-          {/* Error / Success message */}
-          <AnimatePresence>
-            {message && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="rounded-xl px-4 py-3 text-xs flex items-center gap-2"
-                style={isError ? {
-                  background: 'rgba(244,63,94,0.1)',
-                  color: 'var(--color-err)',
-                  border: '1px solid rgba(244,63,94,0.25)',
-                } : {
-                  background: 'rgba(16,185,129,0.1)',
-                  color: 'var(--color-ok)',
-                  border: '1px solid rgba(16,185,129,0.25)',
-                }}
-              >
-                {isError ? null : <CheckCircle2 size={14} />}
-                <span>{message}</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
+            {/* Error / Feedback alert */}
+            <AnimatePresence>
+              {message && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className={`rounded-md p-3 text-xs flex items-start gap-2 border ${
+                    isError
+                      ? 'bg-err-subtle text-err border-red-200'
+                      : 'bg-ok-subtle text-ok border-emerald-200'
+                  }`}
+                  role="alert"
+                >
+                  {isError ? <AlertCircle size={14} className="shrink-0 mt-0.5" /> : <CheckCircle2 size={14} className="shrink-0 mt-0.5" />}
+                  <span className="leading-relaxed">{message}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-          {/* Submit button */}
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            type="submit"
-            disabled={submitting}
-            className="control-button control-button-primary w-full text-xs font-semibold"
-            style={{ minHeight: 44, borderRadius: 10 }}
-          >
-            {submitting ? (
-              <span className="loading-dots"><span/><span/><span/></span>
-            ) : mode === 'sign-in' ? (
-              <>Sign in <ArrowRight size={14} /></>
-            ) : (
-              <>Create account <ArrowRight size={14} /></>
-            )}
-          </motion.button>
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={submitting}
+              className="control-button control-button-primary w-full text-xs font-medium py-2.5 mt-2"
+              style={{ minHeight: 38 }}
+            >
+              {submitting ? (
+                <span className="loading-dots"><span/><span/><span/></span>
+              ) : (
+                <>
+                  <span>{mode === 'sign-in' ? 'Sign In' : 'Create Account'}</span>
+                  <ArrowRight size={13} />
+                </>
+              )}
+            </button>
+          </form>
 
           {/* Toggle mode */}
-          <div className="text-center pt-1">
-            <button
-              type="button"
-              onClick={() => { setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in'); setMessage(null); }}
-              className="text-xs font-medium hover:underline transition-all"
-              style={{ color: 'var(--color-blue-dim)' }}
-            >
-              {mode === 'sign-in' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-            </button>
+          <div className="pt-2 border-t border-line text-center text-xs text-ink-mute">
+            {mode === 'sign-in' ? (
+              <p>
+                Don&apos;t have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => { setMode('sign-up'); setMessage(null); }}
+                  className="font-medium text-ink hover:underline"
+                >
+                  Sign up
+                </button>
+              </p>
+            ) : (
+              <p>
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => { setMode('sign-in'); setMessage(null); }}
+                  className="font-medium text-ink hover:underline"
+                >
+                  Sign in
+                </button>
+              </p>
+            )}
           </div>
-
-          {/* Free tier note */}
-          <div className="flex items-center gap-1.5 justify-center pt-2 border-t" style={{ borderColor: 'var(--color-line)' }}>
-            <Sparkles size={12} color="var(--color-pink)" />
-            <span className="text-[11px]" style={{ color: 'var(--color-ink-mute)' }}>
-              Unlimited deep research included per account
-            </span>
-          </div>
-        </form>
+        </div>
       </motion.div>
     </div>
   );

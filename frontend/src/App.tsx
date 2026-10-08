@@ -1,6 +1,20 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { ArrowRight, BarChart2, Brain, Database, FileText, Menu, Plus, RotateCcw, Sparkles, Square, X } from 'lucide-react';
+import {
+  ArrowRight,
+  BarChart2,
+  BookOpen,
+  Brain,
+  Database,
+  FileText,
+  Menu,
+  Microscope,
+  Plus,
+  RotateCcw,
+  Square,
+  X,
+  Zap
+} from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Sidebar }       from './components/Sidebar';
 import { ResearchFeed }  from './components/ResearchFeed';
@@ -21,17 +35,23 @@ type RightTab = 'paper' | 'sources' | 'stats';
 type Depth    = 'quick' | 'standard' | 'deep';
 
 const PAPER_FORMATS = [
-  { value: 'ieee',     label: 'IEEE' },
-  { value: 'academic', label: 'Academic' },
-  { value: 'apa',      label: 'APA' },
-  { value: 'acm',      label: 'ACM' },
-  { value: 'mla',      label: 'MLA' },
+  { value: 'ieee', label: 'IEEE', desc: 'Two-Column Conference' },
+  { value: 'acm',  label: 'ACM',  desc: 'Two-Column Sigconf' },
+  { value: 'apa',  label: 'APA 7', desc: 'Single-Column Professional' },
+  { value: 'mla',  label: 'MLA 9', desc: 'Double-Spaced Academic' },
 ] as const;
 
-const DEPTHS: Array<{ value: Depth; label: string; desc: string }> = [
-  { value: 'quick',    label: '⚡ Quick',    desc: '~1–2 min, 10 agent calls' },
-  { value: 'standard', label: '📚 Standard', desc: '~3–4 min, 16 agent calls' },
-  { value: 'deep',     label: '🔬 Deep',     desc: '~5–6 min, 24 agent calls' },
+const PAPER_TYPES = [
+  { value: 'experimental', label: 'Research Article' },
+  { value: 'survey',       label: 'Survey / Review' },
+  { value: 'system',       label: 'System Paper' },
+  { value: 'position',     label: 'Position Paper' },
+] as const;
+
+const DEPTHS: Array<{ value: Depth; label: string; icon: typeof Zap; specs: string; est: string }> = [
+  { value: 'quick',    label: 'Quick Synthesis',   icon: Zap,        specs: '8–10 papers · 0 debate rounds', est: '~3–5 min' },
+  { value: 'standard', label: 'Standard Review',   icon: BookOpen,   specs: '12–15 papers · 1 debate round', est: '~6–8 min' },
+  { value: 'deep',     label: 'Deep Deliberation', icon: Microscope, specs: '15–20 papers · 2 debate rounds', est: '~10–14 min' },
 ];
 
 const EXAMPLE_TOPICS = [
@@ -52,6 +72,7 @@ export default function App() {
   const [uploadedFileIds,   setUploadedFileIds]  = useState<string[]>([]);
   const [polledComplete,    setPolledComplete]   = useState(false);
   const [paperFormat,       setPaperFormat]      = useState('ieee');
+  const [paperType,         setPaperType]        = useState('experimental');
   const [depth,             setDepth]            = useState<Depth>('deep');
   const [sessionDetail,     setSessionDetail]    = useState<SessionDetail | null>(null);
   const [actionError,       setActionError]      = useState<string | null>(null);
@@ -87,8 +108,7 @@ export default function App() {
     }
   }, [effectiveComplete, currentSessionId]);
 
-  // ── Handlers ────────────────────────────────────────────────────────────
-
+  // ── Handlers ──
   const handleStart = async () => {
     const cleanedTopic = topic.trim();
     if (!cleanedTopic) return;
@@ -103,6 +123,7 @@ export default function App() {
         strict_mode: true,
         max_debate_rounds: depth === 'deep' ? 2 : depth === 'standard' ? 1 : 0,
         paper_format: paperFormat,
+        paper_type: paperType,
         depth,
       });
       setCurrentSessionId(result.session_id);
@@ -157,7 +178,7 @@ export default function App() {
     catch (err) { setActionError(err instanceof Error ? err.message : 'Cancel failed'); }
   };
 
-  // Polling
+  // Background Polling
   useEffect(() => { setPolledComplete(false); }, [currentSessionId]);
 
   useEffect(() => {
@@ -168,7 +189,7 @@ export default function App() {
           if (status?.status === 'complete') setPolledComplete(true);
           setSessionDetail(detail);
         })
-        .catch((err) => setActionError(err instanceof Error ? err.message : 'Polling failed'));
+        .catch((err) => console.warn('Background polling check:', err));
     };
     poll();
     const interval = setInterval(() => {
@@ -180,18 +201,13 @@ export default function App() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--gradient-hero)' }}>
-        <motion.div
-          animate={{ opacity: [0.5, 1, 0.5] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-          className="flex items-center gap-3"
-        >
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg"
-            style={{ background: 'var(--gradient-primary)' }}>
-            <Brain size={18} color="white" />
+      <div className="min-h-screen flex items-center justify-center bg-canvas">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-md bg-primary text-white flex items-center justify-center">
+            <Brain size={16} />
           </div>
-          <span className="font-semibold text-sm tracking-wide" style={{ color: 'var(--color-ink-soft)' }}>Loading ResearchAgent…</span>
-        </motion.div>
+          <span className="text-xs font-medium text-ink-mute">Initializing Delve…</span>
+        </div>
       </div>
     );
   }
@@ -201,24 +217,12 @@ export default function App() {
 
   const viewMotion = reduceMotion
     ? { initial: false, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: 0 } }
-    : { initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -6 }, transition: { duration: 0.15, ease: 'easeOut' as const } };
-
-  // ── Status badge config ──────────────────────────────────────────────
-  const statusBadge = effectiveComplete
-    ? { label: 'Complete',   color: 'var(--color-ok)',   bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.3)' }
-    : isError
-      ? { label: 'Error',     color: 'var(--color-err)',  bg: 'rgba(244,63,94,0.15)',  border: 'rgba(244,63,94,0.3)' }
-      : isCancelled
-        ? { label: 'Cancelled', color: 'var(--color-warn)', bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.3)' }
-        : currentSessionId
-          ? { label: 'Researching', color: 'var(--color-blue-dim)', bg: 'rgba(99,102,241,0.15)', border: 'rgba(99,102,241,0.3)' }
-          : { label: 'Ready',    color: 'var(--color-ink-mute)', bg: 'var(--color-raised)',  border: 'var(--color-line)' };
+    : { initial: { opacity: 0, y: 4 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -4 }, transition: { duration: 0.12, ease: 'easeOut' as const } };
 
   return (
-    <div className="flex h-screen" style={{ background: 'var(--color-canvas)' }}>
-
+    <div className="flex h-screen bg-canvas">
       {/* ── Desktop Sidebar ── */}
-      <aside className="hidden w-[270px] shrink-0 md:block">
+      <aside className="hidden w-[280px] shrink-0 md:block">
         <Sidebar
           currentSessionId={currentSessionId}
           onSelectSession={handleSelectSession}
@@ -235,31 +239,29 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMobileMenuOpen(false)}
-              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
+              className="fixed inset-0 z-40 bg-black/30 backdrop-blur-xs md:hidden"
             />
             <motion.div
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-              className="fixed inset-y-0 left-0 z-50 w-[290px] shadow-2xl md:hidden flex flex-col"
-              style={{ background: 'var(--color-surface)', borderRight: '1px solid var(--color-line)' }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-y-0 left-0 z-50 w-[300px] shadow-lg md:hidden flex flex-col bg-surface border-r border-line"
             >
-              <div className="flex items-center justify-between p-4 border-b shrink-0" style={{ borderColor: 'var(--color-line)' }}>
+              <div className="flex items-center justify-between p-3.5 border-b border-line shrink-0">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center shadow-md" style={{ background: 'var(--gradient-primary)' }}>
-                    <Brain size={15} color="white" />
+                  <div className="w-6 h-6 rounded bg-primary text-white flex items-center justify-center font-bold text-xs">
+                    <Brain size={13} />
                   </div>
-                  <span className="font-bold text-sm" style={{ color: 'var(--color-ink)' }}>ResearchAgent</span>
+                  <span className="font-semibold text-xs text-ink">ResearchAgent</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-1.5 rounded-lg hover:bg-black/5 transition-colors"
-                  style={{ color: 'var(--color-ink-mute)' }}
+                  className="p-1 rounded text-ink-mute hover:text-ink hover:bg-surface-subtle"
                   aria-label="Close menu"
                 >
-                  <X size={18} />
+                  <X size={16} />
                 </button>
               </div>
               <div className="flex-1 overflow-hidden">
@@ -282,123 +284,115 @@ export default function App() {
 
       {/* ── Main Content Area ── */}
       <main className="flex min-w-0 flex-1 flex-col">
-
-        {/* ── Top Header ── */}
-        <header
-          className="shrink-0 card-glass"
-          style={{
-            borderRadius: 0,
-            borderTop: 0,
-            borderLeft: 0,
-            borderRight: 0,
-          }}
-        >
-          <div className="mx-auto flex h-[62px] w-full max-w-[960px] items-center justify-between gap-3 px-4 sm:px-6">
+        {/* ── Top Header Bar ── */}
+        <header className="shrink-0 bg-surface border-b border-line">
+          <div className="mx-auto flex h-14 w-full max-w-[1040px] items-center justify-between gap-3 px-4 sm:px-6">
             <div className="flex items-center gap-2.5 min-w-0">
-              {/* Mobile Hamburger Button */}
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(true)}
-                className="control-button p-2 md:hidden shrink-0"
+                className="control-button p-1.5 md:hidden shrink-0"
                 aria-label="Open sessions menu"
               >
-                <Menu size={16} />
+                <Menu size={15} />
               </button>
 
               <div className="min-w-0">
-                <p className="mono-kicker text-[10px]">
-                  {view === 'idle' ? 'New research' : view === 'running' ? 'In progress' : 'Paper ready'}
-                </p>
-                <p className="truncate text-sm font-semibold mt-0.5" style={{ color: 'var(--color-ink)' }}>
-                  {view === 'idle' ? 'Academic Deep Research' : activeTopic}
+                <div className="flex items-center gap-2">
+                  <span className="mono-kicker text-[10px]">
+                    {view === 'idle' ? 'Workspace' : view === 'running' ? 'Active Run' : 'Deliberation Result'}
+                  </span>
+                </div>
+                <p className="truncate text-xs sm:text-sm font-semibold text-ink leading-tight mt-0.5">
+                  {view === 'idle' ? 'Autonomous Academic Deep Research' : activeTopic}
                 </p>
               </div>
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              {/* Status badge */}
-              <span
-                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
-                style={{ background: statusBadge.bg, color: statusBadge.color, border: `1px solid ${statusBadge.border}` }}
-              >
+              {/* Status Indicator */}
+              <div className="hidden sm:inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-line bg-surface-subtle">
                 <span
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{
-                    background: statusBadge.color,
-                    animation: currentSessionId && !effectiveComplete && !isError ? 'pulse-glow 1.8s ease infinite' : 'none',
-                  }}
+                  className={`status-dot ${
+                    effectiveComplete
+                      ? 'bg-ok'
+                      : isError
+                      ? 'bg-err'
+                      : isCancelled
+                      ? 'bg-warn'
+                      : currentSessionId
+                      ? 'status-dot-running'
+                      : 'bg-ink-mute'
+                  }`}
                 />
-                {statusBadge.label}
-              </span>
+                <span className="font-mono text-xs font-medium text-ink-soft">
+                  {effectiveComplete
+                    ? 'Complete'
+                    : isError
+                    ? 'Error'
+                    : isCancelled
+                    ? 'Cancelled'
+                    : currentSessionId
+                    ? 'Synthesizing'
+                    : 'Ready'}
+                </span>
+              </div>
 
               {view === 'running' && !isError && !isCancelled && (
-                <button type="button" onClick={handleCancel} className="control-button text-xs">
-                  <Square size={13} /> <span className="hidden sm:inline">Stop</span>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="control-button text-xs font-medium"
+                >
+                  <Square size={12} /> <span className="hidden sm:inline">Stop</span>
                 </button>
               )}
               {(isError || isCancelled) && currentSessionId && (
-                <button type="button" onClick={handleRetry} className="control-button control-button-primary text-xs">
-                  <RotateCcw size={13} /> <span className="hidden sm:inline">Retry</span>
+                <button
+                  type="button"
+                  onClick={handleRetry}
+                  className="control-button control-button-primary text-xs font-medium"
+                >
+                  <RotateCcw size={12} /> <span className="hidden sm:inline">Retry</span>
                 </button>
               )}
-              <button type="button" onClick={handleNewSession} className="control-button text-xs">
-                <Plus size={13} /><span className="hidden sm:inline">New</span>
+              <button
+                type="button"
+                onClick={handleNewSession}
+                className="control-button text-xs font-medium"
+              >
+                <Plus size={14} />
+                <span className="hidden sm:inline">New Run</span>
               </button>
             </div>
           </div>
-
-          {/* Connection warning */}
-          {(isPollingFallback || warning) && (
-            <div className="px-4 py-1 text-center text-xs"
-              style={{ background: 'rgba(245,158,11,0.1)', color: 'var(--color-warn)', borderTop: '1px solid rgba(245,158,11,0.2)' }}>
-              {warning || 'Live updates reconnecting — utilizing background polling.'}
-            </div>
-          )}
         </header>
 
-        {/* ── Content ── */}
+        {/* ── Content View ── */}
         <section className="min-h-0 flex-1 overflow-hidden">
           <AnimatePresence mode="wait">
-
-            {/* ── IDLE: Topic Entry ── */}
+            {/* ── IDLE: Topic Entry & Setup ── */}
             {view === 'idle' && (
               <motion.div key="idle" {...viewMotion} className="h-full overflow-y-auto">
-                <div className="mx-auto flex min-h-full max-w-[860px] flex-col justify-center px-4 sm:px-6 py-8 sm:py-12">
-
-                  {/* Hero heading */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="mb-8"
-                  >
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                        style={{ background: 'var(--gradient-primary)', boxShadow: '0 4px 12px rgba(99,102,241,0.3)' }}>
-                        <Sparkles size={14} color="white" />
-                      </div>
-                      <p className="mono-kicker">Autonomous Deep Research Platform</p>
-                    </div>
-                    <h1 className="max-w-[760px] text-3xl sm:text-4xl md:text-5xl font-extrabold leading-tight"
-                      style={{ color: 'var(--color-ink)', letterSpacing: '-0.025em' }}>
-                      Deep research,{' '}
-                      <span className="gradient-text">8 specialized AI agents,</span>
-                      {' '}automated.
+                <div className="mx-auto flex min-h-full max-w-[840px] flex-col justify-center px-4 sm:px-6 py-8 sm:py-12">
+                  {/* Lead Heading */}
+                  <div className="mb-6">
+                    <p className="mono-kicker text-xs mb-1.5">New Autonomous Research Run</p>
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-ink tracking-tight">
+                      Synthesize Academic Literature & Draft Manuscripts
                     </h1>
-                    <p className="mt-3 text-sm sm:text-base max-w-[620px]" style={{ color: 'var(--color-ink-soft)', lineHeight: 1.6 }}>
-                      Enter any academic research query. ResearchAgent will search databases, synthesize literature, debate rigor, and generate publication-ready research manuscripts.
+                    <p className="mt-2.5 text-sm sm:text-base text-ink-soft leading-relaxed max-w-2xl">
+                      Enter any academic research query. Eight autonomous agents will query repositories,
+                      synthesize literature, conduct peer debate, and assemble a publication-grade manuscript.
                     </p>
-                  </motion.div>
+                  </div>
 
                   {/* Topic Input Box */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.05, duration: 0.3 }}
-                    className="card p-6 mb-4"
-                  >
-                    <label htmlFor="topic" className="mono-kicker mb-2.5 block text-xs">Research topic</label>
-                    <div className="flex flex-col gap-3 sm:flex-row">
+                  <div className="card p-5 sm:p-6 mb-4">
+                    <label htmlFor="topic" className="block text-sm font-semibold text-ink mb-2">
+                      Research topic or working hypothesis
+                    </label>
+                    <div className="flex flex-col gap-2.5 sm:flex-row">
                       <input
                         id="topic"
                         type="text"
@@ -407,120 +401,168 @@ export default function App() {
                         onChange={(e) => setTopic(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleStart()}
                         placeholder="e.g. Vision transformers for medical image segmentation"
-                        className="research-input flex-1 min-h-[48px] text-sm"
+                        className="research-input flex-1 min-h-[46px] text-[15px]"
                       />
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
+                      <button
                         type="button"
                         onClick={handleStart}
                         disabled={isStarting || !topic.trim()}
-                        className="control-button control-button-primary disabled:opacity-50"
-                        style={{ minHeight: 48, padding: '0 1.5rem', borderRadius: 10, fontSize: 14 }}
+                        className="control-button control-button-primary disabled:opacity-50 shrink-0 font-medium"
+                        style={{ minHeight: 46, padding: '0 1.5rem', fontSize: '14px' }}
                       >
                         {isStarting ? (
                           <span className="loading-dots"><span/><span/><span/></span>
                         ) : (
-                          <><Brain size={16} /> Start research <ArrowRight size={15} /></>
+                          <>
+                            <span>Start Research</span>
+                            <ArrowRight size={15} />
+                          </>
                         )}
-                      </motion.button>
+                      </button>
                     </div>
 
                     {actionError && (
-                      <div className="mt-3 rounded-xl px-4 py-3 text-xs font-medium"
-                        style={{ background: 'rgba(244,63,94,0.1)', color: 'var(--color-err)', border: '1px solid rgba(244,63,94,0.25)' }}>
+                      <div className="mt-3 rounded p-2.5 text-xs bg-err-subtle text-err border border-red-200">
                         {actionError}
                       </div>
                     )}
 
-                    {/* Example Topics */}
-                    <div className="mt-4 flex flex-wrap items-center gap-2">
-                      <span className="text-xs" style={{ color: 'var(--color-ink-mute)' }}>Try:</span>
+                    {/* Example Topic Prompts */}
+                    <div className="mt-4 flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs text-ink-mute mr-1">Suggested topics:</span>
                       {EXAMPLE_TOPICS.map((ex) => (
-                        <button key={ex} type="button" onClick={() => setTopic(ex)}
-                          className="control-button text-xs"
-                          style={{ borderRadius: 999, padding: '0.25rem 0.75rem', minHeight: 0, fontSize: 12 }}>
+                        <button
+                          key={ex}
+                          type="button"
+                          onClick={() => setTopic(ex)}
+                          className="control-button text-xs py-1.5 px-3"
+                          style={{ minHeight: 28 }}
+                        >
                           {ex}
                         </button>
                       ))}
                     </div>
-                  </motion.div>
+                  </div>
 
-                  {/* Research Settings & PDF Grounding */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1, duration: 0.3 }}
-                    className="card p-5 sm:p-6 space-y-6"
-                  >
-                    <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--color-line)' }}>
+                  {/* Research Settings & Configuration */}
+                  <div className="card p-5 sm:p-6 space-y-6">
+                    <div className="flex items-center justify-between border-b border-line pb-3">
                       <div>
-                        <h2 className="mono-kicker text-xs">Pipeline Configuration</h2>
-                        <p className="mt-0.5 text-xs font-semibold" style={{ color: 'var(--color-ink-soft)' }}>
+                        <h2 className="mono-kicker text-xs">Execution Configuration</h2>
+                        <p className="text-sm font-medium text-ink-soft mt-0.5">
                           {depth.toUpperCase()} Mode · {paperFormat.toUpperCase()} Format
                         </p>
                       </div>
-                      <span className="badge badge-blue text-[11px]">Ready</span>
+                      <span className="badge badge-blue">Ready</span>
                     </div>
 
                     {/* Depth Selection */}
                     <div>
-                      <p className="mono-kicker mb-2.5 text-xs">Research Depth</p>
+                      <p className="block text-sm font-semibold text-ink mb-2">
+                        Research Depth & Deliberation Rounds
+                      </p>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                        {DEPTHS.map((item) => (
-                          <button key={item.value} type="button" onClick={() => setDepth(item.value)}
-                            className="rounded-xl border p-3 text-xs text-left transition-all"
-                            style={depth === item.value ? {
-                              background: 'rgba(99,102,241,0.12)',
-                              borderColor: 'var(--color-blue)',
-                              color: 'var(--color-ink)',
-                              boxShadow: '0 0 0 1px var(--color-blue)',
-                            } : {
-                              background: 'var(--color-surface)',
-                              borderColor: 'var(--color-line)',
-                              color: 'var(--color-ink-soft)',
-                            }}
-                            aria-pressed={depth === item.value}>
-                            <div className="font-semibold text-xs">{item.label}</div>
-                            <div className="opacity-75 mt-1 text-[11px]">{item.desc}</div>
-                          </button>
-                        ))}
+                        {DEPTHS.map((item) => {
+                          const Icon = item.icon;
+                          const selected = depth === item.value;
+                          return (
+                            <button
+                              key={item.value}
+                              type="button"
+                              onClick={() => setDepth(item.value)}
+                              className={`rounded-md border p-3.5 text-left transition-colors ${
+                                selected
+                                  ? 'bg-surface-subtle border-ink text-ink shadow-xs'
+                                  : 'bg-surface border-line text-ink-soft hover:border-line-strong'
+                              }`}
+                              aria-pressed={selected}
+                            >
+                              <div className="flex items-center gap-1.5 mb-1.5 text-ink">
+                                <Icon size={15} />
+                                <span className="font-semibold text-sm">{item.label}</span>
+                              </div>
+                              <div className="text-xs text-ink-mute leading-snug">{item.specs}</div>
+                              <div className="text-xs text-ink-mute font-mono mt-1.5">{item.est}</div>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 
-                    {/* Citation Format Selection */}
+                    {/* Manuscript Profile & Publication Style */}
                     <div>
-                      <p className="mono-kicker mb-2.5 text-xs">Citation & Paper Format</p>
-                      <div className="flex flex-wrap gap-2">
-                        {PAPER_FORMATS.map((item) => (
-                          <button key={item.value} type="button" onClick={() => setPaperFormat(item.value)}
-                            className="rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all"
-                            style={paperFormat === item.value ? {
-                              background: 'rgba(236,72,153,0.12)',
-                              borderColor: 'var(--color-pink)',
-                              color: 'var(--color-pink-dim)',
-                              boxShadow: '0 0 0 1px var(--color-pink)',
-                            } : {
-                              background: 'var(--color-surface)',
-                              borderColor: 'var(--color-line)',
-                              color: 'var(--color-ink-soft)',
-                            }}
-                            aria-pressed={paperFormat === item.value}>
-                            {item.label}
-                          </button>
-                        ))}
+                      <p className="block text-sm font-semibold text-ink mb-2">
+                        Publication Standard & Profile
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {PAPER_FORMATS.map((item) => {
+                          const selected = paperFormat === item.value;
+                          return (
+                            <button
+                              key={item.value}
+                              type="button"
+                              onClick={() => setPaperFormat(item.value)}
+                              className={`p-2.5 rounded-lg border text-left transition-colors ${
+                                selected
+                                  ? 'bg-surface border-ink shadow-sm ring-1 ring-ink'
+                                  : 'bg-surface border-line hover:border-line-dark'
+                              }`}
+                              aria-pressed={selected}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-semibold text-xs text-ink">{item.label}</span>
+                                {selected && <span className="h-1.5 w-1.5 rounded-full bg-ink" />}
+                              </div>
+                              <div className="text-[11px] text-ink-mute mt-0.5">{item.desc}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Paper Type Selector */}
+                      <div className="mt-3 flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-ink-mute font-medium">Type:</span>
+                        {PAPER_TYPES.map((pt) => {
+                          const active = paperType === pt.value;
+                          return (
+                            <button
+                              key={pt.value}
+                              type="button"
+                              onClick={() => setPaperType(pt.value)}
+                              className={`px-2.5 py-1 text-xs rounded transition-colors border ${
+                                active
+                                  ? 'bg-ink text-white border-ink font-medium'
+                                  : 'bg-surface border-line text-ink-soft hover:bg-surface-subtle'
+                              }`}
+                            >
+                              {pt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Verification Badges */}
+                      <div className="mt-2.5 flex items-center gap-3 text-[11px] text-ink-mute flex-wrap">
+                        <span className="flex items-center gap-1">
+                          <span className="text-ok">✓</span> Professional Math Typesetting
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="text-ok">✓</span> CSL Citation Verification
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="text-ok">✓</span> Pre-Flight Document QA
+                        </span>
                       </div>
                     </div>
 
-                    {/* PDF Grounding */}
+                    {/* Custom PDF References */}
                     <div>
-                      <div className="mb-2.5 flex items-center gap-2">
-                        <FileText size={14} color="var(--color-blue-dim)" />
-                        <p className="mono-kicker text-xs">Ground with Custom PDFs (Optional)</p>
-                      </div>
+                      <p className="block text-sm font-semibold text-ink mb-2">
+                        Reference PDF Documents (Optional)
+                      </p>
                       <PdfUpload onFilesChange={setUploadedFileIds} />
                     </div>
-                  </motion.div>
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -539,37 +581,36 @@ export default function App() {
               </motion.div>
             )}
 
-            {/* ── DONE: Paper + Stats Tabs ── */}
+            {/* ── DONE: Paper + Sources + Stats Tabs ── */}
             {view === 'done' && (
               <motion.div key="done" {...viewMotion} className="h-full flex flex-col overflow-hidden">
-                {/* Tab bar */}
-                <div className="shrink-0 flex items-center gap-1 sm:gap-2 px-4 sm:px-6 pt-3 pb-0 bg-surface/50"
-                  style={{ borderBottom: '1px solid var(--color-line)' }}>
+                {/* Clean Tab Bar */}
+                <div className="shrink-0 flex items-center gap-1 sm:gap-2 px-4 sm:px-6 pt-2 bg-surface border-b border-line">
                   {([
-                    { key: 'paper', label: 'Paper', fullLabel: 'Research Paper', icon: FileText },
+                    { key: 'paper', label: 'Paper', fullLabel: 'Research Manuscript', icon: FileText },
                     { key: 'sources', label: 'Sources', fullLabel: 'Retrieved Sources & Proof', icon: Database },
                     { key: 'stats', label: 'Analytics', fullLabel: 'Session Analytics', icon: BarChart2 },
-                  ] as const).map(({ key, label, fullLabel, icon: Icon }) => (
-                    <button
-                      key={key}
-                      onClick={() => setRightTab(key)}
-                      className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 -mb-px transition-all"
-                      style={rightTab === key ? {
-                        borderBottomColor: 'var(--color-blue)',
-                        color: 'var(--color-ink)',
-                      } : {
-                        borderBottomColor: 'transparent',
-                        color: 'var(--color-ink-mute)',
-                      }}
-                    >
-                      <Icon size={14} color={rightTab === key ? 'var(--color-blue-dim)' : 'var(--color-ink-mute)'} />
-                      <span className="hidden sm:inline">{fullLabel}</span>
-                      <span className="sm:hidden">{label}</span>
-                    </button>
-                  ))}
+                  ] as const).map(({ key, label, fullLabel, icon: Icon }) => {
+                    const active = rightTab === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setRightTab(key)}
+                        className={`flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium border-b-2 -mb-px transition-colors ${
+                          active
+                            ? 'border-ink text-ink font-semibold'
+                            : 'border-transparent text-ink-mute hover:text-ink hover:border-line-strong'
+                        }`}
+                      >
+                        <Icon size={14} className={active ? 'text-ink' : 'text-ink-mute'} />
+                        <span className="hidden sm:inline">{fullLabel}</span>
+                        <span className="sm:hidden">{label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
 
-                {/* Tab content */}
+                {/* Tab content area */}
                 <div className="flex-1 overflow-hidden">
                   <AnimatePresence mode="wait">
                     {rightTab === 'paper' && (

@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain, Plus, Trash2, Clock, CheckCircle2, XCircle, AlertTriangle, Loader2, LogOut, Sparkles } from 'lucide-react';
+import {
+  Brain,
+  Plus,
+  Trash2,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  AlertTriangle,
+  Loader2,
+  LogOut,
+  FolderOpen
+} from 'lucide-react';
 import { api } from '../api';
 import { supabase } from '../supabase';
 import type { Session, UserQuota } from '../types';
@@ -12,11 +23,11 @@ interface SidebarProps {
 }
 
 function StatusIcon({ status }: { status: string }) {
-  if (status === 'complete')  return <CheckCircle2 size={13} color="var(--color-ok)" />;
-  if (status === 'error')     return <XCircle size={13} color="var(--color-err)" />;
-  if (status === 'cancelled') return <AlertTriangle size={13} color="var(--color-warn)" />;
-  if (status === 'running')   return <Loader2 size={13} color="var(--color-blue-dim)" className="animate-spin" />;
-  return <Clock size={13} color="var(--color-ink-mute)" />;
+  if (status === 'complete')  return <CheckCircle2 size={13} className="text-ok shrink-0" />;
+  if (status === 'error')     return <AlertCircle size={13} className="text-err shrink-0" />;
+  if (status === 'cancelled') return <AlertTriangle size={13} className="text-warn shrink-0" />;
+  if (status === 'running')   return <Loader2 size={13} className="text-accent animate-spin shrink-0" />;
+  return <Clock size={13} className="text-ink-mute shrink-0" />;
 }
 
 function relativeTime(value?: string) {
@@ -69,152 +80,122 @@ export function Sidebar({ currentSessionId, onSelectSession, onNewSession }: Sid
   };
 
   return (
-    <div
-      className="flex h-full flex-col"
-      style={{
-        background: 'var(--color-surface)',
-        borderRight: '1px solid var(--color-line)',
-      }}
-    >
-      {/* ── Header ── */}
-      <div className="px-5 py-5" style={{ borderBottom: '1px solid var(--color-line)' }}>
-        <div className="flex items-center gap-2.5 mb-4">
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-md"
-            style={{ background: 'var(--gradient-primary)' }}
-          >
-            <Brain size={16} color="white" />
+    <div className="flex h-full flex-col bg-surface border-r border-line select-none">
+      {/* ── Brand & Action Header ── */}
+      <div className="p-4 border-b border-line">
+        <div className="flex items-center gap-2.5 mb-3.5">
+          <div className="w-8 h-8 rounded-md bg-primary text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+            <Brain size={16} />
           </div>
-          <div>
-            <div className="font-bold text-base leading-none" style={{ color: 'var(--color-ink)' }}>ResearchAgent</div>
-            <div className="text-xs mt-0.5" style={{ color: 'var(--color-ink-mute)' }}>Autonomous Deep Research</div>
+          <div className="min-w-0">
+            <div className="font-semibold text-sm leading-none text-ink truncate">ResearchAgent</div>
+            <div className="text-xs text-ink-mute mt-1 truncate">Autonomous Deep Research</div>
           </div>
         </div>
 
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+        <button
           type="button"
           onClick={onNewSession}
-          className="control-button control-button-primary w-full text-xs font-semibold"
-          style={{ borderRadius: 10, minHeight: 38 }}
+          className="control-button control-button-primary w-full text-sm font-medium"
+          style={{ minHeight: 36 }}
         >
           <Plus size={15} />
-          New Research
-        </motion.button>
+          <span>New Research</span>
+        </button>
 
         {quota && (
-          <div
-            className="mt-3 flex items-center justify-between text-xs px-3 py-1.5 rounded-lg"
-            style={{
-              background: quota.has_quota ? 'rgba(99,102,241,0.1)' : 'rgba(244,63,94,0.1)',
-              border: `1px solid ${quota.has_quota ? 'rgba(99,102,241,0.2)' : 'rgba(244,63,94,0.2)'}`,
-            }}
-          >
-            <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--color-ink-mute)' }}>
-              <Sparkles size={11} color={quota.has_quota ? 'var(--color-pink)' : 'var(--color-err)'} />
-              Plan:
-            </span>
-            <span
-              className="font-semibold text-[11px]"
-              style={{ color: quota.has_quota ? 'var(--color-blue-dim)' : 'var(--color-err)' }}
-            >
+          <div className="mt-3 flex items-center justify-between text-xs px-2.5 py-1.5 rounded border border-line bg-surface-subtle">
+            <span className="mono-kicker text-[11px]">Plan</span>
+            <span className="font-mono text-xs font-medium text-ink-soft">
               {quota.unlimited
-                ? `${quota.papers_generated} ${quota.papers_generated === 1 ? 'paper' : 'papers'} · Unlimited`
-                : `${quota.papers_remaining} free ${quota.papers_remaining === 1 ? 'paper' : 'papers'} left`}
+                ? `${sessions.length} ${sessions.length === 1 ? 'paper' : 'papers'} · Unlimited`
+                : `${quota.papers_remaining} ${quota.papers_remaining === 1 ? 'paper' : 'papers'} left`}
             </span>
           </div>
         )}
       </div>
 
-      {/* ── Error ── */}
+      {/* ── Error Banner ── */}
       {error && (
-        <div className="px-4 py-2 text-xs"
-          style={{ color: 'var(--color-err)', background: 'rgba(244,63,94,0.1)', borderBottom: '1px solid rgba(244,63,94,0.2)' }}>
+        <div className="px-3 py-2 text-xs bg-err-subtle text-err border-b border-red-200" role="alert">
           {error}
         </div>
       )}
 
-      {/* ── Session List ── */}
-      <div className="flex-1 overflow-y-auto py-2 px-2">
+      {/* ── Sessions List ── */}
+      <div className="flex-1 overflow-y-auto p-2">
+        <div className="px-2 py-1.5 mb-1">
+          <span className="mono-kicker text-[11px]">Research History</span>
+        </div>
+
         {loading && sessions.length === 0 ? (
-          <div className="px-3 py-6 space-y-2">
-            {[1,2,3].map(i => (
-              <div key={i} className="shimmer h-12 w-full rounded-xl" />
+          <div className="p-2 space-y-1.5">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="shimmer h-11 w-full rounded" />
             ))}
           </div>
         ) : sessions.length === 0 ? (
-          <div className="px-4 py-12 text-center">
-            <Brain size={26} color="var(--color-ink-mute)" className="mx-auto mb-2 opacity-50" />
-            <p className="text-xs font-semibold" style={{ color: 'var(--color-ink-soft)' }}>No previous research</p>
-            <p className="mt-1 text-[11px]" style={{ color: 'var(--color-ink-mute)' }}>Your generated papers will appear here</p>
+          <div className="px-3 py-8 text-center">
+            <FolderOpen size={22} className="mx-auto mb-2 text-ink-mute opacity-50" />
+            <p className="text-sm font-medium text-ink-soft">No previous research</p>
+            <p className="mt-1 text-xs text-ink-mute">Initiated research runs will be cataloged here.</p>
           </div>
         ) : (
-          <div className="space-y-1">
+          <nav className="space-y-0.5" aria-label="Past research sessions">
             <AnimatePresence>
               {sessions.map((session) => {
                 const selected = currentSessionId === session.session_id;
                 return (
-                  <motion.div
+                  <div
                     key={session.session_id}
-                    layout
-                    initial={{ opacity: 0, x: -6 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -6 }}
-                    transition={{ duration: 0.15 }}
-                    className="group flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-all cursor-pointer"
-                    style={{
-                      background: selected ? 'rgba(99,102,241,0.12)' : 'transparent',
-                      border: selected ? '1px solid rgba(99,102,241,0.28)' : '1px solid transparent',
-                    }}
                     onClick={() => onSelectSession(session.session_id)}
+                    className={`group relative flex items-center gap-2.5 rounded px-2.5 py-2 transition-colors cursor-pointer border ${
+                      selected
+                        ? 'bg-surface-subtle border-line-strong text-ink font-semibold shadow-xs'
+                        : 'border-transparent text-ink-soft hover:bg-surface-subtle hover:text-ink'
+                    }`}
                   >
-                    <div className="shrink-0">
-                      <StatusIcon status={session.status} />
-                    </div>
+                    <StatusIcon status={session.status} />
+
                     <div className="min-w-0 flex-1">
-                      <p
-                        className="truncate text-xs font-medium leading-tight"
-                        style={{ color: selected ? 'var(--color-ink)' : 'var(--color-ink-soft)' }}
-                      >
+                      <p className="truncate text-[13px] font-medium leading-snug">
                         {session.topic}
                       </p>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className="text-[11px]" style={{ color: 'var(--color-ink-mute)' }}>
-                          {relativeTime(session.updated_at)}
-                        </span>
-                      </div>
+                      <span className="text-xs text-ink-mute font-mono block mt-0.5">
+                        {relativeTime(session.updated_at)}
+                      </span>
                     </div>
+
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); handleDelete(session.session_id); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleDelete(session.session_id);
+                      }}
                       disabled={session.status === 'running' || deletingId === session.session_id}
-                      className="opacity-50 sm:opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg disabled:opacity-20 hover:bg-white/5"
-                      style={{ color: 'var(--color-ink-mute)' }}
-                      onMouseOver={(e) => (e.currentTarget.style.color = 'var(--color-err)')}
-                      onMouseOut={(e) => (e.currentTarget.style.color = 'var(--color-ink-mute)')}
-                      aria-label="Delete session"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-canvas text-ink-mute hover:text-err disabled:opacity-0"
+                      aria-label={`Delete ${session.topic}`}
                     >
                       <Trash2 size={13} />
                     </button>
-                  </motion.div>
+                  </div>
                 );
               })}
             </AnimatePresence>
-          </div>
+          </nav>
         )}
       </div>
 
       {/* ── Footer ── */}
-      <div className="px-4 py-3" style={{ borderTop: '1px solid var(--color-line)' }}>
+      <div className="p-3 border-t border-line">
         <button
           type="button"
-          onClick={() => supabase.auth.signOut()}
-          className="control-button control-button-ghost w-full text-xs"
+          onClick={() => void supabase.auth.signOut()}
+          className="control-button control-button-ghost w-full text-xs justify-start"
           style={{ minHeight: 32 }}
         >
-          <LogOut size={12} />
-          Sign out
+          <LogOut size={14} className="text-ink-mute" />
+          <span>Sign out</span>
         </button>
       </div>
     </div>

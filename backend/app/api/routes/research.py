@@ -62,6 +62,7 @@ class StartResearchRequest(BaseModel):
     max_debate_rounds: int | None = Field(default=None, ge=0, le=5)
     strict_mode: bool | None = None
     paper_format: Literal["academic", "ieee", "apa", "acm", "mla"] | None = "academic"
+    paper_type: Literal["experimental", "survey", "system", "position"] | None = "experimental"
     depth: Literal["quick", "standard", "deep"] | None = "standard"
     year_from: int | None = Field(default=None, ge=1900, le=2100)
     include_sources: list[str] | None = None
@@ -296,7 +297,7 @@ def _build_export_bundle(session_id: str, session: dict[str, Any]) -> dict[str, 
     }
     bibtex_entries = []
     for idx, b in enumerate(bibliography, start=1):
-        key = f"delve{idx}"
+        key = f"ref{idx}"
         bibtex_entries.append(
             f"@article{{{key}, title={{{b.get('title','')}}}, author={{{b.get('authors','')}}}, "
             f"year={{{b.get('year','')}}}, url={{{b.get('url','')}}}, doi={{{b.get('doi','')}}}}}"
@@ -351,6 +352,7 @@ async def run_research_pipeline(
             "strict_mode": bool(controls.get("strict_mode", settings.strict_synthesis_mode)),
             "max_debate_rounds": int(controls.get("max_debate_rounds", settings.max_debate_rounds)),
             "paper_format": str(controls.get("paper_format", "academic")),
+            "paper_type": str(controls.get("paper_type", "experimental")),
             "planner_constraints": {
                 "depth": controls.get("depth", "standard"),
                 "year_from": controls.get("year_from"),
@@ -584,6 +586,7 @@ async def start_research(
         "max_debate_rounds": max(0, min(5, requested_rounds)),
         "strict_mode": bool(request.strict_mode) if request.strict_mode is not None else bool(settings.strict_synthesis_mode),
         "paper_format": (request.paper_format or "academic").strip().lower(),
+        "paper_type": (request.paper_type or "experimental").strip().lower(),
         "depth": request.depth or "standard",
         "year_from": request.year_from,
         "include_sources": request.include_sources or [],
@@ -848,7 +851,7 @@ async def chat_with_research(
     }
 
     system_prompt = (
-        "You are Delve Research Discussion Assistant. You answer questions about the selected research session. "
+        "You are ResearchAgent Discussion Assistant. You answer questions about the selected research session. "
         "Stay grounded in the provided session context and the relevant RAG document excerpts. Be concrete and analytical. "
         "If information is missing in session context, clearly say it is not available yet."
     )
@@ -915,7 +918,9 @@ async def export_session_bundle(
 
 @router.get("/{session_id}/paper.pdf")
 async def download_paper_pdf(
-    session_id: str, user: AuthenticatedUser = Depends(get_current_user),
+    session_id: str,
+    format: str | None = None,
+    user: AuthenticatedUser = Depends(get_current_user),
 ) -> FileResponse:
     session = await _get_owned_session(session_id, user)
     if session.get("status") != "complete":
@@ -927,23 +932,109 @@ async def download_paper_pdf(
     if not final_draft and not analysis:
         raise HTTPException(status_code=404, detail="No paper content available for PDF export")
 
+    # Determine requested publication format (query param overrides session setting)
+    chosen_format = str(
+        format
+        or session.get("controls", {}).get("paper_format")
+        or session.get("paper_format")
+        or "ieee"
+    ).lower().strip()
+    if chosen_format not in {"ieee", "acm", "apa", "mla"}:
+        chosen_format = "ieee"
+
     # Write to an isolated temp directory; ephemeral on Render which is intentional.
-    tmp_dir = Path(tempfile.mkdtemp(prefix="delve_pdf_"))
-    out_path = tmp_dir / "delve_paper.pdf"
-    await asyncio.to_thread(
-        generate_research_pdf,
-        topic=session.get("topic", "Research Paper"),
-        session_id=session_id,
-        analysis_markdown=analysis,
-        final_markdown=final_draft,
-        out_path=out_path,
-        resource_dir=tmp_dir,
-    )
+    tmp_dir = Path(tempfile.mkdtemp(prefix="research_pdf_"))
+    out_path = tmp_dir / f"research_paper_{chosen_format}.pdf"
+    try:
+        await asyncio.to_thread(
+            generate_research_pdf,
+            topic=session.get("topic", "Research Paper"),
+            session_id=session_id,
+            analysis_markdown=analysis,
+            final_markdown=final_draft,
+            out_path=out_path,
+            resource_dir=tmp_dir,
+            paper_format=chosen_format,
+            bibliography_data=result.get("bibliography", []),
+        )
+    except Exception as exc:
+        logger.error("generate_research_pdf failed for session %s (%s): %s", session_id, chosen_format, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {exc}")
+
+    safe_topic = re.sub(r"[^a-zA-Z0-9_\-]+", "_", session.get("topic", "paper")).strip("_")[:35] or "paper"
     return FileResponse(
         path=str(out_path),
-        filename=f"delve-paper-{session_id[:8]}.pdf",
+        filename=f"{safe_topic}-{chosen_format.upper()}-{session_id[:8]}.pdf",
         media_type="application/pdf",
     )
+
+
+@router.get("/{session_id}/latex")
+async def download_paper_latex(
+    session_id: str,
+    format: str | None = None,
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> FileResponse:
+    import zipfile
+    session = await _get_owned_session(session_id, user)
+    if session.get("status") != "complete":
+        raise HTTPException(status_code=400, detail=f"Session is {session.get('status')}, paper not ready")
+
+    result = session.get("result", {}) or {}
+    analysis = str(result.get("research_analysis", "") or "")
+    final_draft = str(result.get("final_draft", result.get("final_paper", "")) or "")
+    if not final_draft and not analysis:
+        raise HTTPException(status_code=404, detail="No paper content available for LaTeX export")
+
+    chosen_format = str(
+        format
+        or session.get("controls", {}).get("paper_format")
+        or session.get("paper_format")
+        or "ieee"
+    ).lower().strip()
+    if chosen_format not in {"ieee", "acm", "apa", "mla"}:
+        chosen_format = "ieee"
+
+    tmp_dir = Path(tempfile.mkdtemp(prefix="research_latex_"))
+    bundle_dir = tmp_dir / "manuscript"
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        from app.services.manuscript_builder import build_semantic_manuscript
+        from app.services.latex_exporter import export_latex_bundle
+        from app.services.pdf_export import _generate_academic_figures
+
+        # Proactively generate figure assets
+        try:
+            _generate_academic_figures(bundle_dir, session.get("topic", "Research Paper"), final_draft or analysis)
+        except Exception:
+            pass
+
+        doc = build_semantic_manuscript(
+            topic=session.get("topic", "Research Paper"),
+            markdown=final_draft or analysis,
+            paper_format=chosen_format,
+            bibliography_data=result.get("bibliography", []),
+            resource_dir=bundle_dir,
+        )
+        export_latex_bundle(doc, bundle_dir)
+
+        # Create zip bundle
+        zip_path = tmp_dir / f"{chosen_format}_bundle.zip"
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip_f:
+            for file_path in bundle_dir.iterdir():
+                if file_path.is_file():
+                    zip_f.write(file_path, arcname=file_path.name)
+
+        safe_topic = re.sub(r"[^a-zA-Z0-9_\-]+", "_", session.get("topic", "paper")).strip("_")[:35] or "paper"
+        return FileResponse(
+            path=str(zip_path),
+            filename=f"{safe_topic}-{chosen_format.upper()}-LaTeX.zip",
+            media_type="application/zip",
+        )
+    except Exception as exc:
+        logger.error("LaTeX export failed for session %s: %s", session_id, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"LaTeX export failed: {exc}")
 
 
 @router.get("/{session_id}/slides")
@@ -959,10 +1050,12 @@ async def list_sessions(user: AuthenticatedUser = Depends(get_current_user)) -> 
     sessions: list[dict[str, Any]] = []
     for data in await supabase_repository.list_sessions(user.id):
         sid = str(data["id"])
+        raw_status = data.get("status", "unknown")
+        effective_status = "error" if raw_status in {"running", "queued"} and sid not in active_sessions else raw_status
         sessions.append({
             "session_id": sid,
             "topic": data.get("topic", ""),
-            "status": data.get("status", "unknown"),
+            "status": effective_status,
             "current_step": data.get("current_step", "unknown"),
             "created_at": data.get("started_at", ""),
             "updated_at": data.get("updated_at", ""),
@@ -977,12 +1070,14 @@ async def list_sessions(user: AuthenticatedUser = Depends(get_current_user)) -> 
 async def get_quota(user: AuthenticatedUser = Depends(get_current_user)) -> dict[str, Any]:
     """Get user's paper generation quota information (unlimited)."""
     try:
-        quota = await supabase_repository.get_user_quota_info(user.id)
+        sessions = await supabase_repository.list_sessions(user.id)
+        count = len(sessions)
+        last_paper = sessions[0].get("started_at") if sessions else None
         return {
-            "papers_generated": quota.get("papers_generated", 0),
+            "papers_generated": count,
             "papers_allowed": -1,
             "papers_remaining": 999999,
-            "last_paper_at": quota.get("last_paper_at"),
+            "last_paper_at": last_paper,
             "has_quota": True,
             "unlimited": True,
         }

@@ -1,6 +1,15 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { Activity, BookOpen, Clock, Database, FileText, Hash, Layers, ShieldCheck, Sparkles } from 'lucide-react';
+import {
+  Activity,
+  BookOpen,
+  Clock,
+  Database,
+  FileText,
+  Hash,
+  Layers,
+  ShieldCheck,
+  CheckCircle2
+} from 'lucide-react';
 import type { SessionDetail, PaperResult } from '../types';
 
 interface SessionStatsProps {
@@ -46,31 +55,22 @@ function formatSourceName(source: string): string {
   return source.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function StatCard({ icon: Icon, label, value, sub, color }: {
-  icon: React.ElementType; label: string; value: string | number; sub?: string; color?: string;
+function StatCard({ icon: Icon, label, value, sub }: {
+  icon: React.ElementType; label: string; value: string | number; sub?: string;
 }) {
   return (
-    <motion.div
-      whileHover={{ y: -2 }}
-      transition={{ duration: 0.15 }}
-      className="card p-5 flex flex-col justify-between gap-2 shadow-md"
-    >
-      <div className="flex items-center gap-2.5">
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: color ? `${color}18` : 'rgba(99,102,241,0.12)' }}
-        >
-          <Icon size={16} color={color || 'var(--color-blue-dim)'} />
-        </div>
-        <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-ink-mute)' }}>
+    <div className="card p-4 flex flex-col justify-between gap-2.5">
+      <div className="flex items-center gap-2 text-ink-mute">
+        <Icon size={15} className="text-ink-soft shrink-0" />
+        <span className="mono-kicker text-xs truncate">
           {label}
         </span>
       </div>
       <div>
-        <div className="text-2xl font-extrabold" style={{ color: 'var(--color-ink)' }}>{value}</div>
-        {sub && <div className="text-xs mt-0.5" style={{ color: 'var(--color-ink-mute)' }}>{sub}</div>}
+        <div className="text-2xl sm:text-3xl font-bold font-mono text-ink tracking-tight">{value}</div>
+        {sub && <div className="text-xs text-ink-mute mt-1">{sub}</div>}
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -96,12 +96,12 @@ export function SessionStats({ detail, paper }: SessionStatsProps) {
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
-      <div>
-        <p className="mono-kicker mb-1">Session Analytics & Provenance</p>
-        <h2 className="text-xl font-bold" style={{ color: 'var(--color-ink)' }}>
+      <div className="border-b border-line pb-4">
+        <span className="mono-kicker text-xs">Session Analytics & Provenance</span>
+        <h2 className="text-xl sm:text-2xl font-bold text-ink mt-1">
           {detail.topic}
         </h2>
-        <div className="flex items-center gap-2 mt-2 flex-wrap">
+        <div className="flex items-center gap-2 mt-2.5 flex-wrap">
           {detail.status === 'complete' && (
             <span className="badge badge-green">Research Complete</span>
           )}
@@ -109,81 +109,75 @@ export function SessionStats({ detail, paper }: SessionStatsProps) {
             <span className="badge badge-blue">{String(detail.controls!.paper_format).toUpperCase()} Format</span>
           )}
           {Boolean(detail.controls?.depth) && (
-            <span className="badge badge-pink">{String(detail.controls!.depth).toUpperCase()} Mode</span>
+            <span className="badge">{String(detail.controls!.depth).toUpperCase()} Mode</span>
           )}
         </div>
       </div>
 
       {/* ── Primary Metrics ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
         <StatCard
           icon={Clock}
           label="Execution Time"
           value={formatTime(elapsed)}
           sub="multi-agent generation"
-          color="#6366f1"
         />
         <StatCard
           icon={Hash}
-          label="Tokens Processed"
+          label="Content Analyzed"
           value={tokenEstimate.toLocaleString()}
-          sub="Gemini Model Engine"
-          color="#ec4899"
+          sub="words and passages"
         />
         <StatCard
           icon={Database}
           label="Papers Retrieved"
           value={totalSources}
-          sub={`from ${Object.keys(sourceCounts).length} research sources`}
-          color="#818cf8"
+          sub={`from ${Object.keys(sourceCounts).length} repositories`}
         />
         <StatCard
           icon={Activity}
           label="Debate Rounds"
           value={debates}
           sub={`${debates === 1 ? '1 round' : `${debates} rounds`} peer critique`}
-          color="#d946ef"
         />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
         <StatCard
           icon={ShieldCheck}
           label="Citations Verified"
           value={bibCount > 0 ? `${citations} / ${bibCount}` : citations}
-          sub={bibCount > 0 && citations === bibCount ? 'all citations validated' : `${Math.max(0, bibCount - citations)} unindexed / web sources`}
-          color="#10b981"
+          sub={bibCount > 0 && citations === bibCount ? '100% metadata verified' : `${Math.max(0, bibCount - citations)} web sources`}
         />
         <StatCard
           icon={FileText}
           label="Bibliography"
           value={bibCount}
           sub="cited in manuscript"
-          color="#f472b6"
         />
         <StatCard
           icon={Layers}
           label="Research Gaps"
           value={gapCount}
-          sub="unexplored frontiers"
-          color="#ec4899"
+          sub="frontier problems"
         />
         <StatCard
           icon={BookOpen}
-          label="Grounding PDFs"
+          label="Reference Papers"
           value={detail.uploaded_paper_ids?.length ?? 0}
-          sub="custom reference files"
-          color="#6366f1"
+          sub="custom uploaded files"
         />
       </div>
 
       {/* ── Source Breakdown ── */}
       {Object.keys(sourceCounts).length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="card p-6">
-          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--color-ink)' }}>
-            <Database size={15} color="var(--color-blue-dim)" />
-            Academic Source Distribution
-          </h3>
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Database size={15} className="text-ink-mute" />
+            <h3 className="text-sm font-semibold text-ink">
+              Academic Source Channel Distribution
+            </h3>
+          </div>
           <div className="space-y-3">
             {Object.entries(sourceCounts).sort((a, b) => Number(b[1]) - Number(a[1])).map(([source, rawCount]) => {
               const count = Number(rawCount);
@@ -191,41 +185,42 @@ export function SessionStats({ detail, paper }: SessionStatsProps) {
               return (
                 <div key={source}>
                   <div className="flex items-center justify-between mb-1.5 text-xs">
-                    <span className="font-medium" style={{ color: 'var(--color-ink-soft)' }}>
+                    <span className="font-medium text-ink-soft">
                       {formatSourceName(source)}
                     </span>
-                    <span className="font-semibold" style={{ color: 'var(--color-ink)' }}>
+                    <span className="font-mono text-ink text-[11px] font-semibold">
                       {String(count)} {count === 1 ? 'paper' : 'papers'} · {pct}%
                     </span>
                   </div>
-                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--color-raised)' }}>
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${pct}%` }}
-                      transition={{ duration: 0.6, ease: 'easeOut' }}
-                      className="h-full rounded-full"
-                      style={{ background: 'var(--gradient-primary)' }}
+                  <div className="h-1.5 rounded-full overflow-hidden bg-surface-subtle border border-line">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all duration-300"
+                      style={{ width: `${pct}%` }}
                     />
                   </div>
                 </div>
               );
             })}
           </div>
-        </motion.div>
+        </div>
       )}
 
       {/* ── Format Compliance ── */}
       {compliance?.checks && Object.keys(compliance.checks).length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="card p-6">
-          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--color-ink)' }}>
-            <Sparkles size={15} color="var(--color-pink)" />
-            Manuscript Structure & Verification — {compliance.paper_format?.toUpperCase()}
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <CheckCircle2 size={15} className="text-ok" />
+            <h3 className="text-sm font-semibold text-ink">
+              Manuscript Structure & Standards Compliance ({compliance.paper_format?.toUpperCase()})
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {Object.entries(compliance.checks).map(([check, passed]) => (
-              <div key={check} className="flex items-center justify-between p-2.5 rounded-lg border"
-                style={{ borderColor: 'var(--color-line)', background: 'var(--color-raised)' }}>
-                <span className="text-xs font-medium" style={{ color: 'var(--color-ink-soft)' }}>
+              <div
+                key={check}
+                className="flex items-center justify-between p-2.5 rounded border border-line bg-surface-subtle"
+              >
+                <span className="text-xs text-ink-soft font-medium">
                   {formatCheckName(check)}
                 </span>
                 <span className={`badge ${passed ? 'badge-green' : 'badge-err'}`}>
@@ -234,15 +229,15 @@ export function SessionStats({ detail, paper }: SessionStatsProps) {
               </div>
             ))}
           </div>
-          <div className="mt-5 pt-4 flex items-center justify-between border-t" style={{ borderColor: 'var(--color-line)' }}>
-            <span className="text-xs font-medium" style={{ color: 'var(--color-ink-mute)' }}>
-              Citation & Structural Checks
+          <div className="mt-4 pt-3 flex items-center justify-between border-t border-line">
+            <span className="text-xs text-ink-mute">
+              Section & Formatting Verification
             </span>
-            <span className="text-base font-bold gradient-text">
-              {compliance.passed}/{compliance.total} structural checks passed
+            <span className="font-mono text-sm font-semibold text-ink">
+              {compliance.passed} / {compliance.total} structural checks verified
             </span>
           </div>
-        </motion.div>
+        </div>
       )}
     </div>
   );

@@ -33,6 +33,7 @@ export const api = {
     max_debate_rounds?: number;
     strict_mode?: boolean;
     paper_format?: string;
+    paper_type?: string;
     depth?: 'quick' | 'standard' | 'deep';
     year_from?: number;
     include_sources?: string[];
@@ -98,9 +99,17 @@ export const api = {
     return resp.json();
   },
 
-  async downloadPaperPdf(sessionId: string) {
-    const resp = await apiFetch(`/research/${sessionId}/paper.pdf`);
+  async downloadPaperPdf(sessionId: string, format?: string) {
+    const query = format ? `?format=${encodeURIComponent(format)}` : '';
+    const resp = await apiFetch(`/research/${sessionId}/paper.pdf${query}`);
     if (!resp.ok) throw await parseApiError(resp, 'Failed to download PDF');
+    return resp.blob();
+  },
+
+  async downloadPaperLatex(sessionId: string, format?: string) {
+    const query = format ? `?format=${encodeURIComponent(format)}` : '';
+    const resp = await apiFetch(`/research/${sessionId}/latex${query}`);
+    if (!resp.ok) throw await parseApiError(resp, 'Failed to download LaTeX archive');
     return resp.blob();
   },
 

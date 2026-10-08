@@ -1,17 +1,12 @@
 import { useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   BookOpen,
   CheckCircle2,
   Database,
   ExternalLink,
-  Filter,
   Layers,
   Search,
   ShieldCheck,
-  Sparkles,
-  Tag,
-  FileText,
   AlertCircle
 } from 'lucide-react';
 import type { PaperResult, SessionDetail } from '../types';
@@ -31,26 +26,15 @@ function formatSourceName(source: string): string {
     semantic_scholar: 'Semantic Scholar',
     semanticscholar: 'Semantic Scholar',
     github: 'GitHub',
-    custom_pdf: 'Custom PDF',
-    vector_store: 'Document Store',
+    custom_pdf: 'Reference PDF',
+    vector_store: 'Uploaded Documents',
   };
   const key = source.trim().toLowerCase();
   if (map[key]) return map[key];
   return source.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function getSourceColor(source: string): { bg: string; text: string; border: string } {
-  const s = source.toLowerCase();
-  if (s.includes('arxiv')) return { bg: 'rgba(239, 68, 68, 0.12)', text: '#f87171', border: 'rgba(239, 68, 68, 0.25)' };
-  if (s.includes('openalex')) return { bg: 'rgba(99, 102, 241, 0.12)', text: '#818cf8', border: 'rgba(99, 102, 241, 0.25)' };
-  if (s.includes('crossref')) return { bg: 'rgba(236, 72, 153, 0.12)', text: '#f472b6', border: 'rgba(236, 72, 153, 0.25)' };
-  if (s.includes('semantic')) return { bg: 'rgba(16, 185, 129, 0.12)', text: '#34d399', border: 'rgba(16, 185, 129, 0.25)' };
-  if (s.includes('github')) return { bg: 'rgba(245, 158, 11, 0.12)', text: '#fbbf24', border: 'rgba(245, 158, 11, 0.25)' };
-  if (s.includes('pdf')) return { bg: 'rgba(168, 85, 247, 0.12)', text: '#c084fc', border: 'rgba(168, 85, 247, 0.25)' };
-  return { bg: 'rgba(59, 130, 246, 0.12)', text: '#60a5fa', border: 'rgba(59, 130, 246, 0.25)' };
-}
-
-export function SourceDossier({ paper, detail }: SourceDossierProps) {
+export function SourceDossier({ paper }: SourceDossierProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSource, setSelectedSource] = useState<string>('all');
   const [onlyVerified, setOnlyVerified] = useState(false);
@@ -110,12 +94,12 @@ export function SourceDossier({ paper, detail }: SourceDossierProps) {
 
   if (totalSourcesCount === 0) {
     return (
-      <div className="flex h-full items-center justify-center p-8 text-center">
+      <div className="flex h-full items-center justify-center p-8 text-center bg-canvas">
         <div className="max-w-md">
-          <Database className="mx-auto mb-3 h-10 w-10 opacity-40 text-blue-400" />
-          <h3 className="text-base font-bold mb-1" style={{ color: 'var(--color-ink)' }}>No Research Sources Loaded</h3>
-          <p className="text-xs" style={{ color: 'var(--color-ink-mute)' }}>
-            Sources and bibliographic verification data will appear here once research generation completes.
+          <Database className="mx-auto mb-3 h-8 w-8 text-ink-mute opacity-50" />
+          <h3 className="text-sm font-semibold mb-1 text-ink">No Research Sources Loaded</h3>
+          <p className="text-xs text-ink-mute">
+            Sources and bibliographic verification records will appear here once research generation completes.
           </p>
         </div>
       </div>
@@ -123,91 +107,72 @@ export function SourceDossier({ paper, detail }: SourceDossierProps) {
   }
 
   return (
-    <div className="h-full overflow-y-auto px-4 sm:px-8 py-6 space-y-6">
+    <div className="h-full overflow-y-auto px-4 sm:px-8 py-6 space-y-6 bg-canvas">
       {/* ── Top Header & Summary Stats ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5" style={{ borderColor: 'var(--color-line)' }}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-line pb-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Sparkles size={14} color="var(--color-pink)" />
-            <p className="mono-kicker">Academic Evidence Dossier</p>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-bold" style={{ color: 'var(--color-ink)' }}>
-            Real Retrieved Sources & Verification
+          <span className="mono-kicker text-[10px]">Academic Evidence Dossier</span>
+          <h2 className="text-xl font-bold text-ink mt-0.5">
+            Retrieved Sources & Verification Trail
           </h2>
-          <p className="text-xs mt-1" style={{ color: 'var(--color-ink-soft)' }}>
-            Examine every primary study retrieved from academic indexes, DOIs, authors, and evidence links.
+          <p className="text-xs text-ink-mute mt-1">
+            Examine primary studies retrieved from academic databases, resolved DOIs, and grounded claim linkages.
           </p>
         </div>
 
         {/* Mode Toggle */}
-        <div className="flex items-center gap-1.5 p-1 rounded-xl border bg-surface/60" style={{ borderColor: 'var(--color-line)' }}>
+        <div className="flex items-center gap-1 p-0.5 rounded border border-line bg-surface shrink-0">
           <button
             type="button"
             onClick={() => setViewMode('sources')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
               viewMode === 'sources'
-                ? 'bg-blue-600 text-white shadow-sm'
+                ? 'bg-primary text-white shadow-xs'
                 : 'text-ink-soft hover:text-ink'
             }`}
           >
-            <BookOpen size={13} />
+            <BookOpen size={12} />
             Sources ({totalSourcesCount})
           </button>
           <button
             type="button"
             onClick={() => setViewMode('claims')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
               viewMode === 'claims'
-                ? 'bg-blue-600 text-white shadow-sm'
+                ? 'bg-primary text-white shadow-xs'
                 : 'text-ink-soft hover:text-ink'
             }`}
           >
-            <Layers size={13} />
+            <Layers size={12} />
             Claim Traceability ({claimEvidenceMap.length})
           </button>
         </div>
       </div>
 
-      {/* ── Quick Metric Pills ── */}
+      {/* ── Metric Summary Row ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="card p-3.5 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-500/10 text-blue-400">
-            <Database size={16} />
-          </div>
-          <div>
-            <div className="text-lg font-bold text-ink">{totalSourcesCount}</div>
-            <div className="text-[11px] text-ink-mute">Cited Sources</div>
-          </div>
+        <div className="card p-4">
+          <span className="mono-kicker text-xs">Total Cited</span>
+          <div className="text-2xl font-bold font-mono text-ink mt-1">{totalSourcesCount}</div>
+          <div className="text-xs text-ink-mute mt-0.5">Primary literature</div>
         </div>
 
-        <div className="card p-3.5 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-500/10 text-emerald-400">
-            <ShieldCheck size={16} />
-          </div>
-          <div>
-            <div className="text-lg font-bold text-ink">{verifiedCount} / {totalSourcesCount}</div>
-            <div className="text-[11px] text-ink-mute">Metadata Verified</div>
-          </div>
+        <div className="card p-4">
+          <span className="mono-kicker text-xs">Verified Citations</span>
+          <div className="text-2xl font-bold font-mono text-ok mt-1">{verifiedCount} / {totalSourcesCount}</div>
+          <div className="text-xs text-ink-mute mt-0.5">Matched to primary papers</div>
         </div>
 
-        <div className="card p-3.5 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-500/10 text-purple-400">
-            <Filter size={16} />
-          </div>
-          <div>
-            <div className="text-lg font-bold text-ink">{availableSources.length}</div>
-            <div className="text-[11px] text-ink-mute">Source Channels</div>
-          </div>
+        <div className="card p-4">
+          <span className="mono-kicker text-xs">Academic Sources</span>
+          <div className="text-2xl font-bold font-mono text-ink mt-1">{availableSources.length}</div>
+          <div className="text-xs text-ink-mute mt-0.5">Active research channels</div>
         </div>
 
-        <div className="card p-3.5 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-pink-500/10 text-pink-400">
-            <Layers size={16} />
-          </div>
-          <div>
-            <div className="text-lg font-bold text-ink">{claimEvidenceMap.length}</div>
-            <div className="text-[11px] text-ink-mute">Grounded Claims</div>
-          </div>
+        <div className="card p-4">
+          <span className="mono-kicker text-xs">Evidence Links</span>
+          <div className="text-2xl font-bold font-mono text-ink mt-1">{claimEvidenceMap.length}</div>
+          <div className="text-xs text-ink-mute mt-0.5">Grounded manuscript claims</div>
         </div>
       </div>
 
@@ -215,7 +180,7 @@ export function SourceDossier({ paper, detail }: SourceDossierProps) {
       {viewMode === 'sources' && (
         <div className="space-y-4">
           {/* Filter / Search Bar */}
-          <div className="card p-3.5 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+          <div className="card p-3 flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
             <div className="relative flex-1">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-mute" />
               <input
@@ -223,8 +188,7 @@ export function SourceDossier({ paper, detail }: SourceDossierProps) {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by title, author, DOI, or keyword..."
-                className="w-full pl-9 pr-3 py-1.5 rounded-lg text-xs bg-surface/50 border focus:outline-none focus:border-blue-500 transition-colors"
-                style={{ borderColor: 'var(--color-line)', color: 'var(--color-ink)' }}
+                className="research-input pl-8 py-1.5 text-xs"
               />
             </div>
 
@@ -233,8 +197,7 @@ export function SourceDossier({ paper, detail }: SourceDossierProps) {
               <select
                 value={selectedSource}
                 onChange={(e) => setSelectedSource(e.target.value)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-surface/50 border focus:outline-none transition-colors"
-                style={{ borderColor: 'var(--color-line)', color: 'var(--color-ink)' }}
+                className="px-2.5 py-1.5 rounded border border-line text-xs font-medium bg-surface text-ink focus:outline-none"
               >
                 <option value="all">All Channels ({totalSourcesCount})</option>
                 {availableSources.map((src) => (
@@ -246,117 +209,101 @@ export function SourceDossier({ paper, detail }: SourceDossierProps) {
               <button
                 type="button"
                 onClick={() => setOnlyVerified((v) => !v)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 ${
-                  onlyVerified
-                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400 font-semibold'
-                    : 'bg-surface/50 border-line text-ink-soft hover:text-ink'
+                className={`control-button text-xs py-1.5 px-2.5 ${
+                  onlyVerified ? 'border-emerald-300 bg-ok-subtle text-ok' : ''
                 }`}
-                style={{ borderColor: onlyVerified ? 'rgba(16,185,129,0.4)' : 'var(--color-line)' }}
               >
-                <CheckCircle2 size={12} />
+                <CheckCircle2 size={12} className={onlyVerified ? 'text-ok' : 'text-ink-mute'} />
                 Verified Only
               </button>
             </div>
           </div>
 
           {/* Paper Cards List */}
-          <div className="space-y-3">
-            <AnimatePresence>
-              {filteredBibliography.map((item) => {
-                const color = getSourceColor(item.source);
-                const doiUrl = item.doi
-                  ? item.doi.startsWith('http')
-                    ? item.doi
-                    : `https://doi.org/${item.doi}`
-                  : item.url;
+          <div className="space-y-2.5">
+            {filteredBibliography.map((item) => {
+              const doiUrl = item.doi
+                ? item.doi.startsWith('http')
+                  ? item.doi
+                  : `https://doi.org/${item.doi}`
+                : item.url;
 
-                return (
-                  <motion.div
-                    key={item.paper_id || item.index}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.98 }}
-                    className="card p-4 sm:p-5 hover:border-blue-500/40 transition-all flex flex-col gap-3"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <span className="shrink-0 w-6 h-6 rounded-lg bg-blue-500/10 text-blue-400 font-mono text-xs font-bold flex items-center justify-center">
-                          [{item.index}]
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-sm sm:text-base leading-snug text-ink mb-1">
-                            {doiUrl ? (
-                              <a
-                                href={doiUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="hover:text-blue-400 transition-colors inline-flex items-baseline gap-1"
-                              >
-                                <span>{item.title}</span>
-                                <ExternalLink size={12} className="shrink-0 opacity-60 inline" />
-                              </a>
-                            ) : (
-                              item.title
-                            )}
-                          </h4>
-                          <p className="text-xs text-ink-soft line-clamp-1 mb-2">
-                            {item.authors} {item.year !== 'n.d.' && `(${item.year})`}
-                          </p>
-
-                          {/* Metadata Tags */}
-                          <div className="flex items-center gap-2 flex-wrap text-[11px]">
-                            {/* Source Badge */}
-                            <span
-                              className="px-2 py-0.5 rounded-md font-semibold border"
-                              style={{ background: color.bg, color: color.text, borderColor: color.border }}
+              return (
+                <div
+                  key={item.paper_id || item.index}
+                  className="card p-4 hover:border-line-strong transition-colors flex flex-col gap-2.5"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                      <span className="shrink-0 w-6 h-6 rounded border border-line bg-surface-subtle text-ink font-mono text-[11px] font-semibold flex items-center justify-center">
+                        {item.index}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-xs sm:text-sm leading-snug text-ink mb-0.5">
+                          {doiUrl ? (
+                            <a
+                              href={doiUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="hover:underline inline-flex items-baseline gap-1"
                             >
-                              {formatSourceName(item.source)}
+                              <span>{item.title}</span>
+                              <ExternalLink size={11} className="shrink-0 opacity-60 inline" />
+                            </a>
+                          ) : (
+                            item.title
+                          )}
+                        </h4>
+                        <p className="text-xs text-ink-mute mb-2">
+                          {item.authors} {item.year !== 'n.d.' && `(${item.year})`}
+                        </p>
+
+                        {/* Metadata Tags */}
+                        <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
+                          <span className="badge">
+                            {formatSourceName(item.source)}
+                          </span>
+
+                          {item.verified ? (
+                            <span className="badge badge-green">
+                              <CheckCircle2 size={10} /> Verified DOI
                             </span>
+                          ) : (
+                            <span className="badge">
+                              <AlertCircle size={10} className="text-ink-mute" /> Unindexed Web
+                            </span>
+                          )}
 
-                            {/* Verification Badge */}
-                            {item.verified ? (
-                              <span className="px-2 py-0.5 rounded-md font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-                                <CheckCircle2 size={11} /> Verified Metadata
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-md font-medium bg-zinc-500/10 text-zinc-400 border border-zinc-500/20 flex items-center gap-1">
-                                <AlertCircle size={11} /> Web / Unindexed
-                              </span>
-                            )}
-
-                            {/* DOI Tag */}
-                            {item.doi && (
-                              <a
-                                href={doiUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="px-2 py-0.5 rounded-md font-mono text-[10px] bg-surface border border-line text-ink-soft hover:text-blue-400 hover:border-blue-500/40 transition-colors flex items-center gap-1"
-                              >
-                                DOI: {item.doi}
-                                <ExternalLink size={10} />
-                              </a>
-                            )}
-                          </div>
+                          {item.doi && (
+                            <a
+                              href={doiUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="badge hover:border-line-strong font-mono text-[10px]"
+                            >
+                              DOI: {item.doi}
+                              <ExternalLink size={9} />
+                            </a>
+                          )}
                         </div>
                       </div>
-
-                      {/* Direct External Action Link */}
-                      {doiUrl && (
-                        <a
-                          href={doiUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="control-button text-xs shrink-0 py-1.5 px-3 hidden sm:flex items-center gap-1.5"
-                        >
-                          <span>Open Source</span>
-                          <ExternalLink size={11} />
-                        </a>
-                      )}
                     </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
+
+                    {doiUrl && (
+                      <a
+                        href={doiUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="control-button text-xs shrink-0 hidden sm:inline-flex items-center gap-1"
+                      >
+                        <span>View Source</span>
+                        <ExternalLink size={11} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
 
             {filteredBibliography.length === 0 && (
               <div className="card p-8 text-center text-xs text-ink-mute">
@@ -369,29 +316,29 @@ export function SourceDossier({ paper, detail }: SourceDossierProps) {
 
       {/* ── View 2: Claim Traceability ── */}
       {viewMode === 'claims' && (
-        <div className="space-y-4">
-          <div className="card p-4 border-blue-500/20 bg-blue-500/5">
-            <h4 className="text-xs font-bold text-blue-300 flex items-center gap-1.5 mb-1">
-              <ShieldCheck size={14} /> Evidence-to-Claim Verification Map
+        <div className="space-y-3">
+          <div className="card p-3.5 bg-surface-subtle">
+            <h4 className="text-xs font-semibold text-ink flex items-center gap-1.5 mb-1">
+              <ShieldCheck size={14} className="text-ok" /> Evidence-to-Claim Provenance Map
             </h4>
             <p className="text-[11px] text-ink-soft leading-relaxed">
-              Every factual assertion synthesized in the manuscript is tied to verified citation provenance to ensure rigor and transparent traceability.
+              Every factual assertion synthesized in the manuscript is tied to verified citation provenance to ensure empirical accountability.
             </p>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {claimEvidenceMap.map((c, i) => {
               const matchedPaper = bibliography.find((b) => b.paper_id === c.paper_id || String(b.index) === c.paper_id);
               return (
-                <div key={i} className="card p-4 space-y-2.5">
-                  <div className="text-xs sm:text-sm font-medium text-ink leading-snug">
-                    "{c.claim}"
+                <div key={i} className="card p-3.5 space-y-2">
+                  <div className="text-xs font-medium text-ink leading-relaxed">
+                    &ldquo;{c.claim}&rdquo;
                   </div>
 
-                  <div className="pt-2 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs" style={{ borderColor: 'var(--color-line)' }}>
+                  <div className="pt-2 border-t border-line flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="badge badge-blue text-[10px]">
-                        Supporting Study: [{matchedPaper?.index || '1'}] {matchedPaper?.title || 'Academic Reference'}
+                        Ref [{matchedPaper?.index || '1'}]: {matchedPaper?.title || 'Academic Reference'}
                       </span>
                       {matchedPaper?.source && (
                         <span className="text-[11px] text-ink-mute">
@@ -400,10 +347,8 @@ export function SourceDossier({ paper, detail }: SourceDossierProps) {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
-                        <CheckCircle2 size={12} /> Grounded Claim
-                      </span>
+                    <div className="flex items-center gap-1 text-[11px] text-ok font-medium">
+                      <CheckCircle2 size={12} /> Grounded Claim
                     </div>
                   </div>
                 </div>

@@ -44,6 +44,7 @@ export interface UploadResponse {
 
 export interface PaperResult {
   session_id: string;
+  topic?: string;
   paper: string;
   analysis?: string;
   final_draft?: string;

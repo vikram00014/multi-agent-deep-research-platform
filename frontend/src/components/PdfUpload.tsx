@@ -1,5 +1,5 @@
 import { useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from 'react';
-import { Check, FileText, Upload, X, Loader2 } from 'lucide-react';
+import { Check, FileText, Upload, X, Loader2, AlertCircle } from 'lucide-react';
 import { api } from '../api';
 import type { UploadResponse } from '../types';
 
@@ -96,12 +96,12 @@ export function PdfUpload({ onFilesChange }: PdfUploadProps) {
         onDrop={handleDrop}
         onKeyDown={handleKeyDown}
         onClick={() => inputRef.current?.click()}
-        className="rounded-xl border border-dashed px-4 py-5 text-center transition-all cursor-pointer"
-        style={{
-          borderColor: isDragging ? 'var(--color-blue)' : 'var(--color-line)',
-          background: isDragging ? 'rgba(99,102,241,0.1)' : 'var(--color-surface)',
-        }}
-        aria-label="Upload PDF files"
+        className={`rounded-md border border-dashed p-4 text-center transition-colors cursor-pointer ${
+          isDragging
+            ? 'border-ink bg-surface-subtle'
+            : 'border-line bg-surface hover:border-line-strong'
+        }`}
+        aria-label="Upload PDF reference documents"
       >
         <input
           ref={inputRef}
@@ -111,51 +111,49 @@ export function PdfUpload({ onFilesChange }: PdfUploadProps) {
           onChange={(event: ChangeEvent<HTMLInputElement>) => handleFiles(event.target.files)}
           className="sr-only"
         />
-        <Upload className="mx-auto mb-2 h-5 w-5" style={{ color: 'var(--color-blue-dim)' }} />
-        <p className="text-xs font-semibold" style={{ color: 'var(--color-ink)' }}>Drop reference PDFs here or browse</p>
-        <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-ink-mute)' }}>Extracted text will be indexed into pgvector for RAG grounding</p>
+        <Upload className="mx-auto mb-1.5 h-4 w-4 text-ink-mute" />
+        <p className="text-xs font-semibold text-ink">Drop reference PDFs here or browse to upload</p>
+        <p className="text-xs text-ink-mute mt-0.5">Uploaded papers will be synthesized and cited directly in your research manuscript</p>
       </div>
 
-      {files.length > 0 ? (
+      {files.length > 0 && (
         <div className="space-y-1.5">
           {files.map((file) => (
             <div
               key={file.file_id}
-              className="flex items-center gap-2.5 p-2.5 rounded-lg border text-xs"
-              style={{ background: 'var(--color-surface)', borderColor: 'var(--color-line)' }}
+              className="flex items-center gap-2 p-2 rounded border border-line bg-surface text-xs"
             >
-              <FileText className="h-4 w-4 shrink-0" style={{ color: 'var(--color-blue-dim)' }} />
-              <span className="min-w-0 flex-1 truncate font-medium" style={{ color: 'var(--color-ink-soft)' }}>
+              <FileText className="h-3.5 w-3.5 shrink-0 text-ink-mute" />
+              <span className="min-w-0 flex-1 truncate font-medium text-ink-soft">
                 {file.filename}
               </span>
               {file.status === 'uploading' && (
-                <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--color-blue-dim)' }}>
-                  <Loader2 size={12} className="animate-spin" /> Indexing…
+                <span className="flex items-center gap-1 text-xs text-accent">
+                  <Loader2 size={12} className="animate-spin" /> Processing…
                 </span>
               )}
               {file.status === 'done' && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-ok">
-                  <Check size={12} /> {file.chunks_stored} passages indexed
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-ok">
+                  <Check size={12} /> {file.chunks_stored} passages ready
                 </span>
               )}
               {file.status === 'error' && (
-                <span className="max-w-[180px] truncate text-[11px] text-err">{file.error}</span>
+                <span className="flex items-center gap-1 text-[11px] text-err">
+                  <AlertCircle size={11} /> {file.error || 'Upload error'}
+                </span>
               )}
               <button
                 type="button"
                 onClick={() => removeFile(file.file_id)}
-                className="p-1 rounded hover:bg-white/5"
-                style={{ color: 'var(--color-ink-mute)' }}
-                onMouseOver={(e) => (e.currentTarget.style.color = 'var(--color-err)')}
-                onMouseOut={(e) => (e.currentTarget.style.color = 'var(--color-ink-mute)')}
+                className="p-1 rounded text-ink-mute hover:text-err transition-colors"
                 aria-label={`Remove ${file.filename}`}
               >
-                <X size={14} />
+                <X size={13} />
               </button>
             </div>
           ))}
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
