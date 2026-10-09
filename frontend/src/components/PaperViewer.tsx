@@ -470,7 +470,7 @@ export function PaperViewer({ sessionId, isComplete, paper: paperProp }: PaperVi
               {selectedFormat === 'ieee' && (
                 <div className="mb-6 pb-4 border-b border-line text-center">
                   <div className="text-[11px] font-mono text-ink-mute uppercase tracking-widest mb-1">
-                    IEEE Conference Format Specification (Two-Column Flow)
+                    IEEE Publication Specification (IEEEtran Standard • 2-Column PDF Export)
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-xs text-ink-soft italic mt-3">
                     <div>Primary Author Division<br/><span className="text-[11px] not-italic text-ink-mute">Autonomous Academic Research</span></div>
@@ -482,7 +482,7 @@ export function PaperViewer({ sessionId, isComplete, paper: paperProp }: PaperVi
               {selectedFormat === 'acm' && (
                 <div className="mb-6 pb-4 border-b border-line">
                   <div className="text-[11px] font-mono text-ink-mute uppercase tracking-widest mb-1">
-                    ACM Conference Proceedings (acmart sigconf)
+                    ACM Conference Proceedings (acmart Sigconf • 2-Column PDF Export)
                   </div>
                   <div className="p-3 bg-surface-subtle border border-line rounded text-xs mt-2 text-ink-soft">
                     <strong className="text-ink">CCS CONCEPTS:</strong> • Computing methodologies → Artificial intelligence; Machine learning; Information systems → Information retrieval.
