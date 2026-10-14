@@ -20,4 +20,5 @@ backend/delve_sessions.json
 backend/delve_checkpoints.db
 backend/chroma_data/
 backend/resources/
+backend/generated_test_papers/
 temp/

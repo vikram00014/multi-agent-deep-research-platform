@@ -39,11 +39,14 @@ Instead of shallow summaries, ResearchAgent orchestrates a multi-agent deliberat
   - **APA 7th:** Single-column professional manuscript format with running head and Author-Date citations.
   - **MLA 9th:** Single-column academic format with double-spaced typography and Works Cited.
 - **LaTeX Archive Export:** Generates complete `.zip` archives containing `.tex` manuscript source, `.bib` BibTeX databases, and figures for Overleaf or direct submission.
-- **Interactive Reader UI:**
-  - **Left-Side Section Outline:** Interactive Table of Contents with real-time scroll-spy tracking, quick **Top** jump, and collapsible focus mode.
-  - **Live Format Switcher:** Preview manuscripts instantly in IEEE, ACM, APA, or MLA layouts.
-  - **KaTeX Mathematical Typesetting:** Live rendering of formulas and equations.
-  - **Clean Data Tables:** Clean, responsive tabular layouts.
+- **Interactive Reader & Presentation Suite:**
+  - **Ergonomic Digital Reading Lane:** Optimized single-column academic reader (`max-w-[820px] mx-auto`) designed for smooth continuous scrolling, preventing the disjointed column jumps and table clipping typical of browser CSS multi-column layouts.
+  - **Left-Side Section Outline:** Interactive Table of Contents with real-time **scroll-spy tracking**, a quick **Top** jump button, and an outline collapse toggle for full-width focus reading.
+  - **Live Format Switcher:** Preview manuscripts instantly in IEEE, ACM, APA 7th, or MLA 9th styles.
+  - **Interactive Chat with Paper:** Conversational research assistant grounded in the generated manuscript and retrieved citations.
+  - **Academic Slide Deck Generation:** Generates presentation slides summarizing research methodology, contributions, and benchmarks.
+  - **KaTeX Mathematical Typesetting:** Live rendering of formal equations, loss formulations, and matrices.
+  - **Clean Data Tables:** Responsive tabular layouts for empirical comparisons.
 - **Dual-Workhorse Free-Tier LLM Architecture:**
   - Intelligently balances traffic between `gemini-3.1-flash-lite` and `gemini-3.5-flash-lite`.
   - Sliding-window 60-second rate-pacing ensures usage stays safely below the 15 RPM limit while providing **30–45 RPM** and **1,000+ requests per day** with zero rate-limit errors.
@@ -206,10 +209,10 @@ You can run automated pre-flight diagnostics at any time:
 ```bash
 cd backend
 
-# Test Tavily, Gemini LLM, and Supabase database & storage
-python scratch/test_all_services.py
+# Test Tavily Search, Gemini LLM (with dual-model pacing), and Supabase database & storage
+python test_all_services.py
 
-# Test all 4 publication PDF outputs (IEEE, ACM, APA, MLA)
+# Test compilation of all 4 publication PDF outputs (IEEE, ACM, APA 7th, MLA 9th)
 python test_generate_four_papers.py
 ```
 
@@ -218,16 +221,19 @@ python test_generate_four_papers.py
 ## Production Deployment
 
 ### Backend (Render / Docker)
-The backend includes a production-ready `Dockerfile` and `render.yaml`:
-1. Connect your GitHub repository to [Render](https://render.com/).
-2. Select **Web Service** with the Docker runtime.
-3. Configure environment variables (`GEMINI_API_KEY`, `TAVILY_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `WS_TICKET_SECRET`).
+The backend is configured for production deployment using the included `Dockerfile` and `render.yaml`:
+- **Repository:** `https://github.com/designnest411-stack/Delve_b.git`
+- **Runtime:** Docker (Python 3.11 + Typst 0.15)
+- **Environment Variables:** `GEMINI_API_KEY`, `TAVILY_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `WS_TICKET_SECRET`.
 
 ### Frontend (Vercel)
-The frontend includes a pre-configured `vercel.json` with security headers and SPA rewrites:
-1. Import the `frontend/` directory into [Vercel](https://vercel.com/).
-2. Add environment variables (`VITE_API_BASE`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
-3. Deploy.
+The frontend is configured for zero-config Vercel deployment with `vercel.json` including strict security headers and SPA rewrites:
+- **Repository:** `https://github.com/designnest411-stack/Delve_f.git`
+- **Environment Variables:** `VITE_API_BASE`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+
+### Monorepo
+- **Complete Platform Repository:** `https://github.com/vikram00014/multi-agent-deep-research-platform.git`
+
 
 ---
 
